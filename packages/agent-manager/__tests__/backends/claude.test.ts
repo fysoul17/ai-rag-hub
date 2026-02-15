@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { AIBackend, BACKEND_CAPABILITIES } from '@autonomy/shared';
 import { ClaudeBackend } from '../../src/backends/claude.ts';
 

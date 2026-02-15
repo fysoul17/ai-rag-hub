@@ -1,6 +1,6 @@
 import type { MemorySearchParams, MemorySearchResult, RAGStrategy } from '@autonomy/shared';
-import type { SQLiteStore } from '../sqlite-store.ts';
 import type { VectorStore } from '../providers/types.ts';
+import type { SQLiteStore } from '../sqlite-store.ts';
 
 /** Function that generates vector embeddings from text. */
 export type EmbeddingProvider = (texts: string[]) => Promise<number[][]>;

@@ -2,8 +2,9 @@
  * Test fixtures and factories for @autonomy/memory tests.
  * Follows the makeAgent() pattern from agent-manager.
  */
-import { MemoryType } from '@autonomy/shared';
+
 import type { GraphEdge, MemoryEntry, MemorySearchParams } from '@autonomy/shared';
+import { MemoryType } from '@autonomy/shared';
 
 /** Build a minimal valid MemoryEntry for tests. */
 export function makeMemoryEntry(overrides: Partial<MemoryEntry> = {}): MemoryEntry {

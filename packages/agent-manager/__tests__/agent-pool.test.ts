@@ -1,10 +1,5 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import {
-  AgentStatus,
-  type AgentDefinition,
-  type AgentRuntimeInfo,
-  DEFAULTS,
-} from '@autonomy/shared';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { type AgentDefinition, type AgentRuntimeInfo, AgentStatus } from '@autonomy/shared';
 import { AgentPool } from '../src/agent-pool.ts';
 import { MockBackend } from './helpers/mock-backend.ts';
 
@@ -72,9 +67,7 @@ describe('AgentPool', () => {
 
       await smallPool.create(makeAgent({ id: 'a1' }));
       await smallPool.create(makeAgent({ id: 'a2' }));
-      await expect(
-        smallPool.create(makeAgent({ id: 'a3' })),
-      ).rejects.toThrow();
+      await expect(smallPool.create(makeAgent({ id: 'a3' }))).rejects.toThrow();
 
       await smallPool.shutdown();
     });
@@ -93,7 +86,7 @@ describe('AgentPool', () => {
       await pool.create(def);
       const agent = pool.get('get-test');
       expect(agent).toBeDefined();
-      expect(agent!.definition.id).toBe('get-test');
+      expect(agent?.definition.id).toBe('get-test');
     });
 
     test('returns undefined for non-existent agent', () => {
@@ -117,9 +110,9 @@ describe('AgentPool', () => {
 
       const info = agents.find((a: AgentRuntimeInfo) => a.id === 'list-1');
       expect(info).toBeDefined();
-      expect(info!.name).toBe('Agent 1');
-      expect(info!.role).toBe('worker');
-      expect(info!.status).toBe(AgentStatus.IDLE);
+      expect(info?.name).toBe('Agent 1');
+      expect(info?.role).toBe('worker');
+      expect(info?.status).toBe(AgentStatus.IDLE);
     });
 
     test('list() includes correct fields per AgentRuntimeInfo interface', async () => {
@@ -193,9 +186,7 @@ describe('AgentPool', () => {
       await tinyPool.create(makeAgent({ id: 'x1' }));
 
       // At capacity
-      await expect(
-        tinyPool.create(makeAgent({ id: 'x2' })),
-      ).rejects.toThrow();
+      await expect(tinyPool.create(makeAgent({ id: 'x2' }))).rejects.toThrow();
 
       await tinyPool.remove('x1');
 

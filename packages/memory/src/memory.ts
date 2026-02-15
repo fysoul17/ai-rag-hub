@@ -1,7 +1,12 @@
 import { join } from 'node:path';
+import type {
+  MemoryEntry,
+  MemorySearchParams,
+  MemorySearchResult,
+  MemoryStats,
+} from '@autonomy/shared';
+import { DEFAULTS, RAGStrategy, type VectorProvider } from '@autonomy/shared';
 import { nanoid } from 'nanoid';
-import { DEFAULTS, MemoryType, RAGStrategy, VectorProvider } from '@autonomy/shared';
-import type { MemoryEntry, MemorySearchParams, MemorySearchResult, MemoryStats } from '@autonomy/shared';
 import { MemoryError } from './errors.ts';
 import { getProvider } from './providers/index.ts';
 import type { VectorStore } from './providers/types.ts';
@@ -34,7 +39,8 @@ export class Memory {
   constructor(options: MemoryOptions) {
     this.embedder = options.embedder;
     this.dataDir = options.dataDir ?? DEFAULTS.DATA_DIR;
-    this.vectorProviderName = options.vectorProvider ?? (DEFAULTS.VECTOR_PROVIDER as VectorProvider);
+    this.vectorProviderName =
+      options.vectorProvider ?? (DEFAULTS.VECTOR_PROVIDER as VectorProvider);
     this.dimensions = options.dimensions ?? 1024;
   }
 
@@ -42,12 +48,14 @@ export class Memory {
     if (this.initialized) return;
 
     // Initialize SQLite store
-    const sqlitePath = this.dataDir === ':memory:' ? ':memory:' : join(this.dataDir, 'memory', 'memory.db');
+    const sqlitePath =
+      this.dataDir === ':memory:' ? ':memory:' : join(this.dataDir, 'memory', 'memory.db');
     this.sqliteStore = new SQLiteStore(sqlitePath);
 
     // Initialize vector store
     this.vectorStore = getProvider(this.vectorProviderName);
-    const vectorDir = this.dataDir === ':memory:' ? '/tmp/autonomy-vectors' : join(this.dataDir, 'vectors');
+    const vectorDir =
+      this.dataDir === ':memory:' ? '/tmp/autonomy-vectors' : join(this.dataDir, 'vectors');
     await this.vectorStore.initialize({
       dataDir: vectorDir,
       dimensions: this.dimensions,
@@ -56,7 +64,9 @@ export class Memory {
     this.initialized = true;
   }
 
-  async store(entry: Omit<MemoryEntry, 'id' | 'createdAt'> & { id?: string; createdAt?: string }): Promise<MemoryEntry> {
+  async store(
+    entry: Omit<MemoryEntry, 'id' | 'createdAt'> & { id?: string; createdAt?: string },
+  ): Promise<MemoryEntry> {
     this.ensureInitialized();
 
     const fullEntry: MemoryEntry = {
@@ -70,12 +80,12 @@ export class Memory {
     };
 
     // Store structured data in SQLite
-    this.sqliteStore!.store(fullEntry);
+    this.sqliteStore?.store(fullEntry);
 
     // Generate embedding and store in vector DB
     const [embedding] = await this.embedder([fullEntry.content]);
     if (embedding) {
-      await this.vectorStore!.upsert([
+      await this.vectorStore?.upsert([
         {
           id: fullEntry.id,
           vector: embedding,
@@ -96,37 +106,52 @@ export class Memory {
     const strategy = params.strategy ?? RAGStrategy.NAIVE;
     const engine = getRAGEngine(strategy);
 
-    return engine.search(params, this.vectorStore!, this.sqliteStore!, this.embedder);
+    if (!this.vectorStore || !this.sqliteStore) {
+      throw new MemoryError('Memory not initialized: vectorStore or sqliteStore is null');
+    }
+    return engine.search(params, this.vectorStore, this.sqliteStore, this.embedder);
   }
 
   get(id: string): MemoryEntry | null {
     this.ensureInitialized();
-    return this.sqliteStore!.get(id);
+    if (!this.sqliteStore) {
+      throw new MemoryError('Memory not initialized: sqliteStore is null');
+    }
+    return this.sqliteStore.get(id);
   }
 
   delete(id: string): boolean {
     this.ensureInitialized();
-    const deleted = this.sqliteStore!.delete(id);
+    if (!this.sqliteStore) {
+      throw new MemoryError('Memory not initialized: sqliteStore is null');
+    }
+    const deleted = this.sqliteStore.delete(id);
     if (deleted) {
       // Fire and forget vector deletion
-      this.vectorStore!.delete([id]).catch(() => {});
+      this.vectorStore?.delete([id]).catch(() => {});
     }
     return deleted;
   }
 
   clearSession(sessionId: string): number {
     this.ensureInitialized();
-    return this.sqliteStore!.deleteBySession(sessionId);
+    if (!this.sqliteStore) {
+      throw new MemoryError('Memory not initialized: sqliteStore is null');
+    }
+    return this.sqliteStore.deleteBySession(sessionId);
   }
 
   async stats(): Promise<MemoryStats> {
     this.ensureInitialized();
+    if (!this.sqliteStore || !this.vectorStore) {
+      throw new MemoryError('Memory not initialized: stores are null');
+    }
 
-    const totalEntries = this.sqliteStore!.count();
-    const vectorCount = await this.vectorStore!.count();
+    const totalEntries = this.sqliteStore.count();
+    const vectorCount = await this.vectorStore.count();
 
     // Rough storage estimation — actual bytes depend on content length
-    const recentEntries = this.sqliteStore!.query({ limit: 100 });
+    const recentEntries = this.sqliteStore.query({ limit: 100 });
     const storageEstimate = recentEntries.reduce(
       (sum, e) => sum + e.content.length + JSON.stringify(e.metadata).length,
       0,

@@ -1,9 +1,6 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { AIBackend } from '@autonomy/shared';
-import {
-  MockBackend,
-  MockBackendProcess,
-} from '../helpers/mock-backend.ts';
+import { MockBackend, MockBackendProcess } from '../helpers/mock-backend.ts';
 
 describe('MockBackend test infrastructure', () => {
   let backend: MockBackend;
@@ -58,9 +55,9 @@ describe('MockBackend test infrastructure', () => {
 
     test('spawn() rejects when spawnError is set', async () => {
       backend.spawnError = new Error('spawn failed');
-      await expect(
-        backend.spawn({ agentId: 'x', systemPrompt: 'p' }),
-      ).rejects.toThrow('spawn failed');
+      await expect(backend.spawn({ agentId: 'x', systemPrompt: 'p' })).rejects.toThrow(
+        'spawn failed',
+      );
     });
 
     test('setResponses() changes responses for new processes', async () => {

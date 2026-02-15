@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { AgentStatus, type AgentDefinition } from '@autonomy/shared';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { type AgentDefinition, AgentStatus } from '@autonomy/shared';
 import { AgentProcess } from '../src/agent-process.ts';
-import { MockBackend, MockBackendProcess } from './helpers/mock-backend.ts';
+import { MockBackend } from './helpers/mock-backend.ts';
 
 /** Helper to build a minimal valid AgentDefinition for tests. */
 function makeAgent(overrides: Partial<AgentDefinition> = {}): AgentDefinition {

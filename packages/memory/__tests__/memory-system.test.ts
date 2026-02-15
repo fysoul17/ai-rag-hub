@@ -1,12 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { MemoryType, RAGStrategy, VectorProvider } from '@autonomy/shared';
 import { Memory } from '../src/memory.ts';
-import { MockVectorStore } from './helpers/mock-vector-store.ts';
-import { createMockEmbedder, createFailingEmbedder } from './helpers/mock-embedder.ts';
-import { makeMemoryEntry } from './helpers/fixtures.ts';
-import { MemoryError } from '../src/errors.ts';
 import { registerProvider } from '../src/providers/index.ts';
 import type { EmbeddingProvider } from '../src/rag/types.ts';
+import { createFailingEmbedder, createMockEmbedder } from './helpers/mock-embedder.ts';
+import { MockVectorStore } from './helpers/mock-vector-store.ts';
 
 /**
  * Since Memory uses getProvider() internally, we register a MockVectorStore
@@ -130,7 +128,7 @@ describe('Memory (integration)', () => {
 
   describe('get()', () => {
     test('retrieves entry by id', async () => {
-      const stored = await memory.store({
+      const _stored = await memory.store({
         id: 'get-test',
         content: 'retrieve me',
         type: MemoryType.LONG_TERM,
@@ -139,7 +137,7 @@ describe('Memory (integration)', () => {
 
       const retrieved = memory.get('get-test');
       expect(retrieved).toBeDefined();
-      expect(retrieved!.content).toBe('retrieve me');
+      expect(retrieved?.content).toBe('retrieve me');
     });
 
     test('returns null for non-existent id', () => {
@@ -211,16 +209,25 @@ describe('Memory (integration)', () => {
   describe('clearSession()', () => {
     test('clears short-term entries for a session', async () => {
       await memory.store({
-        id: 'st1', content: 'short 1',
-        type: MemoryType.SHORT_TERM, sessionId: 'sess-1', metadata: {},
+        id: 'st1',
+        content: 'short 1',
+        type: MemoryType.SHORT_TERM,
+        sessionId: 'sess-1',
+        metadata: {},
       });
       await memory.store({
-        id: 'st2', content: 'short 2',
-        type: MemoryType.SHORT_TERM, sessionId: 'sess-1', metadata: {},
+        id: 'st2',
+        content: 'short 2',
+        type: MemoryType.SHORT_TERM,
+        sessionId: 'sess-1',
+        metadata: {},
       });
       await memory.store({
-        id: 'lt1', content: 'long 1',
-        type: MemoryType.LONG_TERM, sessionId: 'sess-1', metadata: {},
+        id: 'lt1',
+        content: 'long 1',
+        type: MemoryType.LONG_TERM,
+        sessionId: 'sess-1',
+        metadata: {},
       });
 
       const cleared = memory.clearSession('sess-1');

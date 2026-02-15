@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { MemoryType } from '@autonomy/shared';
 import { SQLiteStore } from '../src/sqlite-store.ts';
 import { makeMemoryEntry } from './helpers/fixtures.ts';
@@ -38,8 +38,8 @@ describe('SQLiteStore', () => {
 
       const retrieved = store.get('mem-1');
       expect(retrieved).toBeDefined();
-      expect(retrieved!.id).toBe('mem-1');
-      expect(retrieved!.content).toBe('Hello world');
+      expect(retrieved?.id).toBe('mem-1');
+      expect(retrieved?.content).toBe('Hello world');
     });
 
     test('stores with all optional fields (agentId, sessionId)', () => {
@@ -50,8 +50,8 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get(entry.id);
-      expect(retrieved!.agentId).toBe('agent-1');
-      expect(retrieved!.sessionId).toBe('session-abc');
+      expect(retrieved?.agentId).toBe('agent-1');
+      expect(retrieved?.sessionId).toBe('session-abc');
     });
 
     test('stores with minimal required fields only', () => {
@@ -63,9 +63,9 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get('minimal');
-      expect(retrieved!.type).toBe('short-term');
-      expect(retrieved!.agentId).toBeUndefined();
-      expect(retrieved!.sessionId).toBeUndefined();
+      expect(retrieved?.type).toBe('short-term');
+      expect(retrieved?.agentId).toBeUndefined();
+      expect(retrieved?.sessionId).toBeUndefined();
     });
 
     test('stores metadata as JSON', () => {
@@ -75,7 +75,7 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get(entry.id);
-      expect(retrieved!.metadata).toEqual({ source: 'test', tags: ['a', 'b'] });
+      expect(retrieved?.metadata).toEqual({ source: 'test', tags: ['a', 'b'] });
     });
 
     test('preserves createdAt timestamp', () => {
@@ -84,7 +84,7 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get(entry.id);
-      expect(retrieved!.createdAt).toBe(ts);
+      expect(retrieved?.createdAt).toBe(ts);
     });
 
     test('upserts on duplicate id', () => {
@@ -92,7 +92,7 @@ describe('SQLiteStore', () => {
       store.store(makeMemoryEntry({ id: 'dup', content: 'updated' }));
 
       const retrieved = store.get('dup');
-      expect(retrieved!.content).toBe('updated');
+      expect(retrieved?.content).toBe('updated');
       expect(store.count()).toBe(1);
     });
   });
@@ -104,7 +104,7 @@ describe('SQLiteStore', () => {
 
       const retrieved = store.get('get-test');
       expect(retrieved).toBeDefined();
-      expect(retrieved!.content).toBe('findme');
+      expect(retrieved?.content).toBe('findme');
     });
 
     test('returns null for non-existent id', () => {
@@ -120,28 +120,48 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get('json-test');
-      expect(retrieved!.metadata).toEqual({ nested: { deep: true }, count: 42 });
+      expect(retrieved?.metadata).toEqual({ nested: { deep: true }, count: 42 });
     });
   });
 
   describe('query()', () => {
     beforeEach(() => {
-      store.store(makeMemoryEntry({
-        id: 'q1', type: MemoryType.LONG_TERM, agentId: 'agent-a',
-        sessionId: 'sess-1', content: 'long term memory A',
-      }));
-      store.store(makeMemoryEntry({
-        id: 'q2', type: MemoryType.SHORT_TERM, agentId: 'agent-a',
-        sessionId: 'sess-2', content: 'short term memory A',
-      }));
-      store.store(makeMemoryEntry({
-        id: 'q3', type: MemoryType.LONG_TERM, agentId: 'agent-b',
-        sessionId: 'sess-1', content: 'long term memory B',
-      }));
-      store.store(makeMemoryEntry({
-        id: 'q4', type: MemoryType.SHORT_TERM, agentId: 'agent-b',
-        sessionId: 'sess-3', content: 'short term memory B',
-      }));
+      store.store(
+        makeMemoryEntry({
+          id: 'q1',
+          type: MemoryType.LONG_TERM,
+          agentId: 'agent-a',
+          sessionId: 'sess-1',
+          content: 'long term memory A',
+        }),
+      );
+      store.store(
+        makeMemoryEntry({
+          id: 'q2',
+          type: MemoryType.SHORT_TERM,
+          agentId: 'agent-a',
+          sessionId: 'sess-2',
+          content: 'short term memory A',
+        }),
+      );
+      store.store(
+        makeMemoryEntry({
+          id: 'q3',
+          type: MemoryType.LONG_TERM,
+          agentId: 'agent-b',
+          sessionId: 'sess-1',
+          content: 'long term memory B',
+        }),
+      );
+      store.store(
+        makeMemoryEntry({
+          id: 'q4',
+          type: MemoryType.SHORT_TERM,
+          agentId: 'agent-b',
+          sessionId: 'sess-3',
+          content: 'short term memory B',
+        }),
+      );
     });
 
     test('returns all entries when no filters', () => {
@@ -187,7 +207,7 @@ describe('SQLiteStore', () => {
         agentId: 'agent-a',
       });
       expect(results).toHaveLength(1);
-      expect(results[0]!.id).toBe('q1');
+      expect(results[0]?.id).toBe('q1');
     });
 
     test('respects limit parameter', () => {
@@ -297,16 +317,16 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get(entry.id);
-      expect(retrieved!.content).toHaveLength(10_000);
+      expect(retrieved?.content).toHaveLength(10_000);
     });
 
     test('handles special characters (unicode, quotes)', () => {
-      const content = "Hello 'world' \"quotes\" \u00e9\u00e8\u00ea \u{1F600} DROP TABLE;--";
+      const content = 'Hello \'world\' "quotes" \u00e9\u00e8\u00ea \u{1F600} DROP TABLE;--';
       const entry = makeMemoryEntry({ content });
       store.store(entry);
 
       const retrieved = store.get(entry.id);
-      expect(retrieved!.content).toBe(content);
+      expect(retrieved?.content).toBe(content);
     });
 
     test('handles empty metadata ({})', () => {
@@ -314,7 +334,7 @@ describe('SQLiteStore', () => {
       store.store(entry);
 
       const retrieved = store.get(entry.id);
-      expect(retrieved!.metadata).toEqual({});
+      expect(retrieved?.metadata).toEqual({});
     });
   });
 });

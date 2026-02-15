@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import type { MemoryEntry, MemoryType, AgentId } from '@autonomy/shared';
+import type { AgentId, MemoryEntry, MemoryType } from '@autonomy/shared';
 import { MemoryStoreError } from './errors.ts';
 
 const SCHEMA = `
@@ -162,7 +162,7 @@ export class SQLiteStore {
     const placeholders = ids.map((_, i) => `$id${i}`).join(', ');
     const params: Record<string, string> = {};
     for (let i = 0; i < ids.length; i++) {
-      params[`$id${i}`] = ids[i]!;
+      params[`$id${i}`] = ids[i] ?? '';
     }
     const stmt = this.db.prepare(`SELECT * FROM memory_entries WHERE id IN (${placeholders})`);
     const rows = stmt.all(params) as MemoryRow[];

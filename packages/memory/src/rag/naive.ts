@@ -1,5 +1,5 @@
-import { RAGStrategy } from '@autonomy/shared';
 import type { MemorySearchParams, MemorySearchResult } from '@autonomy/shared';
+import { RAGStrategy } from '@autonomy/shared';
 import { MemorySearchError } from '../errors.ts';
 import type { VectorStore } from '../providers/types.ts';
 import type { SQLiteStore } from '../sqlite-store.ts';

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { MockVectorStore } from './helpers/mock-vector-store.ts';
 
 describe('VectorStore contract tests (MockVectorStore)', () => {
@@ -25,7 +25,7 @@ describe('VectorStore contract tests (MockVectorStore)', () => {
 
     test('stores config on init', () => {
       expect(provider.config).toBeDefined();
-      expect(provider.config!.dimensions).toBe(3);
+      expect(provider.config?.dimensions).toBe(3);
     });
   });
 
@@ -58,13 +58,13 @@ describe('VectorStore contract tests (MockVectorStore)', () => {
         { id: 'v1', vector: [0.1, 0.2, 0.3], metadata: { type: 'long-term' } },
       ]);
       const results = await provider.search([0.1, 0.2, 0.3], 1);
-      expect(results[0]!.metadata.type).toBe('long-term');
+      expect(results[0]?.metadata.type).toBe('long-term');
     });
 
     test('records upsert calls for assertions', async () => {
       await provider.upsert([{ id: 'v1', vector: [1, 2, 3], metadata: {} }]);
       expect(provider.upsertCalls).toHaveLength(1);
-      expect(provider.upsertCalls[0]![0]!.id).toBe('v1');
+      expect(provider.upsertCalls[0]?.[0]?.id).toBe('v1');
     });
   });
 
@@ -104,15 +104,15 @@ describe('VectorStore contract tests (MockVectorStore)', () => {
 
     test('returns results ordered by relevance (highest first)', async () => {
       const results = await provider.search([1.0, 0.0, 0.0], 3);
-      expect(results[0]!.id).toBe('similar');
-      expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+      expect(results[0]?.id).toBe('similar');
+      expect(results[0]?.score).toBeGreaterThan(results[1]?.score);
     });
 
     test('similar vectors score higher than dissimilar ones', async () => {
       const results = await provider.search([0.9, 0.1, 0.0], 3);
       const similarResult = results.find((r) => r.id === 'similar');
       const differentResult = results.find((r) => r.id === 'different');
-      expect(similarResult!.score).toBeGreaterThan(differentResult!.score);
+      expect(similarResult?.score).toBeGreaterThan(differentResult?.score);
     });
 
     test('applies type filter', async () => {
@@ -164,16 +164,14 @@ describe('VectorStore contract tests (MockVectorStore)', () => {
   describe('error handling', () => {
     test('propagates errors from upsert', async () => {
       provider.errorToThrow = new Error('upsert failed');
-      await expect(
-        provider.upsert([{ id: 'v1', vector: [0.1], metadata: {} }]),
-      ).rejects.toThrow('upsert failed');
+      await expect(provider.upsert([{ id: 'v1', vector: [0.1], metadata: {} }])).rejects.toThrow(
+        'upsert failed',
+      );
     });
 
     test('propagates errors from search', async () => {
       provider.errorToThrow = new Error('search failed');
-      await expect(
-        provider.search([0.1], 5),
-      ).rejects.toThrow('search failed');
+      await expect(provider.search([0.1], 5)).rejects.toThrow('search failed');
     });
   });
 });

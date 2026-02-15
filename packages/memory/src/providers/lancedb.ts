@@ -1,5 +1,5 @@
-import * as lancedb from '@lancedb/lancedb';
 import { VectorProvider } from '@autonomy/shared';
+import * as lancedb from '@lancedb/lancedb';
 import { VectorProviderError } from '../errors.ts';
 import type { VectorFilter, VectorSearchResult, VectorStore, VectorStoreConfig } from './types.ts';
 

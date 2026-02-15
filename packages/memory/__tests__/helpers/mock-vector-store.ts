@@ -6,7 +6,12 @@
  * from agent-manager.
  */
 import { VectorProvider } from '@autonomy/shared';
-import type { VectorFilter, VectorSearchResult, VectorStore, VectorStoreConfig } from '../../src/providers/types.ts';
+import type {
+  VectorFilter,
+  VectorSearchResult,
+  VectorStore,
+  VectorStoreConfig,
+} from '../../src/providers/types.ts';
 
 interface StoredVector {
   id: string;
@@ -25,10 +30,13 @@ export class MockVectorStore implements VectorStore {
   public errorToThrow: Error | null = null;
 
   /** Track all upsert calls for assertions. */
-  public readonly upsertCalls: Array<Array<{ id: string; vector: number[]; metadata: Record<string, unknown> }>> = [];
+  public readonly upsertCalls: Array<
+    Array<{ id: string; vector: number[]; metadata: Record<string, unknown> }>
+  > = [];
 
   /** Track all search calls for assertions. */
-  public readonly searchCalls: Array<{ vector: number[]; limit: number; filter?: VectorFilter }> = [];
+  public readonly searchCalls: Array<{ vector: number[]; limit: number; filter?: VectorFilter }> =
+    [];
 
   get initialized(): boolean {
     return this._initialized;
@@ -115,9 +123,11 @@ function cosineSimilarity(a: number[], b: number[]): number {
   let normB = 0;
 
   for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i]! * b[i]!;
-    normA += a[i]! * a[i]!;
-    normB += b[i]! * b[i]!;
+    const ai = a[i] ?? 0;
+    const bi = b[i] ?? 0;
+    dotProduct += ai * bi;
+    normA += ai * ai;
+    normB += bi * bi;
   }
 
   const denominator = Math.sqrt(normA) * Math.sqrt(normB);

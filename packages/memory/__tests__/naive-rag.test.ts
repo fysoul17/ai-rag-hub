@@ -1,11 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { MemoryType, RAGStrategy } from '@autonomy/shared';
 import { NaiveRAGEngine } from '../src/rag/naive.ts';
-import { SQLiteStore } from '../src/sqlite-store.ts';
-import { MockVectorStore } from './helpers/mock-vector-store.ts';
-import { createMockEmbedder } from './helpers/mock-embedder.ts';
-import { makeMemoryEntry } from './helpers/fixtures.ts';
 import type { EmbeddingProvider } from '../src/rag/types.ts';
+import { SQLiteStore } from '../src/sqlite-store.ts';
+import { makeMemoryEntry } from './helpers/fixtures.ts';
+import { createMockEmbedder } from './helpers/mock-embedder.ts';
+import { MockVectorStore } from './helpers/mock-vector-store.ts';
 
 describe('NaiveRAGEngine', () => {
   let store: SQLiteStore;
@@ -33,14 +33,16 @@ describe('NaiveRAGEngine', () => {
     const entry = makeMemoryEntry(overrides);
     store.store(entry);
     const [embedding] = await embedder([entry.content]);
-    await vectorStore.upsert([{
-      id: entry.id,
-      vector: embedding!,
-      metadata: {
-        type: entry.type,
-        agentId: entry.agentId ?? '',
+    await vectorStore.upsert([
+      {
+        id: entry.id,
+        vector: embedding ?? [],
+        metadata: {
+          type: entry.type,
+          agentId: entry.agentId ?? '',
+        },
       },
-    }]);
+    ]);
   }
 
   describe('search()', () => {
@@ -76,12 +78,7 @@ describe('NaiveRAGEngine', () => {
     test('returns strategy: naive in result', async () => {
       await storeWithEmbedding({ id: 'strat1', content: 'test' });
 
-      const result = await rag.search(
-        { query: 'test', limit: 5 },
-        vectorStore,
-        store,
-        embedder,
-      );
+      const result = await rag.search({ query: 'test', limit: 5 }, vectorStore, store, embedder);
       expect(result.strategy).toBe(RAGStrategy.NAIVE);
     });
 
@@ -90,12 +87,7 @@ describe('NaiveRAGEngine', () => {
       await storeWithEmbedding({ id: 'l2', content: 'entry two' });
       await storeWithEmbedding({ id: 'l3', content: 'entry three' });
 
-      const result = await rag.search(
-        { query: 'entry', limit: 2 },
-        vectorStore,
-        store,
-        embedder,
-      );
+      const result = await rag.search({ query: 'entry', limit: 2 }, vectorStore, store, embedder);
       expect(result.entries.length).toBeLessThanOrEqual(2);
     });
 
@@ -114,16 +106,22 @@ describe('NaiveRAGEngine', () => {
   describe('filtering', () => {
     beforeEach(async () => {
       await storeWithEmbedding({
-        id: 'f1', content: 'long term from agent-a',
-        type: MemoryType.LONG_TERM, agentId: 'agent-a',
+        id: 'f1',
+        content: 'long term from agent-a',
+        type: MemoryType.LONG_TERM,
+        agentId: 'agent-a',
       });
       await storeWithEmbedding({
-        id: 'f2', content: 'short term from agent-a',
-        type: MemoryType.SHORT_TERM, agentId: 'agent-a',
+        id: 'f2',
+        content: 'short term from agent-a',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-a',
       });
       await storeWithEmbedding({
-        id: 'f3', content: 'long term from agent-b',
-        type: MemoryType.LONG_TERM, agentId: 'agent-b',
+        id: 'f3',
+        content: 'long term from agent-b',
+        type: MemoryType.LONG_TERM,
+        agentId: 'agent-b',
       });
     });
 
@@ -168,7 +166,7 @@ describe('NaiveRAGEngine', () => {
 
       expect(result.entries.length).toBeLessThanOrEqual(1);
       if (result.entries.length > 0) {
-        expect(result.entries[0]!.id).toBe('f1');
+        expect(result.entries[0]?.id).toBe('f1');
       }
     });
   });
@@ -178,15 +176,10 @@ describe('NaiveRAGEngine', () => {
       const content = 'The quick brown fox jumps over the lazy dog';
       await storeWithEmbedding({ id: 'e2e-1', content });
 
-      const result = await rag.search(
-        { query: content, limit: 1 },
-        vectorStore,
-        store,
-        embedder,
-      );
+      const result = await rag.search({ query: content, limit: 1 }, vectorStore, store, embedder);
 
       expect(result.entries).toHaveLength(1);
-      expect(result.entries[0]!.content).toBe(content);
+      expect(result.entries[0]?.content).toBe(content);
     });
 
     test('handles single entry in store', async () => {
@@ -206,12 +199,7 @@ describe('NaiveRAGEngine', () => {
     test('handles empty query string', async () => {
       await storeWithEmbedding({ id: 'eq1', content: 'some content' });
 
-      const result = await rag.search(
-        { query: '', limit: 5 },
-        vectorStore,
-        store,
-        embedder,
-      );
+      const result = await rag.search({ query: '', limit: 5 }, vectorStore, store, embedder);
       expect(result).toBeDefined();
       expect(result.strategy).toBe(RAGStrategy.NAIVE);
     });
@@ -220,12 +208,7 @@ describe('NaiveRAGEngine', () => {
       await storeWithEmbedding({ id: 'dl1', content: 'a' });
       await storeWithEmbedding({ id: 'dl2', content: 'b' });
 
-      const result = await rag.search(
-        { query: 'test' },
-        vectorStore,
-        store,
-        embedder,
-      );
+      const result = await rag.search({ query: 'test' }, vectorStore, store, embedder);
       expect(result).toBeDefined();
       expect(result.entries.length).toBeGreaterThan(0);
     });
