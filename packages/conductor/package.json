@@ -14,6 +14,7 @@
   "dependencies": {
     "@autonomy/shared": "workspace:*",
     "@autonomy/agent-manager": "workspace:*",
-    "@autonomy/memory": "workspace:*"
+    "@autonomy/memory": "workspace:*",
+    "nanoid": "^5.1.6"
   }
 }

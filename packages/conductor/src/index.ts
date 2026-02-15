@@ -1,3 +1,24 @@
 // @autonomy/conductor — Mother AI system-level orchestrator
-// Implemented in Step 4
-export {};
+
+export { Conductor } from './conductor.ts';
+export {
+  ApprovalRequiredError,
+  ConductorError,
+  ConductorNotInitializedError,
+  DelegationError,
+  PermissionDeniedError,
+  RoutingError,
+} from './errors.ts';
+export { ActivityLog } from './activity-log.ts';
+export { PermissionChecker } from './permissions.ts';
+export { defaultRouter, RouterManager } from './router.ts';
+export type {
+  ConductorOptions,
+  ConductorResponse,
+  DelegationPipelineResult,
+  DelegationStep,
+  IncomingMessage,
+  PermissionCheckResult,
+  RouterFn,
+  RoutingResult,
+} from './types.ts';
