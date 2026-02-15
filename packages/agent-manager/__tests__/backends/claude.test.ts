@@ -2,6 +2,20 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { AIBackend, BACKEND_CAPABILITIES } from '@autonomy/shared';
 import { ClaudeBackend } from '../../src/backends/claude.ts';
 
+/**
+ * Check if `claude` CLI is available on PATH.
+ * Integration tests that spawn real processes are skipped when it is absent (e.g. CI).
+ */
+let claudeAvailable = false;
+try {
+  const proc = Bun.spawnSync(['which', 'claude']);
+  claudeAvailable = proc.exitCode === 0;
+} catch {
+  claudeAvailable = false;
+}
+
+const describeIntegration = claudeAvailable ? describe : describe.skip;
+
 describe('ClaudeBackend', () => {
   let backend: ClaudeBackend;
 
@@ -36,7 +50,7 @@ describe('ClaudeBackend', () => {
     });
   });
 
-  describe('spawn()', () => {
+  describeIntegration('spawn()', () => {
     test('returns a BackendProcess', async () => {
       const proc = await backend.spawn({
         agentId: 'test-agent',
@@ -77,20 +91,24 @@ describe('ClaudeBackend', () => {
     });
   });
 
-  describe('BackendProcess.send()', () => {
-    test('sends a prompt and returns a response string', async () => {
-      const proc = await backend.spawn({
-        agentId: 'test-agent',
-        systemPrompt: 'You are a test agent. Reply with "ok".',
-      });
+  describeIntegration('BackendProcess.send()', () => {
+    test(
+      'sends a prompt and returns a response string',
+      async () => {
+        const proc = await backend.spawn({
+          agentId: 'test-agent',
+          systemPrompt: 'You are a test agent. Reply with "ok".',
+        });
 
-      const response = await proc.send('Hello');
-      expect(typeof response).toBe('string');
-      expect(response.length).toBeGreaterThan(0);
-    });
+        const response = await proc.send('Hello');
+        expect(typeof response).toBe('string');
+        expect(response.length).toBeGreaterThan(0);
+      },
+      { timeout: 30_000 },
+    );
   });
 
-  describe('BackendProcess.stop()', () => {
+  describeIntegration('BackendProcess.stop()', () => {
     test('terminates the process', async () => {
       const proc = await backend.spawn({
         agentId: 'test-agent',
@@ -114,7 +132,7 @@ describe('ClaudeBackend', () => {
     });
   });
 
-  describe('BackendProcess.alive', () => {
+  describeIntegration('BackendProcess.alive', () => {
     test('reflects process state accurately', async () => {
       const proc = await backend.spawn({
         agentId: 'test-agent',
