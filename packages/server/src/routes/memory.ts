@@ -1,12 +1,19 @@
 import type { Memory } from '@autonomy/memory';
-import {
-  type MemoryIngestRequest,
-  type MemorySearchParams,
-  MemoryType,
-  type MemoryType as MemoryTypeValue,
-} from '@autonomy/shared';
+import { type MemoryIngestRequest, type MemorySearchParams, MemoryType } from '@autonomy/shared';
 import { BadRequestError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
+
+const VALID_MEMORY_TYPES = new Set<string>([MemoryType.SHORT_TERM, MemoryType.LONG_TERM]);
+
+function validateMemoryType(value: string | null | undefined): MemoryType | undefined {
+  if (value == null) return undefined;
+  if (!VALID_MEMORY_TYPES.has(value)) {
+    throw new BadRequestError(
+      `Invalid type: must be "${MemoryType.SHORT_TERM}" or "${MemoryType.LONG_TERM}"`,
+    );
+  }
+  return value as MemoryType;
+}
 
 export function createMemoryRoutes(memory: Memory) {
   return {
@@ -19,7 +26,7 @@ export function createMemoryRoutes(memory: Memory) {
       const params: MemorySearchParams = {
         query,
         limit: limitParam !== null ? parseInt(limitParam, 10) : undefined,
-        type: url.searchParams.get('type') as MemoryTypeValue | undefined,
+        type: validateMemoryType(url.searchParams.get('type')),
         agentId: url.searchParams.get('agentId') ?? undefined,
       };
 
@@ -36,7 +43,7 @@ export function createMemoryRoutes(memory: Memory) {
 
       const entry = await memory.store({
         content: body.content,
-        type: MemoryType.LONG_TERM,
+        type: validateMemoryType(body.type) ?? MemoryType.LONG_TERM,
         metadata: body.metadata ?? {},
       });
 

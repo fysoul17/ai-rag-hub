@@ -131,8 +131,8 @@ describe('@autonomy/shared exports', () => {
   test('exports DEFAULTS constants', () => {
     expect(shared.DEFAULTS).toBeDefined();
     expect(shared.DEFAULTS.PORT).toBe(3001);
-    expect(shared.DEFAULTS.DATA_DIR).toBe('/data');
-    expect(shared.DEFAULTS.RUNTIME_URL).toBe('http://runtime:3001');
+    expect(shared.DEFAULTS.DATA_DIR).toBe('./data');
+    expect(shared.DEFAULTS.RUNTIME_URL).toBe('http://localhost:3001');
     expect(shared.DEFAULTS.IDLE_TIMEOUT_MS).toBe(300_000);
     expect(shared.DEFAULTS.MAX_AGENTS).toBe(10);
     expect(shared.DEFAULTS.AI_BACKEND).toBe('claude');

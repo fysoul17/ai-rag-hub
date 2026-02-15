@@ -46,6 +46,7 @@ export interface MemorySearchResult {
 
 export interface MemoryIngestRequest {
   content?: string;
+  type?: MemoryType;
   fileType?: 'pdf' | 'csv' | 'txt';
   metadata?: Record<string, unknown>;
 }

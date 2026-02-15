@@ -100,6 +100,26 @@ describe('Memory routes', () => {
       expect(memory.storeCalls[0].type).toBe('long-term');
     });
 
+    test('accepts explicit type field', async () => {
+      const req = new Request('http://localhost/api/memory/ingest', {
+        method: 'POST',
+        body: JSON.stringify({ content: 'Session data', type: 'short-term' }),
+      });
+
+      const res = await routes.ingest(req);
+      expect(res.status).toBe(201);
+      expect(memory.storeCalls[0].type).toBe('short-term');
+    });
+
+    test('throws BadRequestError for invalid type', async () => {
+      const req = new Request('http://localhost/api/memory/ingest', {
+        method: 'POST',
+        body: JSON.stringify({ content: 'test', type: 'invalid-type' }),
+      });
+
+      await expect(routes.ingest(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
     test('throws BadRequestError when content is missing', async () => {
       const req = new Request('http://localhost/api/memory/ingest', {
         method: 'POST',
@@ -107,6 +127,13 @@ describe('Memory routes', () => {
       });
 
       await expect(routes.ingest(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+  });
+
+  describe('GET /api/memory/search', () => {
+    test('throws BadRequestError for invalid type param', async () => {
+      const req = new Request('http://localhost/api/memory/search?query=test&type=bogus');
+      await expect(routes.search(req)).rejects.toBeInstanceOf(BadRequestError);
     });
   });
 

@@ -587,9 +587,9 @@ Server → Client:
 
 | Variable            | Required  | Default               | Description                             |
 | ------------------- | --------- | --------------------- | --------------------------------------- |
-| `DATA_DIR`          | No        | `/data`               | Data volume path                        |
+| `DATA_DIR`          | No        | `./data`              | Data volume path (`./data` local, `/data` Docker) |
 | `PORT`              | No        | `3001`                | Runtime server port                     |
-| `RUNTIME_URL`       | Dashboard | `http://runtime:3001` | Runtime API URL                         |
+| `RUNTIME_URL`       | Dashboard | `http://localhost:3001` | Runtime API URL (`http://runtime:3001` in Docker) |
 | `AI_BACKEND`        | No        | `claude`              | CLI backend to use                      |
 | `IDLE_TIMEOUT_MS`   | No        | `300000`              | Agent idle timeout (5 min)              |
 | `MAX_AGENTS`        | No        | `10`                  | Max concurrent agents                   |

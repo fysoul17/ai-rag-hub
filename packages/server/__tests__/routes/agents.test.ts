@@ -110,7 +110,8 @@ describe('Agent routes', () => {
 
       expect(body.success).toBe(true);
       expect(body.data.deleted).toBe('agent-1');
-      expect(conductor.deleteAgentCalls).toContain('agent-1');
+      // API-initiated delete uses pool.remove() directly (user is authorizing)
+      expect(pool.removeCalls).toContain('agent-1');
     });
 
     test('throws NotFoundError for non-existent agent', async () => {

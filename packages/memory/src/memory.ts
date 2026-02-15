@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type {
   MemoryEntry,
   MemorySearchParams,
@@ -50,12 +51,18 @@ export class Memory {
     // Initialize SQLite store
     const sqlitePath =
       this.dataDir === ':memory:' ? ':memory:' : join(this.dataDir, 'memory', 'memory.db');
+    if (sqlitePath !== ':memory:') {
+      mkdirSync(dirname(sqlitePath), { recursive: true });
+    }
     this.sqliteStore = new SQLiteStore(sqlitePath);
 
     // Initialize vector store
     this.vectorStore = getProvider(this.vectorProviderName);
     const vectorDir =
       this.dataDir === ':memory:' ? '/tmp/autonomy-vectors' : join(this.dataDir, 'vectors');
+    if (this.dataDir !== ':memory:') {
+      mkdirSync(vectorDir, { recursive: true });
+    }
     await this.vectorStore.initialize({
       dataDir: vectorDir,
       dimensions: this.dimensions,

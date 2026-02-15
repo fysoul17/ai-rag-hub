@@ -51,7 +51,9 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
       const agent = pool.get(id);
       if (!agent) throw new NotFoundError(`Agent "${id}" not found`);
 
-      await conductor.deleteAgent(id);
+      // Use pool.remove() directly — the API request IS the user acting,
+      // so conductor ownership permissions don't apply here.
+      await pool.remove(id);
       return jsonResponse({ deleted: id });
     },
 
