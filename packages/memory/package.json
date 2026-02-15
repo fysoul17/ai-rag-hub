@@ -12,6 +12,8 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
-    "@autonomy/shared": "workspace:*"
+    "@autonomy/shared": "workspace:*",
+    "@lancedb/lancedb": "^0.26.2",
+    "nanoid": "^5.1.6"
   }
 }
