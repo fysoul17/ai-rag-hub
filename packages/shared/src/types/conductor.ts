@@ -34,6 +34,7 @@ export interface ConductorDecision {
     | 'create_agent'
     | 'synthesize'
     | 'store_memory'
+    | 'skip_memory'
     | 'ai_route'
     | 'ai_fallback'
     | 'direct_response';

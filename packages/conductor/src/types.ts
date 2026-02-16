@@ -30,6 +30,8 @@ export interface RoutingResult {
   directResponse?: boolean;
   /** Pre-generated response from combined routing+response call. If present, skips the second AI call. */
   response?: string;
+  /** AI decides whether this conversation is worth remembering. Defaults to true when undefined. */
+  storeInMemory?: boolean;
   reason: string;
 }
 

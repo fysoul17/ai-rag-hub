@@ -88,6 +88,7 @@ interface AIRoutingParsed {
   createAgent?: { name: string; role: string; systemPrompt: string };
   directResponse?: boolean;
   response?: string;
+  storeInMemory?: boolean;
   reason?: string;
 }
 
@@ -108,12 +109,13 @@ function resolveRoutingResult(
   agents: AgentRuntimeInfo[],
 ): RoutingResult | null {
   const reason = typeof parsed.reason === 'string' ? parsed.reason : 'AI routing decision';
+  const storeInMemory = parsed.storeInMemory === false ? false : undefined;
 
   // Handle createAgent
   if (parsed.createAgent) {
     const validated = validateAgentCreation(parsed.createAgent);
     if (validated) {
-      return { agentIds: [], createAgent: validated, reason };
+      return { agentIds: [], createAgent: validated, storeInMemory, reason };
     }
   }
 
@@ -125,7 +127,7 @@ function resolveRoutingResult(
   );
 
   if (validIds.length > 0) {
-    return { agentIds: validIds, reason };
+    return { agentIds: validIds, storeInMemory, reason };
   }
 
   // Handle directResponse — conductor responds directly
@@ -133,7 +135,7 @@ function resolveRoutingResult(
     const MAX_RESPONSE_LENGTH = 10_000;
     const raw = typeof parsed.response === 'string' ? parsed.response.trim() : '';
     const response = raw.length > 0 ? raw.slice(0, MAX_RESPONSE_LENGTH) : undefined;
-    return { agentIds: [], directResponse: true, response, reason };
+    return { agentIds: [], directResponse: true, response, storeInMemory, reason };
   }
 
   return null;
@@ -167,6 +169,7 @@ export function createAIRouter(backendProcess: BackendProcess): RouterFn {
       return {
         agentIds: [],
         directResponse: true,
+        storeInMemory: false,
         reason: 'Fast path: conversational message, no agents available',
       };
     }

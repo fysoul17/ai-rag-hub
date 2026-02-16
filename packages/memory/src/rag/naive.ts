@@ -7,6 +7,13 @@ import type { EmbeddingProvider, RAGEngine } from './types.ts';
 
 const DEFAULT_LIMIT = 10;
 
+/** Check whether a vector is degenerate (all zeros or all identical values). */
+function isDegenerateVector(vector: number[]): boolean {
+  if (vector.length === 0) return true;
+  const first = vector[0] as number;
+  return vector.every((v) => v === first);
+}
+
 export class NaiveRAGEngine implements RAGEngine {
   readonly strategy = RAGStrategy.NAIVE;
 
@@ -25,7 +32,22 @@ export class NaiveRAGEngine implements RAGEngine {
         throw new MemorySearchError('Failed to generate query embedding');
       }
 
-      // 2. Vector search for top-K nearest
+      // 2. If the embedding is degenerate (all zeros / all same value),
+      //    fall back to recency-based SQLite query instead of meaningless vector search
+      if (isDegenerateVector(queryVector)) {
+        const recencyEntries = sqliteStore.query({
+          type: params.type,
+          agentId: params.agentId,
+          limit,
+        });
+        return {
+          entries: recencyEntries,
+          totalCount: recencyEntries.length,
+          strategy: this.strategy,
+        };
+      }
+
+      // 3. Vector search for top-K nearest
       const vectorResults = await vectorStore.search(queryVector, limit, {
         type: params.type,
         agentId: params.agentId,
@@ -35,11 +57,11 @@ export class NaiveRAGEngine implements RAGEngine {
         return { entries: [], totalCount: 0, strategy: this.strategy };
       }
 
-      // 3. Fetch full entries from SQLite by ID
+      // 4. Fetch full entries from SQLite by ID
       const ids = vectorResults.map((r) => r.id);
       const entries = sqliteStore.getEntriesByIds(ids);
 
-      // 4. Preserve vector search ordering (by relevance score)
+      // 5. Preserve vector search ordering (by relevance score)
       const entryMap = new Map(entries.map((e) => [e.id, e]));
       const orderedEntries = ids
         .map((id) => entryMap.get(id))

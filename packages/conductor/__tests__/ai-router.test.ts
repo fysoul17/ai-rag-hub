@@ -189,6 +189,77 @@ describe('createAIRouter', () => {
     });
   });
 
+  describe('storeInMemory passthrough', () => {
+    test('passes storeInMemory: false from AI response', async () => {
+      const aiResponse = JSON.stringify({
+        agentIds: [],
+        directResponse: true,
+        response: 'Hi there!',
+        storeInMemory: false,
+        reason: 'Greeting, not worth storing',
+      });
+      const backend = createMockBackendProcess(aiResponse);
+      const aiRouter = createAIRouter(backend);
+
+      const result = await aiRouter(makeMessage({ content: 'hi' }), [], null);
+      expect(result.storeInMemory).toBe(false);
+    });
+
+    test('storeInMemory defaults to undefined when not set by AI', async () => {
+      const aiResponse = JSON.stringify({
+        agentIds: ['agent-a'],
+        reason: 'Route to agent',
+      });
+      const backend = createMockBackendProcess(aiResponse);
+      const aiRouter = createAIRouter(backend);
+
+      const agents = [makeAgentRuntime({ id: 'agent-a', name: 'Agent A' })];
+      const result = await aiRouter(makeMessage(), agents, null);
+      expect(result.storeInMemory).toBeUndefined();
+    });
+
+    test('storeInMemory: true from AI is normalized to undefined (default store)', async () => {
+      const aiResponse = JSON.stringify({
+        agentIds: ['agent-a'],
+        storeInMemory: true,
+        reason: 'Substantive message',
+      });
+      const backend = createMockBackendProcess(aiResponse);
+      const aiRouter = createAIRouter(backend);
+
+      const agents = [makeAgentRuntime({ id: 'agent-a', name: 'Agent A' })];
+      const result = await aiRouter(makeMessage(), agents, null);
+      // storeInMemory: true is normalized to undefined (only false is meaningful)
+      expect(result.storeInMemory).toBeUndefined();
+    });
+  });
+
+  describe('fast path — conversational patterns', () => {
+    test('sets storeInMemory: false for simple greetings with no agents', async () => {
+      const backend = createMockBackendProcess('should not be called');
+      const aiRouter = createAIRouter(backend);
+
+      const result = await aiRouter(makeMessage({ content: 'hello' }), [], null);
+      expect(result.directResponse).toBe(true);
+      expect(result.storeInMemory).toBe(false);
+      expect(result.reason).toContain('Fast path');
+    });
+
+    test('does NOT fast-path when agents exist', async () => {
+      const aiResponse = JSON.stringify({
+        agentIds: ['agent-a'],
+        reason: 'Route to agent even for greeting',
+      });
+      const backend = createMockBackendProcess(aiResponse);
+      const aiRouter = createAIRouter(backend);
+
+      const agents = [makeAgentRuntime({ id: 'agent-a', name: 'Agent A' })];
+      const result = await aiRouter(makeMessage({ content: 'hello' }), agents, null);
+      // Should NOT use fast path since agents exist — goes through AI
+      expect(result.agentIds).toContain('agent-a');
+    });
+  });
+
   describe('createAgent validation', () => {
     test('rejects createAgent with empty name', async () => {
       const aiResponse = JSON.stringify({

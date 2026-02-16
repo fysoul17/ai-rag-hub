@@ -35,9 +35,24 @@ export { createWebSocketHandler, type WSData } from './websocket.ts';
 // --- Bootstrap (only when run directly) ---
 
 function stubEmbedder(texts: string[]): Promise<number[][]> {
-  // Stub embedder: returns zero vectors for development.
+  // Deterministic hash-based embedder for development.
+  // Produces distinct vectors for different texts (enables meaningful search).
   // Real embedding (Anthropic/OpenAI) requires API key configuration.
-  return Promise.resolve(texts.map(() => new Array(1024).fill(0) as number[]));
+  return Promise.resolve(texts.map((text) => hashToVector(text, 1024)));
+}
+
+/** Generate a deterministic vector from text via simple hash. */
+function hashToVector(text: string, dimensions: number): number[] {
+  const vector: number[] = [];
+  for (let i = 0; i < dimensions; i++) {
+    let hash = 0;
+    const seed = text + String(i);
+    for (let j = 0; j < seed.length; j++) {
+      hash = ((hash << 5) - hash + seed.charCodeAt(j)) | 0;
+    }
+    vector.push(Math.sin(hash));
+  }
+  return vector;
 }
 
 async function main() {

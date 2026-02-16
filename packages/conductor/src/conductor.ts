@@ -169,7 +169,7 @@ export class Conductor {
 
     // 4. Store conversation in memory (non-fatal)
     await this.timedStep(
-      () => this.storeConversation(message, decisions),
+      () => this.storeConversation(message, routingResult, decisions),
       (durationMs) =>
         onEvent?.({
           type: ConductorEventType.MEMORY_STORE,
@@ -513,8 +513,29 @@ export class Conductor {
 
   private async storeConversation(
     message: IncomingMessage,
+    routingResult: RoutingResult,
     decisions: ConductorDecision[],
   ): Promise<void> {
+    // AI-driven: router decides what's worth remembering
+    if (routingResult.storeInMemory === false) {
+      decisions.push({
+        timestamp: new Date().toISOString(),
+        action: 'skip_memory',
+        reason: 'Router determined message is not worth storing',
+      });
+      return;
+    }
+
+    // Safety net: empty content is never stored
+    if (message.content.trim().length === 0) {
+      decisions.push({
+        timestamp: new Date().toISOString(),
+        action: 'skip_memory',
+        reason: 'Empty message content',
+      });
+      return;
+    }
+
     try {
       await this.memory.store({
         content: message.content,

@@ -136,6 +136,7 @@ async function handleConductorMessage(
     content: parsed.content ?? '',
     senderId: 'dashboard',
     senderName: 'Dashboard User',
+    sessionId: ws.data.id,
     targetAgentId: parsed.targetAgent,
   };
 
