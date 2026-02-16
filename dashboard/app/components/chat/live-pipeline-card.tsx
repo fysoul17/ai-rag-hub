@@ -60,11 +60,14 @@ function PipelinePhaseRow({
             )}
             {debug.memoryEntryPreviews && debug.memoryEntryPreviews.length > 0 && (
               <div className="text-[9px] font-mono text-muted-foreground/40">
-                {debug.memoryEntryPreviews.map((preview) => (
-                  <div key={preview} className="truncate pl-2">
-                    {preview}...
-                  </div>
-                ))}
+                {debug.memoryEntryPreviews.map((preview, idx) => {
+                  const key = `${preview.slice(0, 20)}-${idx}`;
+                  return (
+                    <div key={key} className="truncate pl-2">
+                      {preview}...
+                    </div>
+                  );
+                })}
               </div>
             )}
             {debug.routerType && (
