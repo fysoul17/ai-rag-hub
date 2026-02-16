@@ -14,7 +14,6 @@ import { MemoryType, RAGStrategy, VectorProvider } from '@autonomy/shared';
 import { Memory } from '../src/memory.ts';
 import { registerProvider } from '../src/providers/index.ts';
 import { NaiveRAGEngine } from '../src/rag/naive.ts';
-import type { EmbeddingProvider } from '../src/rag/types.ts';
 import { SQLiteStore } from '../src/sqlite-store.ts';
 import { makeMemoryEntry } from './helpers/fixtures.ts';
 import { createFixedEmbedder, createMockEmbedder } from './helpers/mock-embedder.ts';
@@ -48,9 +47,21 @@ describe('Zero-vector embedder fallback behavior', () => {
 
     test('zero-vector query falls back to SQLite recency query', async () => {
       // Store entries directly in SQLite (as the fallback reads from SQLite)
-      const entry1 = makeMemoryEntry({ id: 'msg-1', content: 'first message', createdAt: '2026-01-01T00:00:00Z' });
-      const entry2 = makeMemoryEntry({ id: 'msg-2', content: 'second message', createdAt: '2026-01-02T00:00:00Z' });
-      const entry3 = makeMemoryEntry({ id: 'msg-3', content: 'third message', createdAt: '2026-01-03T00:00:00Z' });
+      const entry1 = makeMemoryEntry({
+        id: 'msg-1',
+        content: 'first message',
+        createdAt: '2026-01-01T00:00:00Z',
+      });
+      const entry2 = makeMemoryEntry({
+        id: 'msg-2',
+        content: 'second message',
+        createdAt: '2026-01-02T00:00:00Z',
+      });
+      const entry3 = makeMemoryEntry({
+        id: 'msg-3',
+        content: 'third message',
+        createdAt: '2026-01-03T00:00:00Z',
+      });
       store.store(entry1);
       store.store(entry2);
       store.store(entry3);
@@ -73,12 +84,7 @@ describe('Zero-vector embedder fallback behavior', () => {
       const entry = makeMemoryEntry({ id: 'msg-1', content: 'test content' });
       store.store(entry);
 
-      await rag.search(
-        { query: 'test', limit: 5 },
-        vectorStore,
-        store,
-        zeroEmbedder,
-      );
+      await rag.search({ query: 'test', limit: 5 }, vectorStore, store, zeroEmbedder);
 
       // Vector store search should NOT have been called
       expect(vectorStore.searchCalls.length).toBe(0);
@@ -100,8 +106,12 @@ describe('Zero-vector embedder fallback behavior', () => {
     });
 
     test('zero-vector fallback respects type filter', async () => {
-      store.store(makeMemoryEntry({ id: 'st-1', content: 'short term', type: MemoryType.SHORT_TERM }));
-      store.store(makeMemoryEntry({ id: 'lt-1', content: 'long term', type: MemoryType.LONG_TERM }));
+      store.store(
+        makeMemoryEntry({ id: 'st-1', content: 'short term', type: MemoryType.SHORT_TERM }),
+      );
+      store.store(
+        makeMemoryEntry({ id: 'lt-1', content: 'long term', type: MemoryType.LONG_TERM }),
+      );
 
       const result = await rag.search(
         { query: 'test', limit: 5, type: MemoryType.SHORT_TERM },
@@ -137,9 +147,17 @@ describe('Zero-vector embedder fallback behavior', () => {
       const fixedEmbedder = createFixedEmbedder(fixedVector);
 
       const entries = [
-        makeMemoryEntry({ id: 'fix-1', content: 'Deploy Docker', createdAt: '2026-01-01T00:00:00Z' }),
+        makeMemoryEntry({
+          id: 'fix-1',
+          content: 'Deploy Docker',
+          createdAt: '2026-01-01T00:00:00Z',
+        }),
         makeMemoryEntry({ id: 'fix-2', content: 'hi', createdAt: '2026-01-02T00:00:00Z' }),
-        makeMemoryEntry({ id: 'fix-3', content: 'CI/CD pipeline', createdAt: '2026-01-03T00:00:00Z' }),
+        makeMemoryEntry({
+          id: 'fix-3',
+          content: 'CI/CD pipeline',
+          createdAt: '2026-01-03T00:00:00Z',
+        }),
       ];
 
       for (const entry of entries) {

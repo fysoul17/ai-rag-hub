@@ -48,6 +48,123 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
   const onAgentStatusRef = useRef(onAgentStatus);
   onAgentStatusRef.current = onAgentStatus;
 
+  function handleChunk(content: string, agentId: string) {
+    if (!accumulatorRef.current) {
+      const id = `msg-${Date.now()}`;
+      accumulatorRef.current = { content, agentId, id };
+      const pipeline = pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
+      const procId = processingIdRef.current;
+      processingIdRef.current = null;
+      setMessages((prev) => {
+        const filtered = procId ? prev.filter((m) => m.id !== procId) : prev;
+        return [
+          ...filtered,
+          {
+            id,
+            role: 'assistant',
+            content,
+            agentId,
+            timestamp: Date.now(),
+            streaming: true,
+            pipeline,
+          },
+        ];
+      });
+    } else {
+      accumulatorRef.current.content += content;
+      const acc = accumulatorRef.current;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === acc.id ? { ...m, content: acc.content } : m)),
+      );
+    }
+  }
+
+  function handleComplete() {
+    const finalPipeline = pipelineRef.current.length > 0 ? pipelineRef.current.slice() : undefined;
+    if (accumulatorRef.current) {
+      const acc = accumulatorRef.current;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === acc.id ? { ...m, streaming: false, pipeline: finalPipeline ?? m.pipeline } : m,
+        ),
+      );
+      accumulatorRef.current = null;
+    } else if (processingIdRef.current) {
+      const procId = processingIdRef.current;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === procId
+            ? { ...m, isProcessing: false, pipeline: finalPipeline ?? m.pipeline }
+            : m,
+        ),
+      );
+    }
+    processingIdRef.current = null;
+    pipelineRef.current = [];
+  }
+
+  function handleError(message: string) {
+    accumulatorRef.current = null;
+    const errorPipeline = pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
+    pipelineRef.current = [];
+    const procId = processingIdRef.current;
+    processingIdRef.current = null;
+    setMessages((prev) => {
+      const filtered = procId ? prev.filter((m) => m.id !== procId) : prev;
+      return [
+        ...filtered,
+        {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: `Error: ${message}`,
+          timestamp: Date.now(),
+          pipeline: errorPipeline,
+        },
+      ];
+    });
+  }
+
+  function handleConductorStatus(parsed: {
+    phase: string;
+    message: string;
+    agentName?: string;
+    debug?: ConductorDebugPayload;
+  }) {
+    const phase: PipelinePhase = {
+      phase: parsed.phase,
+      message: parsed.message,
+      timestamp: Date.now(),
+      durationMs: parsed.debug?.durationMs,
+      debug: parsed.debug,
+    };
+    pipelineRef.current.push(phase);
+    const currentPipeline = pipelineRef.current.slice();
+
+    if (!processingIdRef.current) {
+      const id = `processing-${Date.now()}`;
+      processingIdRef.current = id;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          role: 'system',
+          content: parsed.message,
+          agentName: parsed.agentName,
+          timestamp: Date.now(),
+          pipeline: currentPipeline,
+          isProcessing: true,
+        },
+      ]);
+    } else {
+      const procId = processingIdRef.current;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === procId ? { ...m, content: parsed.message, pipeline: currentPipeline } : m,
+        ),
+      );
+    }
+  }
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup/scheduleReconnect only use refs — no stale closure risk
   const connect = useCallback(() => {
     const current = wsRef.current;
@@ -85,132 +202,21 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
         }
 
         switch (parsed.type) {
-          case 'chunk': {
-            if (!accumulatorRef.current) {
-              const id = `msg-${Date.now()}`;
-              accumulatorRef.current = { content: parsed.content, agentId: parsed.agentId, id };
-              const pipeline =
-                pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
-              const procId = processingIdRef.current;
-              processingIdRef.current = null;
-              setMessages((prev) => {
-                // Remove processing indicator, add assistant message
-                const filtered = procId ? prev.filter((m) => m.id !== procId) : prev;
-                return [
-                  ...filtered,
-                  {
-                    id,
-                    role: 'assistant',
-                    content: parsed.content,
-                    agentId: parsed.agentId,
-                    timestamp: Date.now(),
-                    streaming: true,
-                    pipeline,
-                  },
-                ];
-              });
-            } else {
-              accumulatorRef.current.content += parsed.content;
-              const acc = accumulatorRef.current;
-              setMessages((prev) =>
-                prev.map((m) => (m.id === acc.id ? { ...m, content: acc.content } : m)),
-              );
-            }
+          case 'chunk':
+            handleChunk(parsed.content, parsed.agentId);
             break;
-          }
-          case 'complete': {
-            const finalPipeline =
-              pipelineRef.current.length > 0 ? pipelineRef.current.slice() : undefined;
-            if (accumulatorRef.current) {
-              const acc = accumulatorRef.current;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === acc.id
-                    ? { ...m, streaming: false, pipeline: finalPipeline ?? m.pipeline }
-                    : m,
-                ),
-              );
-              accumulatorRef.current = null;
-            } else if (processingIdRef.current) {
-              // No chunks received — clear stale processing indicator
-              const procId = processingIdRef.current;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === procId
-                    ? { ...m, isProcessing: false, pipeline: finalPipeline ?? m.pipeline }
-                    : m,
-                ),
-              );
-            }
-            processingIdRef.current = null;
-            pipelineRef.current = [];
+          case 'complete':
+            handleComplete();
             break;
-          }
-          case 'error': {
-            accumulatorRef.current = null;
-            const errorPipeline =
-              pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
-            pipelineRef.current = [];
-            const procId = processingIdRef.current;
-            processingIdRef.current = null;
-            setMessages((prev) => {
-              const filtered = procId ? prev.filter((m) => m.id !== procId) : prev;
-              return [
-                ...filtered,
-                {
-                  id: `err-${Date.now()}`,
-                  role: 'assistant',
-                  content: `Error: ${parsed.message}`,
-                  timestamp: Date.now(),
-                  pipeline: errorPipeline,
-                },
-              ];
-            });
+          case 'error':
+            handleError(parsed.message);
             break;
-          }
-          case 'conductor_status': {
-            const phase: PipelinePhase = {
-              phase: parsed.phase,
-              message: parsed.message,
-              timestamp: Date.now(),
-              durationMs: parsed.debug?.durationMs,
-              debug: parsed.debug,
-            };
-            pipelineRef.current.push(phase);
-            const currentPipeline = pipelineRef.current.slice();
-
-            // Show/update a processing indicator while conductor works
-            if (!processingIdRef.current) {
-              const id = `processing-${Date.now()}`;
-              processingIdRef.current = id;
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id,
-                  role: 'system',
-                  content: parsed.message,
-                  agentName: parsed.agentName,
-                  timestamp: Date.now(),
-                  pipeline: currentPipeline,
-                  isProcessing: true,
-                },
-              ]);
-            } else {
-              const procId = processingIdRef.current;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === procId
-                    ? { ...m, content: parsed.message, pipeline: currentPipeline }
-                    : m,
-                ),
-              );
-            }
+          case 'conductor_status':
+            handleConductorStatus(parsed);
             break;
-          }
-          case 'agent_status': {
+          case 'agent_status':
             onAgentStatusRef.current?.(parsed.agents);
             break;
-          }
           case 'pong':
             break;
         }

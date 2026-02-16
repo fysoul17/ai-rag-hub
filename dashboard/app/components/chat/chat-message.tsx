@@ -1,5 +1,6 @@
 import { Bot, Cpu, User } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/use-websocket';
+import { MarkdownRenderer } from './markdown-renderer';
 import { PipelineSummaryBar } from './pipeline-summary-bar';
 import { ProcessingIndicator } from './processing-indicator';
 import { ProcessingProgressStrip } from './processing-progress-strip';
@@ -81,7 +82,11 @@ export function ChatMessageBubble({ message, showSteps }: ChatMessageBubbleProps
       <div className={`max-w-[80%] space-y-1 ${isUser ? 'items-end' : ''}`}>
         {!isUser && label && <span className={`text-[10px] font-mono ${labelClass}`}>{label}</span>}
         <div className={`rounded-lg px-3 py-2 text-sm ${bubbleBorder}`}>
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          ) : (
+            <MarkdownRenderer content={message.content} />
+          )}
           {message.streaming && (
             <span className="inline-block h-4 w-1 animate-pulse bg-primary ml-0.5" />
           )}
