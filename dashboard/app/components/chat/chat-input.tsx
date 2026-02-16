@@ -32,7 +32,7 @@ export function ChatInput({ onSend, status }: ChatInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border p-4">
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border p-4">
       <div className="relative flex-1">
         <textarea
           value={value}

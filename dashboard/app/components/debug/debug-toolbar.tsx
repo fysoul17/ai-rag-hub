@@ -2,7 +2,7 @@
 
 import type { DebugEventCategory, DebugEventLevel } from '@autonomy/shared';
 import { DebugEventCategory as Categories, DebugEventLevel as Levels } from '@autonomy/shared';
-import { ExternalLink, Pause, Play, Trash2 } from 'lucide-react';
+import { ClipboardCopy, ExternalLink, Pause, Play, Trash2 } from 'lucide-react';
 
 const CATEGORY_CONFIG: Array<{
   value: DebugEventCategory;
@@ -53,6 +53,7 @@ interface DebugToolbarProps {
   paused: boolean;
   onTogglePause: () => void;
   onClear: () => void;
+  onCopyAll: () => void;
   eventCount: number;
   filteredCount: number;
 }
@@ -67,6 +68,7 @@ export function DebugToolbar({
   paused,
   onTogglePause,
   onClear,
+  onCopyAll,
   eventCount,
   filteredCount,
 }: DebugToolbarProps) {
@@ -140,6 +142,17 @@ export function DebugToolbar({
         aria-label={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
       >
         {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+      </button>
+
+      {/* Copy all */}
+      <button
+        type="button"
+        onClick={onCopyAll}
+        className="p-1 rounded hover:bg-white/10 transition-colors text-muted-foreground"
+        title="Copy filtered logs"
+        aria-label="Copy filtered logs"
+      >
+        <ClipboardCopy className="h-3.5 w-3.5" />
       </button>
 
       {/* Clear */}

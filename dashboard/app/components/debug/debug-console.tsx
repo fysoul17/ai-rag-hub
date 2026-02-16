@@ -85,6 +85,25 @@ export function DebugConsole() {
     }
   }, [filteredEvents.length, paused]);
 
+  const handleCopyAll = useCallback(() => {
+    const text = filteredEvents
+      .map((e) => {
+        const ts = new Date(e.timestamp).toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          fractionalSecondDigits: 3,
+        } as Intl.DateTimeFormatOptions);
+        const dur = e.durationMs !== undefined ? ` ${e.durationMs}ms` : '';
+        const data =
+          e.data && Object.keys(e.data).length > 0 ? `\n${JSON.stringify(e.data, null, 2)}` : '';
+        return `${ts} ${e.level.toUpperCase()} [${e.category}] ${e.source} ${e.message}${dur}${data}`;
+      })
+      .join('\n');
+    navigator.clipboard.writeText(text);
+  }, [filteredEvents]);
+
   const handleTogglePause = useCallback(() => {
     setPaused((p) => {
       if (p) {
@@ -134,6 +153,7 @@ export function DebugConsole() {
         paused={paused}
         onTogglePause={handleTogglePause}
         onClear={clearEvents}
+        onCopyAll={handleCopyAll}
         eventCount={events.length}
         filteredCount={filteredEvents.length}
       />
