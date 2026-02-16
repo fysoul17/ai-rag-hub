@@ -70,10 +70,7 @@ async function main() {
   console.log('[server] Conductor initialized');
 
   // Create WebSocket handler
-  const env = typeof Bun !== 'undefined' ? Bun.env : process.env;
-  const debugEnabled = env.ENABLE_DEBUG_WS === 'true';
-  const ws = createWebSocketHandler(conductor, { debugEnabled });
-  if (debugEnabled) console.log('[server] WebSocket debug mode enabled');
+  const ws = createWebSocketHandler(conductor);
 
   // Build HTTP router
   const router = new Router();
@@ -116,8 +113,9 @@ async function main() {
 
       // WebSocket upgrade
       if (url.pathname === '/ws/chat') {
+        const debugEnabled = url.searchParams.get('debug') === 'true';
         const upgraded = server.upgrade(req, {
-          data: { id: crypto.randomUUID() },
+          data: { id: crypto.randomUUID(), debugEnabled },
         });
         if (upgraded) return undefined as unknown as Response;
         return new Response('WebSocket upgrade failed', { status: 400 });

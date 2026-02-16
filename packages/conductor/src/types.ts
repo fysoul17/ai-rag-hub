@@ -28,6 +28,8 @@ export interface RoutingResult {
     systemPrompt: string;
   };
   directResponse?: boolean;
+  /** Pre-generated response from combined routing+response call. If present, skips the second AI call. */
+  response?: string;
   reason: string;
 }
 
@@ -66,8 +68,11 @@ export interface ConductorEvent {
   metadata?: Record<string, unknown>;
   durationMs?: number;
   memoryResults?: number;
+  memoryQuery?: string;
+  memoryEntryPreviews?: string[];
   routerType?: 'ai' | 'keyword';
   decisions?: ConductorDecision[];
+  dispatchTarget?: string;
 }
 
 export type OnConductorEvent = (event: ConductorEvent) => void;

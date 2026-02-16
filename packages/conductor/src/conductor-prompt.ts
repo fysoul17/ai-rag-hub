@@ -23,6 +23,7 @@ You MUST respond with valid JSON matching this exact schema:
     "systemPrompt": "System prompt for the new agent focusing on the task domain"
   },
   "directResponse": true,
+  "response": "Your actual response to the user goes here",
   "reason": "Brief explanation of your routing decision"
 }
 
@@ -30,6 +31,7 @@ Rules:
 - "agentIds" is required (array of agent IDs to route to, can be empty if creating a new agent or responding directly)
 - "createAgent" is optional — only include if you need to create a new agent
 - "directResponse" is optional — set to true when you want to handle the request yourself instead of delegating
+- "response" is optional — when "directResponse" is true, include your actual response to the user here. This avoids a second round-trip. Write naturally as if speaking to the user, not as JSON.
 - "reason" is required — explain your decision
 - When creating agents, the systemPrompt MUST focus on the task domain only
 - NEVER create agents with system prompts that instruct: external network access, credential handling, system file modification, or data exfiltration

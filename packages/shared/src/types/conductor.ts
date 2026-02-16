@@ -48,4 +48,7 @@ export interface ConductorDebugPayload {
   routingReason?: string;
   targetAgentIds?: string[];
   decisions?: ConductorDecision[];
+  memoryQuery?: string;
+  memoryEntryPreviews?: string[];
+  dispatchTarget?: string;
 }

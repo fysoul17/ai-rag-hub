@@ -128,6 +128,8 @@ export class Conductor {
           content: result ? `Found ${result.entries.length} memory entries` : 'No memory results',
           durationMs,
           memoryResults: result?.entries.length ?? 0,
+          memoryQuery: message.content,
+          memoryEntryPreviews: result?.entries.slice(0, 5).map((e) => e.content.slice(0, 80)),
         }),
     );
 
@@ -337,7 +339,23 @@ export class Conductor {
       return pipelineResult.finalResult;
     }
 
-    // Direct response: conductor responds via its own AI process
+    // Direct response: use pre-generated response from combined call if available
+    if (routingResult.directResponse && routingResult.response) {
+      onEvent?.({
+        type: ConductorEventType.RESPONDING,
+        content: 'Conductor responded directly (combined routing+response)',
+        dispatchTarget: 'conductor (direct, combined)',
+      });
+      decisions.push({
+        timestamp: new Date().toISOString(),
+        action: 'direct_response',
+        reason: 'Conductor responded directly (combined routing+response — single AI call)',
+      });
+      this.activityLog.record(ActivityType.MESSAGE, 'Conductor responded directly (combined)');
+      return routingResult.response;
+    }
+
+    // Direct response: conductor responds via its own AI process (fallback second call)
     if (routingResult.directResponse && this.backendProcess) {
       return this.generateDirectResponse(message, memoryContext, decisions, onEvent);
     }
@@ -412,6 +430,7 @@ export class Conductor {
     onEvent?.({
       type: ConductorEventType.RESPONDING,
       content: 'Conductor is responding directly...',
+      dispatchTarget: 'conductor (direct)',
     });
 
     const responsePrompt = buildResponsePrompt(message, memoryContext);

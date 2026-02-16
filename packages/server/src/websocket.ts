@@ -18,6 +18,7 @@ const MAX_WS_CLIENTS = 100;
 
 export interface WSData {
   id: string;
+  debugEnabled: boolean;
 }
 
 function sendWSError(ws: ServerWebSocket<WSData>, message: string): void {
@@ -49,6 +50,18 @@ function buildDebugPayload(event: ConductorEvent): ConductorDebugPayload | undef
     debug.decisions = event.decisions;
     hasData = true;
   }
+  if (event.memoryQuery) {
+    debug.memoryQuery = event.memoryQuery;
+    hasData = true;
+  }
+  if (event.memoryEntryPreviews) {
+    debug.memoryEntryPreviews = event.memoryEntryPreviews;
+    hasData = true;
+  }
+  if (event.dispatchTarget) {
+    debug.dispatchTarget = event.dispatchTarget;
+    hasData = true;
+  }
 
   return hasData ? debug : undefined;
 }
@@ -56,7 +69,7 @@ function buildDebugPayload(event: ConductorEvent): ConductorDebugPayload | undef
 function sendConductorStatus(
   ws: ServerWebSocket<WSData>,
   event: ConductorEvent,
-  debugEnabled = false,
+  debugEnabled: boolean,
 ): void {
   let phase: WSServerConductorStatus['phase'];
   let message: string;
@@ -118,7 +131,6 @@ async function handleConductorMessage(
   ws: ServerWebSocket<WSData>,
   conductor: Conductor,
   parsed: WSClientMessage,
-  debugEnabled: boolean,
 ): Promise<void> {
   const incoming: IncomingMessage = {
     content: parsed.content ?? '',
@@ -128,7 +140,7 @@ async function handleConductorMessage(
   };
 
   try {
-    const onEvent = (event: ConductorEvent) => sendConductorStatus(ws, event, debugEnabled);
+    const onEvent = (event: ConductorEvent) => sendConductorStatus(ws, event, ws.data.debugEnabled);
     const response = await conductor.handleMessage(incoming, onEvent);
     const chunk: WSServerChunk = {
       type: WSServerMessageType.CHUNK,
@@ -148,7 +160,6 @@ function handleParsedMessage(
   ws: ServerWebSocket<WSData>,
   conductor: Conductor,
   parsed: WSClientMessage,
-  debugEnabled: boolean,
 ): Promise<void> | void {
   if (parsed.type === WSClientMessageType.PING) {
     const pong: WSServerPong = { type: WSServerMessageType.PONG };
@@ -157,18 +168,13 @@ function handleParsedMessage(
   }
 
   if (parsed.type === WSClientMessageType.MESSAGE) {
-    return handleConductorMessage(ws, conductor, parsed, debugEnabled);
+    return handleConductorMessage(ws, conductor, parsed);
   }
 
   sendWSError(ws, `Unknown message type: ${(parsed as { type?: string }).type}`);
 }
 
-export interface WebSocketHandlerOptions {
-  debugEnabled?: boolean;
-}
-
-export function createWebSocketHandler(conductor: Conductor, options?: WebSocketHandlerOptions) {
-  const debugEnabled = options?.debugEnabled ?? false;
+export function createWebSocketHandler(conductor: Conductor) {
   const clients = new Set<ServerWebSocket<WSData>>();
   let statusInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -233,7 +239,7 @@ export function createWebSocketHandler(conductor: Conductor, options?: WebSocket
         return;
       }
 
-      await handleParsedMessage(ws, conductor, parsed, debugEnabled);
+      await handleParsedMessage(ws, conductor, parsed);
     },
 
     close(ws: ServerWebSocket<WSData>): void {

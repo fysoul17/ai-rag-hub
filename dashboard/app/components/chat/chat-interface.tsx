@@ -26,8 +26,9 @@ export function ChatInterface({ initialAgents }: ChatInterfaceProps) {
     setAgents(newAgents);
   }, []);
 
+  const wsUrl = debugMode ? `${WS_URL}?debug=true` : WS_URL;
   const { status, messages, sendMessage } = useWebSocket({
-    url: WS_URL,
+    url: wsUrl,
     onAgentStatus: handleAgentStatus,
   });
 

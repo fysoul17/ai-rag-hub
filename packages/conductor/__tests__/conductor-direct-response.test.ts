@@ -147,16 +147,17 @@ describe('Conductor direct response — reproduction tests', () => {
   });
 
   test('REPRODUCTION: with AI backend, conductor should have a path to respond directly instead of only delegating', async () => {
-    // AI router decides "direct response" but current schema has no way to express it.
-    // The AI returns directResponse: true in its JSON, but resolveRoutingResult ignores it,
-    // falls back to defaultRouter → empty pool → "No agents available"
+    // AI router decides "direct response" — uses combined routing+response to avoid second call.
+    // Note: "explain the system architecture" is used to avoid the conversational fast-path
+    // which would bypass AI routing entirely for simple messages like "hi" when no agents exist.
     const { backend } = createMockBackend({
       routingResponse: JSON.stringify({
         agentIds: [],
         directResponse: true,
+        response: 'Hello! I am the Conductor. How can I help you today?',
         reason: 'Simple greeting — no specialist agent needed',
       }),
-      directResponse: 'Hello! I am the Conductor. How can I help you today?',
+      directResponse: 'Fallback response (should not be used)',
     });
     const pool = createMockPool();
     const memory = new MockMemory();
@@ -167,10 +168,11 @@ describe('Conductor direct response — reproduction tests', () => {
     );
     await conductor.initialize();
 
-    const response = await conductor.handleMessage(makeMessage({ content: 'hi' }));
+    const response = await conductor.handleMessage(
+      makeMessage({ content: 'explain the system architecture' }),
+    );
 
-    // EXPECTED: conductor uses backendProcess.send() to generate a direct response
-    // ACTUAL: falls back to "No agents available"
+    // EXPECTED: conductor uses the combined response from the routing call
     expect(response.content).not.toBe('No agents available to handle this request.');
     expect(response.content).toContain('Hello');
   });
@@ -275,16 +277,17 @@ describe('Conductor direct response — RoutingResult with directResponse boolea
 });
 
 describe('Conductor direct response — AI router integration', () => {
-  test('AI router can return directResponse: true for simple queries', async () => {
-    // AI routing call returns JSON with directResponse: true
-    // Then dispatch() calls backendProcess.send() again for the actual response
-    const { backend } = createMockBackend({
+  test('AI router can return directResponse: true with combined response', async () => {
+    // AI routing call returns JSON with directResponse: true AND a response field
+    // The conductor uses the combined response directly (no second AI call)
+    const { backend, sendMock } = createMockBackend({
       routingResponse: JSON.stringify({
         agentIds: [],
         directResponse: true,
-        reason: 'Simple greeting, no specialist needed',
+        response: 'Hi there! I am the Conductor. What would you like to work on?',
+        reason: 'Simple query, no specialist needed',
       }),
-      directResponse: 'Hi there! I am the Conductor. What would you like to work on?',
+      directResponse: 'Fallback (should not be used)',
     });
     const pool = createMockPool();
     const memory = new MockMemory();
@@ -295,11 +298,16 @@ describe('Conductor direct response — AI router integration', () => {
     );
     await conductor.initialize();
 
-    const response = await conductor.handleMessage(makeMessage({ content: 'hello' }));
+    // Use a non-conversational message to avoid the fast-path bypass
+    const response = await conductor.handleMessage(
+      makeMessage({ content: 'tell me about your capabilities' }),
+    );
 
-    // AI router parses directResponse: true → dispatch calls backendProcess.send()
+    // AI router parses directResponse: true + response → used directly, no second call
     expect(response.content).toBe('Hi there! I am the Conductor. What would you like to work on?');
     expect(response.content).not.toBe('No agents available to handle this request.');
+    // Only 1 send call (routing), not 2 (routing + response)
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 
   test('AI router resolveRoutingResult handles directResponse: true in parsed JSON', async () => {

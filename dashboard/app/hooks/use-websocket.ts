@@ -27,6 +27,7 @@ export interface ChatMessage {
   timestamp: number;
   streaming?: boolean;
   pipeline?: PipelinePhase[];
+  isProcessing?: boolean;
 }
 
 interface UseWebSocketOptions {
@@ -118,10 +119,10 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
             break;
           }
           case 'complete': {
+            const finalPipeline =
+              pipelineRef.current.length > 0 ? pipelineRef.current.slice() : undefined;
             if (accumulatorRef.current) {
               const acc = accumulatorRef.current;
-              const finalPipeline =
-                pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === acc.id
@@ -130,7 +131,18 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
                 ),
               );
               accumulatorRef.current = null;
+            } else if (processingIdRef.current) {
+              // No chunks received — clear stale processing indicator
+              const procId = processingIdRef.current;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === procId
+                    ? { ...m, isProcessing: false, pipeline: finalPipeline ?? m.pipeline }
+                    : m,
+                ),
+              );
             }
+            processingIdRef.current = null;
             pipelineRef.current = [];
             break;
           }
@@ -164,7 +176,8 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
               durationMs: parsed.debug?.durationMs,
               debug: parsed.debug,
             };
-            pipelineRef.current = [...pipelineRef.current, phase];
+            pipelineRef.current.push(phase);
+            const currentPipeline = pipelineRef.current.slice();
 
             // Show/update a processing indicator while conductor works
             if (!processingIdRef.current) {
@@ -178,12 +191,18 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
                   content: parsed.message,
                   agentName: parsed.agentName,
                   timestamp: Date.now(),
+                  pipeline: currentPipeline,
+                  isProcessing: true,
                 },
               ]);
             } else {
               const procId = processingIdRef.current;
               setMessages((prev) =>
-                prev.map((m) => (m.id === procId ? { ...m, content: parsed.message } : m)),
+                prev.map((m) =>
+                  m.id === procId
+                    ? { ...m, content: parsed.message, pipeline: currentPipeline }
+                    : m,
+                ),
               );
             }
             break;

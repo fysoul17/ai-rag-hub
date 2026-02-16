@@ -87,6 +87,7 @@ interface AIRoutingParsed {
   agentIds?: string[];
   createAgent?: { name: string; role: string; systemPrompt: string };
   directResponse?: boolean;
+  response?: string;
   reason?: string;
 }
 
@@ -129,11 +130,18 @@ function resolveRoutingResult(
 
   // Handle directResponse — conductor responds directly
   if (parsed.directResponse === true) {
-    return { agentIds: [], directResponse: true, reason };
+    const MAX_RESPONSE_LENGTH = 10_000;
+    const raw = typeof parsed.response === 'string' ? parsed.response.trim() : '';
+    const response = raw.length > 0 ? raw.slice(0, MAX_RESPONSE_LENGTH) : undefined;
+    return { agentIds: [], directResponse: true, response, reason };
   }
 
   return null;
 }
+
+/** Patterns that indicate a simple conversational message (no specialist needed). */
+const CONVERSATIONAL_PATTERNS =
+  /^\s*(hi|hello|hey|howdy|sup|yo|thanks|thank you|thx|ok|okay|bye|goodbye|good morning|good evening|good night|gm|gn|what's up|whats up|how are you|who are you|what are you|help)\s*[!?.]*\s*$/i;
 
 /**
  * Creates an AI-powered router that uses a BackendProcess (e.g. claude -p)
@@ -148,6 +156,19 @@ export function createAIRouter(backendProcess: BackendProcess): RouterFn {
     // Fast path: if message targets a specific agent, use keyword router
     if (message.targetAgentId) {
       return defaultRouter(message, agents, memoryContext);
+    }
+
+    // Fast path: simple conversational messages with no agents → skip AI routing
+    if (
+      agents.length === 0 &&
+      message.content.length <= 50 &&
+      CONVERSATIONAL_PATTERNS.test(message.content)
+    ) {
+      return {
+        agentIds: [],
+        directResponse: true,
+        reason: 'Fast path: conversational message, no agents available',
+      };
     }
 
     // Build prompt and call AI

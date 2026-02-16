@@ -1,6 +1,8 @@
 import { Bot, Cpu, User } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/use-websocket';
+import { LivePipelineCard } from './live-pipeline-card';
 import { PipelineSummaryBar } from './pipeline-summary-bar';
+import { ProcessingIndicator } from './processing-indicator';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -37,6 +39,17 @@ function getMessageStyles(isUser: boolean, isConductor: boolean) {
 
 export function ChatMessageBubble({ message, debugMode }: ChatMessageBubbleProps) {
   if (message.role === 'system') {
+    // Debug mode: show real-time pipeline card with full data
+    if (debugMode && message.pipeline && message.pipeline.length > 0) {
+      return <LivePipelineCard phases={message.pipeline} isProcessing={message.isProcessing} />;
+    }
+
+    // Non-debug mode: show clean processing indicator
+    if (message.isProcessing) {
+      return <ProcessingIndicator />;
+    }
+
+    // Fallback: simple system message
     return (
       <div className="flex justify-center py-1">
         {/* biome-ignore lint/a11y/useSemanticElements: status messages are not form outputs */}
