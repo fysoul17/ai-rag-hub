@@ -49,6 +49,10 @@ export const ConductorEventType = {
   CREATING_AGENT: 'creating_agent',
   AGENT_CREATED: 'agent_created',
   DELEGATING: 'delegating',
+  MEMORY_SEARCH: 'memory_search',
+  ROUTING_COMPLETE: 'routing_complete',
+  MEMORY_STORE: 'memory_store',
+  DELEGATION_COMPLETE: 'delegation_complete',
 } as const;
 export type ConductorEventType = (typeof ConductorEventType)[keyof typeof ConductorEventType];
 
@@ -58,6 +62,10 @@ export interface ConductorEvent {
   agentName?: string;
   content?: string;
   metadata?: Record<string, unknown>;
+  durationMs?: number;
+  memoryResults?: number;
+  routerType?: 'ai' | 'keyword';
+  decisions?: ConductorDecision[];
 }
 
 export type OnConductorEvent = (event: ConductorEvent) => void;

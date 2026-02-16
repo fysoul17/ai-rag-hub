@@ -39,3 +39,12 @@ export interface ConductorDecision {
   targetAgentId?: AgentId;
   reason: string;
 }
+
+export interface ConductorDebugPayload {
+  durationMs?: number;
+  memoryResults?: number;
+  routerType?: 'ai' | 'keyword';
+  routingReason?: string;
+  targetAgentIds?: string[];
+  decisions?: ConductorDecision[];
+}

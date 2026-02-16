@@ -1,7 +1,13 @@
 import { Bot, Cpu, User } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/use-websocket';
+import { PipelineSummaryBar } from './pipeline-summary-bar';
 
-export function ChatMessageBubble({ message }: { message: ChatMessage }) {
+interface ChatMessageBubbleProps {
+  message: ChatMessage;
+  debugMode?: boolean;
+}
+
+export function ChatMessageBubble({ message, debugMode }: ChatMessageBubbleProps) {
   if (message.role === 'system') {
     return (
       <div className="flex justify-center py-1">
@@ -47,6 +53,10 @@ export function ChatMessageBubble({ message }: { message: ChatMessage }) {
             <span className="inline-block h-4 w-1 animate-pulse bg-primary ml-0.5" />
           )}
         </div>
+        {/* Debug pipeline bar */}
+        {debugMode && !isUser && message.pipeline && message.pipeline.length > 0 && (
+          <PipelineSummaryBar phases={message.pipeline} />
+        )}
       </div>
     </div>
   );

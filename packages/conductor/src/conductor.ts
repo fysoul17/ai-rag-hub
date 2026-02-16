@@ -100,22 +100,42 @@ export class Conductor {
     const decisions: ConductorDecision[] = [];
 
     // 1. Search memory for context (non-fatal)
+    const memorySearchStart = performance.now();
     const memoryContext = await this.searchMemoryContext(message);
+    const memorySearchDuration = Math.round(performance.now() - memorySearchStart);
+    onEvent?.({
+      type: ConductorEventType.MEMORY_SEARCH,
+      content: memoryContext
+        ? `Found ${memoryContext.entries.length} memory entries`
+        : 'No memory results',
+      durationMs: memorySearchDuration,
+      memoryResults: memoryContext?.entries.length ?? 0,
+    });
 
     // 2. Route via RouterManager
     onEvent?.({ type: ConductorEventType.ROUTING, content: 'Analyzing request...' });
+    const routingStart = performance.now();
     const agents = this.pool.list();
     const routingResult = await this.routerManager.route(message, agents, memoryContext);
+    const routingDuration = Math.round(performance.now() - routingStart);
 
+    const routerType = this.backendProcess ? 'ai' : 'keyword';
     decisions.push({
       timestamp: new Date().toISOString(),
-      action: this.backendProcess ? 'ai_route' : 'route',
+      action: routerType === 'ai' ? 'ai_route' : 'route',
       reason: routingResult.reason,
     });
 
     onEvent?.({ type: ConductorEventType.ROUTING, content: routingResult.reason });
+    onEvent?.({
+      type: ConductorEventType.ROUTING_COMPLETE,
+      content: routingResult.reason,
+      durationMs: routingDuration,
+      routerType,
+    });
 
     // 3. Dispatch to appropriate handler
+    const dispatchStart = performance.now();
     const responseContent = await this.dispatch(
       routingResult,
       message,
@@ -123,9 +143,23 @@ export class Conductor {
       decisions,
       onEvent,
     );
+    const dispatchDuration = Math.round(performance.now() - dispatchStart);
+    onEvent?.({
+      type: ConductorEventType.DELEGATION_COMPLETE,
+      content: 'Delegation complete',
+      durationMs: dispatchDuration,
+      decisions,
+    });
 
     // 4. Store conversation in memory (non-fatal)
+    const storeStart = performance.now();
     await this.storeConversation(message, decisions);
+    const storeDuration = Math.round(performance.now() - storeStart);
+    onEvent?.({
+      type: ConductorEventType.MEMORY_STORE,
+      content: 'Conversation stored',
+      durationMs: storeDuration,
+    });
 
     this.activityLog.record(
       ActivityType.MESSAGE,

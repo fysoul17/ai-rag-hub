@@ -1,9 +1,22 @@
 'use client';
 
-import type { AgentRuntimeInfo, WSClientMessage, WSServerMessage } from '@autonomy/shared';
+import type {
+  AgentRuntimeInfo,
+  ConductorDebugPayload,
+  WSClientMessage,
+  WSServerMessage,
+} from '@autonomy/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+
+export interface PipelinePhase {
+  phase: string;
+  message: string;
+  timestamp: number;
+  durationMs?: number;
+  debug?: ConductorDebugPayload;
+}
 
 export interface ChatMessage {
   id: string;
@@ -13,6 +26,7 @@ export interface ChatMessage {
   agentName?: string;
   timestamp: number;
   streaming?: boolean;
+  pipeline?: PipelinePhase[];
 }
 
 interface UseWebSocketOptions {
@@ -28,6 +42,8 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
   const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryCountRef = useRef(0);
   const accumulatorRef = useRef<{ content: string; agentId: string; id: string } | null>(null);
+  const pipelineRef = useRef<PipelinePhase[]>([]);
+  const processingIdRef = useRef<string | null>(null);
   const onAgentStatusRef = useRef(onAgentStatus);
   onAgentStatusRef.current = onAgentStatus;
 
@@ -72,17 +88,26 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
             if (!accumulatorRef.current) {
               const id = `msg-${Date.now()}`;
               accumulatorRef.current = { content: parsed.content, agentId: parsed.agentId, id };
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id,
-                  role: 'assistant',
-                  content: parsed.content,
-                  agentId: parsed.agentId,
-                  timestamp: Date.now(),
-                  streaming: true,
-                },
-              ]);
+              const pipeline =
+                pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
+              const procId = processingIdRef.current;
+              processingIdRef.current = null;
+              setMessages((prev) => {
+                // Remove processing indicator, add assistant message
+                const filtered = procId ? prev.filter((m) => m.id !== procId) : prev;
+                return [
+                  ...filtered,
+                  {
+                    id,
+                    role: 'assistant',
+                    content: parsed.content,
+                    agentId: parsed.agentId,
+                    timestamp: Date.now(),
+                    streaming: true,
+                    pipeline,
+                  },
+                ];
+              });
             } else {
               accumulatorRef.current.content += parsed.content;
               const acc = accumulatorRef.current;
@@ -95,37 +120,72 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
           case 'complete': {
             if (accumulatorRef.current) {
               const acc = accumulatorRef.current;
+              const finalPipeline =
+                pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
               setMessages((prev) =>
-                prev.map((m) => (m.id === acc.id ? { ...m, streaming: false } : m)),
+                prev.map((m) =>
+                  m.id === acc.id
+                    ? { ...m, streaming: false, pipeline: finalPipeline ?? m.pipeline }
+                    : m,
+                ),
               );
               accumulatorRef.current = null;
             }
+            pipelineRef.current = [];
             break;
           }
           case 'error': {
             accumulatorRef.current = null;
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `err-${Date.now()}`,
-                role: 'assistant',
-                content: `Error: ${parsed.message}`,
-                timestamp: Date.now(),
-              },
-            ]);
+            const errorPipeline =
+              pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
+            pipelineRef.current = [];
+            const procId = processingIdRef.current;
+            processingIdRef.current = null;
+            setMessages((prev) => {
+              const filtered = procId ? prev.filter((m) => m.id !== procId) : prev;
+              return [
+                ...filtered,
+                {
+                  id: `err-${Date.now()}`,
+                  role: 'assistant',
+                  content: `Error: ${parsed.message}`,
+                  timestamp: Date.now(),
+                  pipeline: errorPipeline,
+                },
+              ];
+            });
             break;
           }
           case 'conductor_status': {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `status-${Date.now()}`,
-                role: 'system',
-                content: parsed.message,
-                agentName: parsed.agentName,
-                timestamp: Date.now(),
-              },
-            ]);
+            const phase: PipelinePhase = {
+              phase: parsed.phase,
+              message: parsed.message,
+              timestamp: Date.now(),
+              durationMs: parsed.debug?.durationMs,
+              debug: parsed.debug,
+            };
+            pipelineRef.current = [...pipelineRef.current, phase];
+
+            // Show/update a processing indicator while conductor works
+            if (!processingIdRef.current) {
+              const id = `processing-${Date.now()}`;
+              processingIdRef.current = id;
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id,
+                  role: 'system',
+                  content: parsed.message,
+                  agentName: parsed.agentName,
+                  timestamp: Date.now(),
+                },
+              ]);
+            } else {
+              const procId = processingIdRef.current;
+              setMessages((prev) =>
+                prev.map((m) => (m.id === procId ? { ...m, content: parsed.message } : m)),
+              );
+            }
             break;
           }
           case 'agent_status': {

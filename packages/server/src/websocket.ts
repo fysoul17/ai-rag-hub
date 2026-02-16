@@ -1,6 +1,7 @@
 import type { Conductor, ConductorEvent, IncomingMessage } from '@autonomy/conductor';
 import { ConductorEventType } from '@autonomy/conductor';
 import type {
+  ConductorDebugPayload,
   WSClientMessage,
   WSServerAgentStatus,
   WSServerChunk,
@@ -24,7 +25,39 @@ function sendWSError(ws: ServerWebSocket<WSData>, message: string): void {
   ws.send(JSON.stringify(err));
 }
 
-function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent): void {
+function buildDebugPayload(event: ConductorEvent): ConductorDebugPayload | undefined {
+  const debug: ConductorDebugPayload = {};
+  let hasData = false;
+
+  if (event.durationMs !== undefined) {
+    debug.durationMs = event.durationMs;
+    hasData = true;
+  }
+  if (event.memoryResults !== undefined) {
+    debug.memoryResults = event.memoryResults;
+    hasData = true;
+  }
+  if (event.routerType !== undefined) {
+    debug.routerType = event.routerType;
+    hasData = true;
+  }
+  if (event.content) {
+    debug.routingReason = event.content;
+    hasData = true;
+  }
+  if (event.decisions) {
+    debug.decisions = event.decisions;
+    hasData = true;
+  }
+
+  return hasData ? debug : undefined;
+}
+
+function sendConductorStatus(
+  ws: ServerWebSocket<WSData>,
+  event: ConductorEvent,
+  debugEnabled = false,
+): void {
   let phase: WSServerConductorStatus['phase'];
   let message: string;
 
@@ -47,6 +80,22 @@ function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent)
       phase = 'delegating';
       message = 'Delegating to agent...';
       break;
+    case ConductorEventType.MEMORY_SEARCH:
+      phase = 'memory_search';
+      message = event.content ?? 'Searching memory...';
+      break;
+    case ConductorEventType.ROUTING_COMPLETE:
+      phase = 'routing_complete';
+      message = event.content ?? 'Routing complete';
+      break;
+    case ConductorEventType.MEMORY_STORE:
+      phase = 'memory_store';
+      message = event.content ?? 'Storing conversation...';
+      break;
+    case ConductorEventType.DELEGATION_COMPLETE:
+      phase = 'delegation_complete';
+      message = event.content ?? 'Delegation complete';
+      break;
     default:
       return;
   }
@@ -56,6 +105,7 @@ function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent)
     phase,
     message,
     agentName: event.agentName,
+    debug: debugEnabled ? buildDebugPayload(event) : undefined,
   };
   ws.send(JSON.stringify(status));
 }
@@ -64,6 +114,7 @@ async function handleConductorMessage(
   ws: ServerWebSocket<WSData>,
   conductor: Conductor,
   parsed: WSClientMessage,
+  debugEnabled: boolean,
 ): Promise<void> {
   const incoming: IncomingMessage = {
     content: parsed.content ?? '',
@@ -73,7 +124,7 @@ async function handleConductorMessage(
   };
 
   try {
-    const onEvent = (event: ConductorEvent) => sendConductorStatus(ws, event);
+    const onEvent = (event: ConductorEvent) => sendConductorStatus(ws, event, debugEnabled);
     const response = await conductor.handleMessage(incoming, onEvent);
     const chunk: WSServerChunk = {
       type: WSServerMessageType.CHUNK,
@@ -93,6 +144,7 @@ function handleParsedMessage(
   ws: ServerWebSocket<WSData>,
   conductor: Conductor,
   parsed: WSClientMessage,
+  debugEnabled: boolean,
 ): Promise<void> | void {
   if (parsed.type === WSClientMessageType.PING) {
     const pong: WSServerPong = { type: WSServerMessageType.PONG };
@@ -101,13 +153,18 @@ function handleParsedMessage(
   }
 
   if (parsed.type === WSClientMessageType.MESSAGE) {
-    return handleConductorMessage(ws, conductor, parsed);
+    return handleConductorMessage(ws, conductor, parsed, debugEnabled);
   }
 
   sendWSError(ws, `Unknown message type: ${(parsed as { type?: string }).type}`);
 }
 
-export function createWebSocketHandler(conductor: Conductor) {
+export interface WebSocketHandlerOptions {
+  debugEnabled?: boolean;
+}
+
+export function createWebSocketHandler(conductor: Conductor, options?: WebSocketHandlerOptions) {
+  const debugEnabled = options?.debugEnabled ?? false;
   const clients = new Set<ServerWebSocket<WSData>>();
   let statusInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -172,7 +229,7 @@ export function createWebSocketHandler(conductor: Conductor) {
         return;
       }
 
-      await handleParsedMessage(ws, conductor, parsed);
+      await handleParsedMessage(ws, conductor, parsed, debugEnabled);
     },
 
     close(ws: ServerWebSocket<WSData>): void {

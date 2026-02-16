@@ -1,5 +1,6 @@
 import type { AgentRuntimeInfo } from './agent.ts';
 import type { AgentId } from './base.ts';
+import type { ConductorDebugPayload } from './conductor.ts';
 
 export const WSClientMessageType = {
   MESSAGE: 'message',
@@ -58,9 +59,17 @@ export interface WSServerA2AEvent {
 
 export interface WSServerConductorStatus {
   type: typeof WSServerMessageType.CONDUCTOR_STATUS;
-  phase: 'analyzing' | 'creating_agent' | 'delegating';
+  phase:
+    | 'analyzing'
+    | 'creating_agent'
+    | 'delegating'
+    | 'memory_search'
+    | 'routing_complete'
+    | 'memory_store'
+    | 'delegation_complete';
   message: string;
   agentName?: string;
+  debug?: ConductorDebugPayload;
 }
 
 export type WSServerMessage =

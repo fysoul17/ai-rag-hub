@@ -70,7 +70,10 @@ async function main() {
   console.log('[server] Conductor initialized');
 
   // Create WebSocket handler
-  const ws = createWebSocketHandler(conductor);
+  const env = typeof Bun !== 'undefined' ? Bun.env : process.env;
+  const debugEnabled = env.ENABLE_DEBUG_WS === 'true';
+  const ws = createWebSocketHandler(conductor, { debugEnabled });
+  if (debugEnabled) console.log('[server] WebSocket debug mode enabled');
 
   // Build HTTP router
   const router = new Router();
