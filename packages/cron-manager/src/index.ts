@@ -1,3 +1,7 @@
-// @autonomy/cron-manager — Autonomous scheduling with Bun.CronJob
-// Implemented in Step 7
-export {};
+export { CronManager, type CronManagerOptions } from './cron-manager.ts';
+export {
+  CronManagerError,
+  CronNotFoundError,
+  CronNotInitializedError,
+  CronScheduleError,
+} from './errors.ts';

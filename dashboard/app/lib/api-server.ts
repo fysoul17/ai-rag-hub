@@ -2,12 +2,11 @@ import type {
   ActivityEntry,
   AgentRuntimeInfo,
   ApiResponse,
-  ConductorPersonality,
   CreateAgentRequest,
+  CronEntry,
   HealthCheckResponse,
   MemorySearchResult,
   MemoryStats,
-  PendingQuestion,
   PlatformConfig,
 } from '@autonomy/shared';
 
@@ -76,13 +75,6 @@ export async function restartAgent(id: string): Promise<AgentRuntimeInfo> {
   });
 }
 
-export interface ConductorSettingsResponse {
-  personality?: ConductorPersonality;
-  conductorName: string;
-  sessionId?: string;
-  pendingQuestions: PendingQuestion[];
-}
-
-export async function getConductorSettings(): Promise<ConductorSettingsResponse> {
-  return fetchApi<ConductorSettingsResponse>('/api/conductor/settings');
+export async function getCrons(): Promise<CronEntry[]> {
+  return fetchApi<CronEntry[]>('/api/crons');
 }

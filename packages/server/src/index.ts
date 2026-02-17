@@ -2,6 +2,7 @@
 
 import { AgentPool, ClaudeBackend, DefaultBackendRegistry } from '@autonomy/agent-manager';
 import { Conductor } from '@autonomy/conductor';
+import { CronManager } from '@autonomy/cron-manager';
 import { Memory } from '@autonomy/memory';
 import { DebugEventCategory, DebugEventLevel } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
@@ -11,7 +12,6 @@ import { createDebugWebSocketHandler, type DebugWSData } from './debug-websocket
 import { Router } from './router.ts';
 import { createActivityRoute } from './routes/activity.ts';
 import { createAgentRoutes } from './routes/agents.ts';
-import { createConductorRoutes } from './routes/conductor.ts';
 import { createConfigRoutes } from './routes/config.ts';
 import { createCronRoutes } from './routes/crons.ts';
 import { createHealthRoute } from './routes/health.ts';
@@ -33,7 +33,6 @@ export {
 export { type RouteHandler, type RouteParams, Router } from './router.ts';
 export { createActivityRoute } from './routes/activity.ts';
 export { createAgentRoutes } from './routes/agents.ts';
-export { createConductorRoutes } from './routes/conductor.ts';
 export { createConfigRoutes } from './routes/config.ts';
 export { createCronRoutes } from './routes/crons.ts';
 export { createHealthRoute } from './routes/health.ts';
@@ -61,34 +60,6 @@ function hashToVector(text: string, dimensions: number): number[] {
     vector.push(Math.sin(hash));
   }
   return vector;
-}
-
-/**
- * Load or create a persistent conductor session ID.
- * Stored at {dataDir}/conductor-session.json so the conductor keeps the same
- * session across server restarts (enabling --resume in the AI backend).
- */
-function loadOrCreateConductorSessionId(dataDir: string): string {
-  const path = `${dataDir}/conductor-session.json`;
-  try {
-    // Synchronous check + read for startup simplicity
-    const text = require('node:fs').readFileSync(path, 'utf-8');
-    const data = JSON.parse(text) as { sessionId?: string };
-    if (data.sessionId && typeof data.sessionId === 'string') {
-      return data.sessionId;
-    }
-  } catch {
-    // File doesn't exist or is invalid — create new
-  }
-
-  const sessionId = crypto.randomUUID();
-  try {
-    require('node:fs').mkdirSync(dataDir, { recursive: true });
-    require('node:fs').writeFileSync(path, JSON.stringify({ sessionId }, null, 2));
-  } catch (err) {
-    console.warn(`[server] Could not persist conductor session ID: ${err}`);
-  }
-  return sessionId;
 }
 
 // --- Combined WS data type for Bun.serve ---
@@ -154,23 +125,26 @@ async function main() {
     }),
   );
 
-  // Initialize Conductor (with default backend for intelligent routing)
-  const conductorSessionId = loadOrCreateConductorSessionId(config.DATA_DIR);
+  // Initialize Conductor (with default backend for direct AI responses)
   const conductor = new Conductor(pool, memory, registry.getDefault(), {
-    sessionId: conductorSessionId,
     maxAgents: config.MAX_AGENTS,
     idleTimeoutMs: config.IDLE_TIMEOUT_MS,
   });
   await conductor.initialize();
-  console.log(`[server] Conductor initialized (session=${conductorSessionId.slice(0, 8)}...)`);
+  console.log('[server] Conductor initialized');
   debugBus.emit(
     makeDebugEvent({
       category: DebugEventCategory.CONDUCTOR,
       level: DebugEventLevel.INFO,
       source: 'conductor.init',
-      message: 'Conductor initialized with AI routing',
+      message: 'Conductor initialized',
     }),
   );
+
+  // Initialize CronManager
+  const cronManager = new CronManager(conductor, { dataDir: config.DATA_DIR });
+  await cronManager.initialize();
+  console.log('[server] CronManager initialized');
 
   // Create WebSocket handlers
   const ws = createWebSocketHandler(conductor, debugBus);
@@ -186,9 +160,8 @@ async function main() {
 
   const healthRoute = createHealthRoute(conductor, memory, startTime);
   const agentRoutes = createAgentRoutes(conductor, pool);
-  const conductorRoutes = createConductorRoutes(conductor);
   const memoryRoutes = createMemoryRoutes(memory);
-  const cronRoutes = createCronRoutes();
+  const cronRoutes = createCronRoutes(cronManager);
   const activityRoute = createActivityRoute(conductor);
   const configRoutes = createConfigRoutes(config);
 
@@ -208,11 +181,9 @@ async function main() {
   router.post('/api/crons', cronRoutes.create);
   router.put('/api/crons/:id', cronRoutes.update);
   router.delete('/api/crons/:id', cronRoutes.remove);
+  router.post('/api/crons/:id/trigger', cronRoutes.trigger);
 
   router.get('/api/activity', activityRoute);
-
-  router.get('/api/conductor/settings', conductorRoutes.getSettings);
-  router.put('/api/conductor/settings', conductorRoutes.updateSettings);
 
   router.get('/api/config', configRoutes.get);
   router.put('/api/config', configRoutes.update);
@@ -308,6 +279,7 @@ async function main() {
     );
     ws.shutdown();
     debugWs.shutdown();
+    await cronManager.shutdown();
     await conductor.shutdown();
     await pool.shutdown();
     await memory.shutdown();

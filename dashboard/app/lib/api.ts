@@ -2,14 +2,16 @@ import type {
   ActivityEntry,
   AgentRuntimeInfo,
   ApiResponse,
-  ConductorPersonality,
   CreateAgentRequest,
+  CreateCronRequest,
+  CronEntry,
+  CronExecutionLog,
   HealthCheckResponse,
   MemoryIngestRequest,
   MemorySearchResult,
   MemoryStats,
-  PendingQuestion,
   PlatformConfig,
+  UpdateCronRequest,
 } from '@autonomy/shared';
 
 const RUNTIME_URL =
@@ -87,25 +89,32 @@ export async function getConfig(): Promise<PlatformConfig> {
   return fetchApi<PlatformConfig>('/api/config');
 }
 
-export interface ConductorSettingsResponse {
-  personality?: ConductorPersonality;
-  conductorName: string;
-  sessionId?: string;
-  pendingQuestions: PendingQuestion[];
+export async function getCrons(): Promise<CronEntry[]> {
+  return fetchApi<CronEntry[]>('/api/crons');
 }
 
-export async function getConductorSettings(): Promise<ConductorSettingsResponse> {
-  return fetchApi<ConductorSettingsResponse>('/api/conductor/settings');
+export async function createCron(data: CreateCronRequest): Promise<CronEntry> {
+  return fetchApi<CronEntry>('/api/crons', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
-export async function updateConductorSettings(data: {
-  personality: ConductorPersonality;
-}): Promise<{ success: boolean; personality: ConductorPersonality }> {
-  return fetchApi<{ success: boolean; personality: ConductorPersonality }>(
-    '/api/conductor/settings',
-    {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    },
-  );
+export async function updateCron(id: string, data: UpdateCronRequest): Promise<CronEntry> {
+  return fetchApi<CronEntry>(`/api/crons/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCron(id: string): Promise<{ deleted: string }> {
+  return fetchApi<{ deleted: string }>(`/api/crons/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function triggerCron(id: string): Promise<CronExecutionLog> {
+  return fetchApi<CronExecutionLog>(`/api/crons/${id}/trigger`, {
+    method: 'POST',
+  });
 }

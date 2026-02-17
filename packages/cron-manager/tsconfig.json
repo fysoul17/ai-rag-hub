@@ -1,9 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
+      "@autonomy/conductor": ["../conductor/src/index.ts"],
+      "@autonomy/conductor/*": ["../conductor/src/*"],
       "@autonomy/shared": ["../shared/src/index.ts"],
       "@autonomy/shared/*": ["../shared/src/*"]
     }

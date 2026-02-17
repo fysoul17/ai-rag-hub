@@ -1,29 +1,252 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import type { CronManager } from '@autonomy/cron-manager';
+import type { CronEntry, CronExecutionLog, CronWorkflow } from '@autonomy/shared';
+import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createCronRoutes } from '../../src/routes/crons.ts';
 
-describe('Cron routes (stubs)', () => {
-  const routes = createCronRoutes();
+let idCounter = 0;
 
-  test('list returns 501', async () => {
-    const res = routes.list();
-    expect(res.status).toBe(501);
-    const body = await res.json();
-    expect(body.success).toBe(false);
-    expect(body.error).toContain('not implemented');
+class MockCronManager {
+  private crons: CronEntry[] = [];
+
+  list(): CronEntry[] {
+    return this.crons;
+  }
+
+  get(id: string): CronEntry | undefined {
+    return this.crons.find((c) => c.id === id);
+  }
+
+  async create(params: {
+    name: string;
+    schedule: string;
+    timezone?: string;
+    enabled?: boolean;
+    workflow: CronWorkflow;
+  }): Promise<CronEntry> {
+    idCounter++;
+    const entry: CronEntry = {
+      id: `cron-${idCounter}`,
+      name: params.name,
+      schedule: params.schedule,
+      timezone: params.timezone ?? 'UTC',
+      enabled: params.enabled ?? true,
+      workflow: params.workflow,
+      createdBy: 'api',
+      createdAt: new Date().toISOString(),
+    };
+    this.crons.push(entry);
+    return entry;
+  }
+
+  async update(
+    id: string,
+    params: {
+      name?: string;
+      schedule?: string;
+      timezone?: string;
+      enabled?: boolean;
+      workflow?: CronWorkflow;
+    },
+  ): Promise<CronEntry> {
+    const index = this.crons.findIndex((c) => c.id === id);
+    if (index === -1) throw new Error(`Cron "${id}" not found`);
+    const existing = this.crons[index] as CronEntry;
+    const updated = { ...existing, ...params };
+    this.crons[index] = updated;
+    return updated;
+  }
+
+  async remove(id: string): Promise<void> {
+    this.crons = this.crons.filter((c) => c.id !== id);
+  }
+
+  async trigger(id: string): Promise<CronExecutionLog> {
+    return {
+      cronId: id,
+      executedAt: new Date().toISOString(),
+      result: 'Mock execution result',
+      success: true,
+    };
+  }
+
+  addCron(overrides?: Partial<CronEntry>): CronEntry {
+    idCounter++;
+    const entry: CronEntry = {
+      id: `cron-${idCounter}`,
+      name: 'test-cron',
+      schedule: '0 * * * *',
+      timezone: 'UTC',
+      enabled: true,
+      workflow: { steps: [{ agentId: 'a1', task: 't1' }], output: 'last' },
+      createdBy: 'api',
+      createdAt: new Date().toISOString(),
+      ...overrides,
+    };
+    this.crons.push(entry);
+    return entry;
+  }
+}
+
+describe('Cron routes', () => {
+  let cronManager: MockCronManager;
+  let routes: ReturnType<typeof createCronRoutes>;
+
+  beforeEach(() => {
+    idCounter = 0;
+    cronManager = new MockCronManager();
+    routes = createCronRoutes(cronManager as unknown as CronManager);
   });
 
-  test('create returns 501', async () => {
-    const res = routes.create();
-    expect(res.status).toBe(501);
+  describe('GET /api/crons (list)', () => {
+    test('returns empty array when no crons', async () => {
+      const res = await routes.list();
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data).toEqual([]);
+    });
+
+    test('returns all crons', async () => {
+      cronManager.addCron({ name: 'c1' });
+      cronManager.addCron({ name: 'c2' });
+
+      const res = await routes.list();
+      const body = await res.json();
+      expect(body.data.length).toBe(2);
+    });
   });
 
-  test('update returns 501', async () => {
-    const res = routes.update();
-    expect(res.status).toBe(501);
+  describe('POST /api/crons (create)', () => {
+    test('creates a cron job', async () => {
+      const req = new Request('http://localhost/api/crons', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'daily-report',
+          schedule: '0 9 * * *',
+          timezone: 'America/New_York',
+          workflow: { steps: [{ agentId: 'agent-1', task: 'Generate report' }], output: 'last' },
+        }),
+      });
+
+      const res = await routes.create(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(body.success).toBe(true);
+      expect(body.data.name).toBe('daily-report');
+      expect(body.data.schedule).toBe('0 9 * * *');
+    });
+
+    test('throws BadRequestError when name is missing', async () => {
+      const req = new Request('http://localhost/api/crons', {
+        method: 'POST',
+        body: JSON.stringify({
+          schedule: '0 * * * *',
+          workflow: { steps: [{ agentId: 'a1', task: 't1' }], output: 'last' },
+        }),
+      });
+
+      await expect(routes.create(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when schedule is missing', async () => {
+      const req = new Request('http://localhost/api/crons', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'test',
+          workflow: { steps: [{ agentId: 'a1', task: 't1' }], output: 'last' },
+        }),
+      });
+
+      await expect(routes.create(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when workflow is missing', async () => {
+      const req = new Request('http://localhost/api/crons', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'test',
+          schedule: '0 * * * *',
+        }),
+      });
+
+      await expect(routes.create(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when workflow has no steps', async () => {
+      const req = new Request('http://localhost/api/crons', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'test',
+          schedule: '0 * * * *',
+          workflow: { steps: [], output: 'last' },
+        }),
+      });
+
+      await expect(routes.create(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
   });
 
-  test('remove returns 501', async () => {
-    const res = routes.remove();
-    expect(res.status).toBe(501);
+  describe('PUT /api/crons/:id (update)', () => {
+    test('updates existing cron', async () => {
+      const cron = cronManager.addCron({ name: 'original' });
+
+      const req = new Request(`http://localhost/api/crons/${cron.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'renamed' }),
+      });
+
+      const res = await routes.update(req, { id: cron.id });
+      const body = await res.json();
+
+      expect(body.success).toBe(true);
+      expect(body.data.name).toBe('renamed');
+    });
+
+    test('throws NotFoundError for non-existent cron', async () => {
+      const req = new Request('http://localhost/api/crons/nope', {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'x' }),
+      });
+
+      await expect(routes.update(req, { id: 'nope' })).rejects.toBeInstanceOf(NotFoundError);
+    });
+  });
+
+  describe('DELETE /api/crons/:id (remove)', () => {
+    test('deletes existing cron', async () => {
+      const cron = cronManager.addCron();
+
+      const req = new Request(`http://localhost/api/crons/${cron.id}`, { method: 'DELETE' });
+      const res = await routes.remove(req, { id: cron.id });
+      const body = await res.json();
+
+      expect(body.success).toBe(true);
+      expect(body.data.deleted).toBe(cron.id);
+    });
+
+    test('throws NotFoundError for non-existent cron', async () => {
+      const req = new Request('http://localhost/api/crons/nope', { method: 'DELETE' });
+      await expect(routes.remove(req, { id: 'nope' })).rejects.toBeInstanceOf(NotFoundError);
+    });
+  });
+
+  describe('POST /api/crons/:id/trigger', () => {
+    test('triggers existing cron', async () => {
+      const cron = cronManager.addCron();
+
+      const req = new Request(`http://localhost/api/crons/${cron.id}/trigger`, { method: 'POST' });
+      const res = await routes.trigger(req, { id: cron.id });
+      const body = await res.json();
+
+      expect(body.success).toBe(true);
+      expect(body.data.cronId).toBe(cron.id);
+      expect(body.data.success).toBe(true);
+    });
+
+    test('throws NotFoundError for non-existent cron', async () => {
+      const req = new Request('http://localhost/api/crons/nope/trigger', { method: 'POST' });
+      await expect(routes.trigger(req, { id: 'nope' })).rejects.toBeInstanceOf(NotFoundError);
+    });
   });
 });

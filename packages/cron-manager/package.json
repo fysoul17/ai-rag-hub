@@ -12,6 +12,8 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
-    "@autonomy/shared": "workspace:*"
+    "@autonomy/conductor": "workspace:*",
+    "@autonomy/shared": "workspace:*",
+    "croner": "^9.0.0"
   }
 }
