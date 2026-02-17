@@ -16,7 +16,10 @@
     "test": "turbo run test",
     "clean": "turbo run clean",
     "dev:runtime": "turbo run dev --filter=@autonomy/server",
-    "dev:dashboard": "turbo run dev --filter=@autonomy/dashboard"
+    "dev:dashboard": "turbo run dev --filter=@autonomy/dashboard",
+    "docker:up": "docker compose -f docker/docker-compose.yaml up --build",
+    "docker:down": "docker compose -f docker/docker-compose.yaml down",
+    "docker:build": "docker compose -f docker/docker-compose.yaml build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.0",

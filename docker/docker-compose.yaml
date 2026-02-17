@@ -1,0 +1,40 @@
+# docker-compose.yaml — Agent Runtime + Dashboard
+# Usage: docker compose -f docker/docker-compose.yaml up
+
+services:
+  runtime:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+    ports:
+      - "3001:3001"
+    volumes:
+      - agent-data:/data
+    environment:
+      - DATA_DIR=/data
+      - PORT=3001
+      - AI_BACKEND=${AI_BACKEND:-claude}
+      - IDLE_TIMEOUT_MS=${IDLE_TIMEOUT_MS:-300000}
+      - MAX_AGENTS=${MAX_AGENTS:-10}
+      - VECTOR_PROVIDER=${VECTOR_PROVIDER:-lancedb}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - MODE=standalone
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - RUNTIME_URL=http://runtime:3001
+      - NODE_ENV=production
+    depends_on:
+      runtime:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  agent-data:
+    driver: local

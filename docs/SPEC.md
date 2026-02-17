@@ -456,8 +456,8 @@ Implement in this sequence.
 | 5    | server            | REST API, WebSocket, Bun.serve entry                           | ✅ Done      |
 | 6    | dashboard         | Next.js 16.1, agent management, chat, debug console            | ✅ Done      |
 | 7    | backends          | BackendRegistry, per-agent backend selection, session support   | ✅ Done      |
-| 8    | cron-manager      | CronManager class, workflow executor, server routes, dashboard UI | ⬜ Not started |
-| 9    | docker            | Dockerfile.runtime, Dockerfile.dashboard, docker-compose       | ⬜ Not started |
+| 8    | cron-manager      | CronManager class, workflow executor, server routes, dashboard UI | ✅ Done      |
+| 9    | docker            | Dockerfile.runtime, Dockerfile.dashboard, docker-compose       | ✅ Done      |
 | 10   | memory (advanced) | Graph RAG, Agentic RAG, file ingest (PDF/CSV/TXT), memory browser UI | ⬜ Not started |
 | 11   | control-plane     | Container orchestration, Auth, Billing, Portal                 | ⬜ Optional  |
 
@@ -466,6 +466,4 @@ Implement in this sequence.
 These items exist as stubs and will be completed with their parent steps:
 
 - `PUT /api/config` — returns 501 (implement with Step 9 or standalone)
-- `POST /api/crons/:id/trigger` — spec'd but not wired (implement with Step 8)
 - Dashboard Memory page — stub placeholder (implement with Step 10)
-- Dashboard Automation page — stub placeholder (implement with Step 8)
