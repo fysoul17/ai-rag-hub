@@ -76,18 +76,11 @@ function buildDebugPayload(event: ConductorEvent): ConductorDebugPayload | undef
 function conductorEventToDebug(event: ConductorEvent): DebugEvent {
   const phaseMap: Record<string, string> = {
     [ConductorEventType.QUEUED]: 'Message queued',
-    [ConductorEventType.ROUTING]: 'Analyzing request',
-    [ConductorEventType.CREATING_AGENT]: 'Creating agent',
-    [ConductorEventType.AGENT_CREATED]: 'Agent created',
     [ConductorEventType.DELEGATING]: 'Delegating to agent',
     [ConductorEventType.MEMORY_SEARCH]: 'Searching memory',
-    [ConductorEventType.ROUTING_COMPLETE]: 'Routing complete',
     [ConductorEventType.MEMORY_STORE]: 'Storing conversation',
     [ConductorEventType.DELEGATION_COMPLETE]: 'Delegation complete',
     [ConductorEventType.RESPONDING]: 'Conductor responding',
-    [ConductorEventType.QUESTION_ASKED]: 'Agent asked a question',
-    [ConductorEventType.QUESTION_ANSWERED]: 'Question answered',
-    [ConductorEventType.QUESTION_EXPIRED]: 'Question expired',
   };
 
   return makeDebugEvent({
@@ -117,20 +110,6 @@ function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent)
       phase = 'queued';
       message = event.content ?? 'Message queued...';
       break;
-    case ConductorEventType.ROUTING:
-      phase = 'analyzing';
-      message = event.content ?? 'Analyzing your request...';
-      break;
-    case ConductorEventType.CREATING_AGENT:
-      phase = 'creating_agent';
-      message = event.agentName
-        ? `Creating specialist agent "${event.agentName}"...`
-        : 'Creating a new agent...';
-      break;
-    case ConductorEventType.AGENT_CREATED:
-      phase = 'creating_agent';
-      message = event.agentName ? `Agent "${event.agentName}" created` : 'Agent created';
-      break;
     case ConductorEventType.DELEGATING:
       phase = 'delegating';
       message = 'Delegating to agent...';
@@ -138,10 +117,6 @@ function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent)
     case ConductorEventType.MEMORY_SEARCH:
       phase = 'memory_search';
       message = event.content ?? 'Searching memory...';
-      break;
-    case ConductorEventType.ROUTING_COMPLETE:
-      phase = 'routing_complete';
-      message = event.content ?? 'Routing complete';
       break;
     case ConductorEventType.MEMORY_STORE:
       phase = 'memory_store';
@@ -154,13 +129,6 @@ function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent)
     case ConductorEventType.RESPONDING:
       phase = 'responding';
       message = event.content ?? 'Conductor is responding...';
-      break;
-    case ConductorEventType.QUESTION_ASKED:
-    case ConductorEventType.QUESTION_ANSWERED:
-    case ConductorEventType.QUESTION_EXPIRED:
-      // Question events are informational — emit as routing_complete phase
-      phase = 'routing_complete';
-      message = event.content ?? `Question ${event.type.replace('question_', '')}`;
       break;
     default:
       return;

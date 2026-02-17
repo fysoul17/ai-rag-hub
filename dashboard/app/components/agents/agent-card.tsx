@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatRelativeTime } from '@/lib/format';
 import { AgentCardActions } from './agent-card-actions';
 import { BackendBadge } from './backend-badge';
-import { LifecycleBadge } from './lifecycle-badge';
 import { OwnerBadge } from './owner-badge';
 import { StatusBadge } from './status-badge';
 
@@ -31,7 +30,6 @@ export function AgentCard({ agent }: { agent: AgentRuntimeInfo }) {
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={agent.status} />
           <OwnerBadge owner={agent.owner} />
-          <LifecycleBadge lifecycle={agent.lifecycle} persistent={agent.persistent} />
           <BackendBadge backend={agent.backend} />
         </div>
         <div className="flex items-center justify-between text-[10px] text-muted-foreground">

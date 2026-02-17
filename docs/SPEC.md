@@ -1,4 +1,4 @@
-# Autonomous AI Agent Runtime — Final Spec
+# Autonomous AI Agent Runtime — Template Spec
 
 > Single source of truth. Everything needed to implement this template.
 
@@ -6,13 +6,14 @@
 
 ## 1. What This Is
 
-A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, etc.) into a **24/7 autonomous multi-agent system** with persistent memory, accessible remotely via messaging channels (Telegram, Discord, Slack) and a built-in Dashboard UI.
+A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, etc.) into an **autonomous agent system** with persistent memory, accessible via a built-in Dashboard UI.
 
 **This is NOT a product.** It's the foundation. Products fork this and add:
 
 - Agent definitions (roles, prompts)
 - Domain-specific data (ingest into memory)
-- Custom orchestration logic
+- Custom conductor logic (routing, permissions, personality)
+- Channel adapters (Telegram, Discord, Slack)
 - Branding / additional UI
 
 **Template = Game Engine. Product = Game built on the engine.**
@@ -24,11 +25,9 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
           │             │             │
           ▼             ▼             ▼
     ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │   Pyx    │  │  제조업   │  │  출판사   │
-    │          │  │ Company  │  │ Publisher │
-    │ OaaS/   │  │          │  │          │
-    │ CaaS    │  │ AI 품질팀│  │ AI 작가팀│
-    │ product │  │          │  │          │
+    │  Your    │  │  Your    │  │  Your    │
+    │  OaaS   │  │  QA Team │  │  Content │
+    │ Product  │  │ Product  │  │ Product  │
     └──────────┘  └──────────┘  └──────────┘
 
     fork해서       fork해서       fork해서
@@ -37,26 +36,18 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
     감정분석 추가  리포트 자동화  원고 파이프라인
 ```
 
-**Use cases enabled by this template:**
-
-- **OaaS** (Organization as a Service) — AI agent teams that collaborate
-- **CaaS** (Companion as a Service) — Personalized AI companions
-- **Domain-specific agent workforce** — manufacturing QA, publishing, research, etc.
-
 **What this template solves:**
 
-> "claude -p는 강력하지만, 세션이 끝나면 모든 게 사라지고, 24시간 돌릴 수 없고, 여러 agent를 조율할 수 없고, 일반인이 쓸 수 없다"
+> "claude -p는 강력하지만, 세션이 끝나면 모든 게 사라지고, 24시간 돌릴 수 없고, 여러 agent를 관리할 수 없고, 일반인이 쓸 수 없다"
 
 1. **Memory** — 세션이 끝나도 기억 유지
-2. **Docker + Channel** — 24시간 가동 + 원격 접근
-3. **Agent Manager + Conductor** — Multi-agent 협업
+2. **Docker** — 24시간 가동
+3. **Agent Manager** — Multi-agent 관리
 4. **Dashboard** — Non-dev도 사용 가능
 
 ---
 
 ## 2. Architecture
-
-### 2.1 Runtime Container (핵심)
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -65,59 +56,47 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │  Bun.serve (HTTP Server)                                   │  │
 │  │                                                            │  │
-│  │  /api/*        → REST API (agent CRUD, cron, config)       │  │
+│  │  /api/*        → REST API (agent CRUD, memory, config)     │  │
 │  │  /ws/chat      → WebSocket (real-time streaming)           │  │
-│  │  /webhook/*    → Channel webhooks (Telegram/Discord/Slack) │  │
 │  │  /health       → Health check                              │  │
 │  └────────────┬───────────────────────────────────────────────┘  │
 │               │                                                   │
 │               ▼                                                   │
 │  ┌─────────────────────┐                                         │
-│  │     CONDUCTOR        │  System-level AI. Cannot be deleted.    │
-│  │     (Mother AI)      │  Receives all messages first.           │
-│  │                      │  Routes, delegates, synthesizes.        │
-│  │  Can create/modify/  │  Has full memory access.                │
-│  │  delete agents       │                                         │
+│  │     CONDUCTOR        │  Simple AI agent with memory.           │
+│  │                      │  Responds to messages via AI backend.   │
+│  │  Searches memory     │  Delegates if targetAgentId specified.  │
+│  │  for context before  │  Can create/delete agents.              │
+│  │  responding.         │                                         │
 │  └──────┬───────────────┘                                         │
 │         │                                                         │
 │    ┌────┴─────┬──────────┬──────────┐                            │
 │    ▼          ▼          ▼          ▼                             │
 │ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────────────┐                     │
-│ │Agent │ │Agent │ │Agent │ │Agent (temp   │                     │
-│ │  A   │ │  B   │ │  C   │ │or permanent) │                     │
-│ │(user)│ │(user)│ │(cond)│ │(conductor-   │                     │
-│ │      │ │      │ │      │ │ created)     │                     │
-│ └──┬───┘ └──────┘ └──────┘ └──────────────┘                     │
-│    │         ▲                                                    │
-│    └── A2A ──┘  (direct if CLI supports, else Conductor relays)  │
+│ │Agent │ │Agent │ │Agent │ │Agent (any    │                     │
+│ │  A   │ │  B   │ │  C   │ │backend)      │                     │
+│ └──────┘ └──────┘ └──────┘ └──────────────┘                     │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐    │
 │  │  MEMORY SYSTEM                                           │    │
 │  │                                                          │    │
 │  │  bun:sqlite     → structured data (sessions, config,     │    │
-│  │                    graph edges, agent registry)           │    │
+│  │                    agent registry)                        │    │
 │  │                                                          │    │
 │  │  LanceDB        → vector embeddings (default provider)   │    │
-│  │  (or Qdrant)      semantic search, RAG                   │    │
+│  │                    semantic search, RAG                   │    │
 │  │                                                          │    │
-│  │  RAG Strategies:                                         │    │
-│  │  ├── Naive RAG    (query → retrieve → respond)           │    │
-│  │  ├── Graph RAG    (entity graph + vector search)         │    │
-│  │  └── Agentic RAG  (query → retrieve → reason → retrieve)│    │
+│  │  RAG Strategy:                                           │    │
+│  │  └── Naive RAG    (query → retrieve → respond)           │    │
 │  │                                                          │    │
 │  │  Memory Types:                                           │    │
 │  │  ├── Short-term   (conversation/session state)           │    │
 │  │  └── Long-term    (persistent across sessions)           │    │
 │  └──────────────────────────────────────────────────────────┘    │
 │                                                                   │
-│  ┌──────────────┐  ┌──────────────┐                              │
-│  │ Cron Manager  │  │ Channel      │                              │
-│  │               │  │ Adapter      │                              │
-│  │ Bun.CronJob   │  │              │                              │
-│  │ Self-modifying│  │ Telegram     │                              │
-│  │ (agents can   │  │ Discord      │                              │
-│  │  edit crons)  │  │ Slack        │                              │
-│  └──────────────┘  └──────────────┘                              │
+│  ┌──────────────┐                                                │
+│  │ Cron Manager  │  Bun.CronJob, scheduled tasks (planned)      │
+│  └──────────────┘                                                │
 │                                                                   │
 │  /data volume (persistent)                                       │
 │  ├── agents/          # agent definitions + registry             │
@@ -127,91 +106,50 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
 │  └── config.json      # runtime config                           │
 └──────────────────────────────────────────────────────────────────┘
 
-Dashboard (Next.js 15, separate service in docker-compose)
+Dashboard (Next.js 16.1, separate service in docker-compose)
   └── Connects to Runtime API at http://runtime:3001
 ```
 
-### 2.2 Deployment Modes
+### Deployment Modes
 
 ```
 SELF-HOSTED (docker-compose up)
 ──────────────────────────────────────────────────────
-
   ┌──────────────────────────────────────────────────┐
   │  docker-compose                                   │
   │                                                   │
   │  ┌─────────────────┐  ┌───────────────────────┐  │
   │  │  runtime:3001   │  │  dashboard:3000       │  │
   │  │                  │  │                       │  │
-  │  │  Agent Manager   │  │  Next.js 15           │  │
+  │  │  Agent Manager   │  │  Next.js 16.1         │  │
   │  │  Conductor       │←─│  (standalone output)  │  │
   │  │  Memory System   │  │                       │  │
   │  │  Cron Manager    │  │  connects to          │  │
-  │  │  Channel Adapter │  │  http://runtime:3001  │  │
-  │  │                  │  │                       │  │
+  │  │                  │  │  http://runtime:3001  │  │
   │  │  /data volume    │  │                       │  │
   │  └─────────────────┘  └───────────────────────┘  │
   │                                                   │
   │  Auth: basic auth or none (local network)         │
   │  DB: bun:sqlite + LanceDB (embedded, zero config) │
   └──────────────────────────────────────────────────┘
-
-
-CLOUD MODE (managed service, like n8n Cloud)
-──────────────────────────────────────────────────────
-
-  ┌──────────────────────────────────────────────────┐
-  │  CONTROL PLANE (shared)                           │
-  │                                                   │
-  │  ┌──────────┐  ┌───────────┐  ┌──────────┐      │
-  │  │  Auth    │  │ Container │  │ Billing  │      │
-  │  │(Supabase)│  │ Orch.     │  │ (Stripe) │      │
-  │  └──────────┘  └─────┬─────┘  └──────────┘      │
-  │                       │                           │
-  │  ┌────────────────────┼────────────────────┐     │
-  │  │  Portal Website    │  (Next.js)         │     │
-  │  │  - Landing page    │                    │     │
-  │  │  - Auth pages      │                    │     │
-  │  │  - Onboarding      │                    │     │
-  │  │  - Billing/Plans   │                    │     │
-  │  └────────────────────┼────────────────────┘     │
-  └───────────────────────┼──────────────────────────┘
-                          │
-            Reverse Proxy │ (user-id.domain.com → container)
-        ┌─────────────────┼─────────────────┐
-        ▼                 ▼                 ▼
-  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-  │ User Container│ │ User Container│ │ User Container│
-  │ (SAME IMAGE  │ │ (SAME IMAGE  │ │ (SAME IMAGE  │
-  │  as self-    │ │  as self-    │ │  as self-    │
-  │  hosted!)    │ │  hosted!)    │ │  hosted!)    │
-  └──────────────┘ └──────────────┘ └──────────────┘
-
-  Auth: Supabase (JWT from Control Plane)
-  DB: Supabase PostgreSQL (shared)
-
-  Key insight: Same Docker image in both modes.
-  Environment variable MODE=standalone vs MODE=managed
 ```
 
 ---
 
 ## 3. Tech Stack
 
-| Layer                | Technology                                         | Why                                      |
-| -------------------- | -------------------------------------------------- | ---------------------------------------- |
-| Runtime              | Bun (latest)                                       | Fast, native TypeScript, built-in SQLite |
-| Language             | TypeScript 5+                                      | Type safety                              |
-| Monorepo             | Bun workspaces + Turborepo                         | Build orchestration                      |
-| AI Backend           | claude -p (default)                                | Pluggable: codex, gemini, etc.           |
-| Vector DB            | LanceDB (embedded)                                 | 4MB idle, fast ANN, native TS SDK        |
-| Vector DB (optional) | Qdrant                                             | For large-scale production               |
-| Structured DB        | bun:sqlite                                         | Embedded, zero config                    |
-| Dashboard            | Next.js latest (App Router) + Tailwind + shadcn/ui | RSC, standalone output                   |
-| Container            | Docker + docker-compose                            | One-click deploy                         |
-| Channels             | grammY, discord.js, @slack/bolt                    | Telegram, Discord, Slack                 |
-| Cloud (optional)     | Fly.io Machines API, Railway, AWS, GCP             | Container orchestration                  |
-| Auth (optional)      | Supabase Auth                                      | Cloud mode only                          |
+| Layer            | Technology                                         | Why                                      |
+| ---------------- | -------------------------------------------------- | ---------------------------------------- |
+| Runtime          | Bun (latest)                                       | Fast, native TypeScript, built-in SQLite |
+| Language         | TypeScript 5+                                      | Type safety                              |
+| Monorepo         | Bun workspaces + Turborepo                         | Build orchestration                      |
+| AI Backend       | claude -p (default)                                | Pluggable: codex, gemini, goose          |
+| Vector DB        | LanceDB (embedded)                                 | 4MB idle, fast ANN, native TS SDK        |
+| Structured DB    | bun:sqlite                                         | Embedded, zero config                    |
+| Dashboard        | Next.js latest (App Router) + Tailwind + shadcn/ui | RSC, standalone output                   |
+| Container        | Docker + docker-compose                            | One-click deploy                         |
+| Linter           | Biome 2.3+                                         | Fast, unified linter + formatter         |
+| Tests            | bun:test                                           | Built-in, fast                           |
 
 ---
 
@@ -221,37 +159,26 @@ CLOUD MODE (managed service, like n8n Cloud)
 template/
 │
 ├── packages/
-│   ├── server/                  # Bun.serve — API, WebSocket, Webhooks
-│   ├── conductor/               # Mother AI — system-level orchestrator
-│   ├── agent-manager/           # CLI AI process lifecycle + A2A
+│   ├── server/                  # Bun.serve — API, WebSocket
+│   ├── conductor/               # Simple AI agent with memory
+│   ├── agent-manager/           # CLI AI process lifecycle
 │   │   └── backends/            # Pluggable CLI backends (claude, codex, etc.)
 │   ├── memory/                  # Persistent memory system
-│   │   ├── rag/                 # Naive, Graph, Agentic RAG strategies
-│   │   └── providers/           # LanceDB (default), Qdrant (optional)
-│   ├── cron-manager/            # Autonomous scheduling
+│   │   ├── rag/                 # Naive RAG strategy
+│   │   └── providers/           # LanceDB (default)
+│   ├── cron-manager/            # Autonomous scheduling (stub)
 │   └── shared/                  # Types, utils, constants
 │
-├── dashboard/                   # Next.js 15 (built-in UI)
+├── dashboard/                   # Next.js 16.1 (built-in UI)
 │   └── app/
-│       ├── agents/              # RPG-style agent creation/management
-│       ├── memory/              # Memory browser + ingest
+│       ├── (dashboard)/         # Home, Agents, Memory, Automation, Activity
 │       ├── chat/                # Direct conversation
-│       ├── automation/          # Cron management
-│       ├── activity/            # Monitoring + A2A logs
-│       ├── channels/            # Telegram/Discord/Slack setup
-│       └── settings/            # API keys, backend, system config
-│
-├── control-plane/               # Cloud mode only (same monorepo)
-│   ├── portal/                  # Landing, Auth, Onboarding, Billing
-│   └── orchestrator/            # Container lifecycle (Fly/AWS/GCP providers)
+│       └── components/          # UI components
 │
 ├── docker/
 │   ├── Dockerfile.runtime
 │   ├── Dockerfile.dashboard
 │   └── docker-compose.yaml
-│
-├── agents/                      # Default agent definitions
-│   └── default.md
 │
 ├── data/                        # Default /data volume contents
 │   ├── agents/registry.json
@@ -268,169 +195,79 @@ template/
 
 ---
 
-## 5. Conductor — Mother AI
+## 5. Conductor — Simple AI Agent
 
-System-level orchestrator. Cannot be deleted. Receives all messages first.
-
-### Permissions
-
-```
-Conductor permissions:
-
-  Agents it created (temporary or permanent):
-  ├── Create   ✅ freely
-  ├── Modify   ✅ freely
-  └── Delete   ✅ freely
-
-  User-created agents:
-  ├── Delegate tasks to   ✅ freely
-  ├── Modify              ⚠️ requires user approval
-  └── Delete              ⚠️ requires user approval
-
-  Itself:
-  └── Modify/Delete       ❌ system-protected, impossible
-
-  Memory:
-  └── Full access         ✅ read/write
-
-  Crons:
-  └── Full access         ✅ create/modify/delete
-```
+The Conductor is a simple AI chat agent backed by a CLIBackend (default: `claude -p`). It receives all messages, searches memory for context, and responds. If a message targets a specific agent (`targetAgentId`), it delegates to that agent instead.
 
 ### Message Flow
 
 ```
-User Message (from any channel)
+User Message
     │
     ▼
 ┌──────────────────────────────────────────────────┐
 │  CONDUCTOR                                        │
 │                                                   │
 │  1. Memory에서 관련 맥락 검색                      │
-│  2. 기존 Agent 중 적합한 것 확인                   │
-│  3. 필요하면 새 Agent 생성 (permanent or temporary)│
-│  4. Task 분배 (parallel or sequential)            │
-│  5. A2A로 Agent들이 서로 결과 주고받기             │
-│  6. 최종 결과 종합                                 │
-│  7. Memory에 결과 저장                             │
-│  8. 사용자에게 응답                                │
-└──────────┬──────────┬──────────┬─────────────────┘
-           │          │          │
-     delegate    delegate    delegate
-           │          │          │
-           ▼          ▼          ▼
-       ┌──────┐  ┌──────┐  ┌──────┐
-       │Agent │  │Agent │  │Agent │
-       │  A   │  │  B   │  │  C   │
-       └──┬───┘  └──────┘  └──┬───┘
-          │                    │
-          └──── A2A comm ──────┘
+│  2. targetAgentId 있으면 → 해당 Agent에 위임       │
+│  3. 없으면 → AI backend로 직접 응답 생성           │
+│  4. Memory에 대화 저장                             │
+│  5. 사용자에게 응답                                │
+└──────────────────────────────────────────────────┘
 ```
 
-### AI Routing (Step 7)
+### Pipeline
 
-The Conductor has its own `CLIBackend` process that makes intelligent routing decisions. When a message arrives:
+```
+Message In → Memory Search → Delegate or Respond → Memory Store → Response Out
+               (context)      (AI backend)          (if valuable)   (stream WS)
+```
 
-1. **Memory search** → relevant context retrieved
-2. **AI routing** → Conductor AI receives available agents list + memory context + user message, outputs JSON `{ agentIds, createAgent?, reason }`
-3. **Dynamic agent creation** → if no suitable agent exists, Conductor creates one on the fly (conductor-owned, non-persistent)
-4. **Delegation** → message forwarded to selected/created agent(s) with memory context wrapped in `<memory-context>` tags
+- **Memory search**: Queries vector DB for relevant context, wraps in `<memory-context>` tags
+- **Delegation**: If `targetAgentId` is set, forwards message to that agent
+- **AI response**: If no target, sends message (with memory context) to own AI backend process
+- **Memory store**: Stores the conversation exchange for future retrieval
 
-**Fallback chain**: AI returns valid JSON → use it; invalid JSON → keyword router; hallucinated agent IDs → filter then keyword fallback; AI process fails → keyword router. Backward compatible — if no CLIBackend is provided, falls back to keyword-based routing.
+### Agent Management
 
-**Safety**: `validateAgentCreation()` enforces length limits and blocklists dangerous patterns (curl, wget, process.env, etc.) in AI-generated system prompts. MaxAgents enforcement with idle conductor-agent eviction. Delegation depth limit (default: 5).
-
-**Real-time status**: `ConductorEvent` callback emits routing/creating_agent/agent_created/delegating events. Server maps these to `conductor_status` WebSocket messages. Dashboard renders them as system status messages.
+The Conductor can create and delete agents. Products can extend this with custom logic (permissions, approval workflows, dynamic creation).
 
 ### Agent Ownership in Dashboard
 
 ```
 🤖 Agents
 
-  User-created (수정/삭제 가능)
   ┌──────────────────────────────────┐
-  │ 📌 품질검사 전문가       [active] │
-  │ 📌 리포트 작성           [idle]   │
+  │ 품질검사 전문가           [active] │
+  │ 리포트 작성               [idle]  │
+  │ data-processor            [busy]  │
   └──────────────────────────────────┘
 
-  Conductor-created (Conductor가 관리)
-  ┌──────────────────────────────────┐
-  │ 🔄 section-analyst-1     [busy]  │  ← 임시 또는 영구
-  │ 🔄 data-processor        [idle]  │  ← Conductor 판단으로 생성
-  │ 🔄 temp-translator       [busy]  │
-  └──────────────────────────────────┘
-
-  🔒 Conductor               [active]  ← 시스템 고정, 수정 불가
+  🔒 Conductor               [active]  ← 시스템 고정
 ```
 
 ---
 
 ## 6. Agent-to-Agent Communication (A2A)
 
-### Direct A2A (CLI가 custom tools 지원하는 경우: Claude Code)
+### Direct Delegation (via Conductor)
 
 ```
-Agent PM ──(delegate_to_agent tool)──▶ Agent Researcher
-           "이 주제 리서치해줘"            │
-                                          ▼
-                                        리서치 완료
-                                          │
-                                          ▼
-Agent PM ◀──(tool_result로 반환)─────── 결과 수신
-    │
-    └──(delegate_to_agent tool)──▶ Agent Writer
-       "이 리서치 결과로 초안 써줘"       │
-                                          ▼
-                                        초안 완료
-                                          │
-Agent PM ◀──(tool_result로 반환)─────── 결과 수신
-    │
-    └── 최종 결과 종합 → Conductor → 사용자
+User sends message with targetAgentId
+  → Conductor delegates to that agent
+  → Agent responds
+  → Response streams back to user
 ```
 
-`delegate_to_agent`: Agent의 allowed tools에 주입되는 custom tool.
-Agent가 다른 Agent에게 직접 task를 보내고 결과를 받음.
+### Backend Selection per Agent
 
-### Conductor Relay (CLI가 custom tools 미지원하는 경우: Codex CLI 등)
+Each agent can use a different CLI backend. The BackendRegistry manages multiple backends:
 
-```
-Agent A completes task
-  → result returns to Conductor
-    → Conductor sends to Agent B with context
-      → Agent B completes
-        → result returns to Conductor
-          → Conductor synthesizes
-```
-
-### Backend Capability Detection
-
-| Capability          | Claude Code | Codex CLI | Gemini CLI |
-| ------------------- | ----------- | --------- | ---------- |
-| Custom Tools (A2A)  | ✅ direct   | ❌ relay  | TBD        |
-| Streaming           | ✅          | ✅        | TBD        |
-| Session Persistence | ✅          | ❌        | TBD        |
-| File Access         | ✅          | ✅        | TBD        |
-
-Dashboard에서 Backend 선택 시:
-
-```
-┌─────────────────────────────────────────────┐
-│ Backend: [Claude Code ▼]                     │
-│                                              │
-│ ✅ Agent-to-Agent Communication              │
-│ ✅ Streaming Output                          │
-│ ✅ Session Persistence                       │
-│ ✅ File Access                               │
-│──────────────────────────────────────────────│
-│ Backend: [Codex CLI ▼]                       │
-│                                              │
-│ ⚠️ Agent-to-Agent: Conductor 중계 모드       │
-│    (직접 A2A 불가, Conductor가 대신 전달)     │
-│ ✅ Streaming Output                          │
-│ ⚠️ Session Persistence: 미지원               │
-│ ✅ File Access                               │
-└─────────────────────────────────────────────┘
-```
+| Capability          | Claude Code | Codex CLI | Gemini CLI | Goose    |
+| ------------------- | ----------- | --------- | ---------- | -------- |
+| Streaming           | ✅          | ✅        | ✅         | ✅       |
+| Session Persistence | ✅          | ✅        | ✅         | ✅       |
+| File Access         | ✅          | ✅        | ✅         | ✅       |
 
 ---
 
@@ -438,28 +275,24 @@ Dashboard에서 Backend 선택 시:
 
 ### Storage Layer
 
-| Store             | Technology                               | Purpose                                       |
-| ----------------- | ---------------------------------------- | --------------------------------------------- |
-| Structured data   | bun:sqlite (embedded)                    | Sessions, config, graph edges, agent registry |
-| Vector embeddings | LanceDB (embedded, default)              | Semantic search, RAG                          |
-| Vector embeddings | Qdrant (optional, docker-compose add-on) | Large-scale production                        |
+| Store             | Technology                  | Purpose                                       |
+| ----------------- | --------------------------- | --------------------------------------------- |
+| Structured data   | bun:sqlite (embedded)       | Sessions, config, agent registry               |
+| Vector embeddings | LanceDB (embedded, default) | Semantic search, RAG                           |
 
 ### Memory Types
 
 - **Short-term**: Conversation/session state. Lives during a session, cleared after.
 - **Long-term**: Persistent across sessions. All conversations, ingested data, agent outputs stored here.
 
-### RAG Strategies
+### RAG Strategy
 
 - **Naive RAG**: query → vector search → retrieve top-K → respond
-- **Graph RAG**: entity extraction → knowledge graph → graph traversal + vector search → respond
-- **Agentic RAG**: query → retrieve → reason about relevance → retrieve again → respond (multi-step)
 
 ### Ingestion
 
 Dashboard UI에서:
 
-- File upload (PDF, CSV, TXT)
 - Text paste
 - API endpoint (`POST /api/memory/ingest`)
 
@@ -467,70 +300,32 @@ Dashboard UI에서:
 
 ## 8. Dashboard (Built-in UI)
 
-Next.js 15, App Router, standalone output. Separate service in docker-compose.
+Next.js 16.1, App Router, standalone output. Separate service in docker-compose.
 
 ```
 Dashboard Pages:
 
-├── 🚀 Onboarding         — First-run setup (shown once, admin only)
-│   ├── Backend auth      — BYOK (paste API key) or CLI login (e.g. claude login)
-│   ├── Backend select    — Choose CLI backend + capability preview
-│   └── First agent       — Optional: create first agent via wizard
-│
 ├── 🏠 Home              — System status, recent activity, alerts
 │
-├── 🤖 Agents             — RPG-style agent management
-│   ├── Agent list        — Cards: name, role, status, owner (📌user / 🔄conductor)
-│   ├── Create Agent      — Wizard: name, role, prompt, tools, permissions
-│   │
-│   │   ┌─────────────────────────────────────┐
-│   │   │ 🤖 New Agent                        │
-│   │   │                                     │
-│   │   │ Name: [ ________________           ]│
-│   │   │ Role: [ ________________           ]│
-│   │   │ Tools: ☑ Read ☑ Grep ☐ Write ☐ Bash│
-│   │   │ Can delegate to other agents: ☑ Yes │
-│   │   │ Persistent: ☑ Yes                   │
-│   │   │                                     │
-│   │   │ System Prompt:                      │
-│   │   │ ┌─────────────────────────────────┐ │
-│   │   │ │                                 │ │
-│   │   │ └─────────────────────────────────┘ │
-│   │   │                                     │
-│   │   │         [Create Agent]              │
-│   │   └─────────────────────────────────────┘
-│   │
-│   ├── Agent detail      — Edit prompt, view activity logs, restart
-│   └── 🔒 Conductor      — View-only (status, routing decisions, created agents)
+├── 🤖 Agents             — Agent management
+│   ├── Agent list        — Cards: name, role, status, owner, backend badge
+│   ├── Create Agent      — Name, role, prompt, tools, backend selector
+│   ├── Agent actions     — Restart, delete
+│   └── 🔒 Conductor      — View-only (status, system-protected)
 │
-├── 🧠 Memory             — Memory browser
-│   ├── Browse            — Search, filter, view entries
-│   ├── Ingest            — Upload files (PDF, CSV, TXT), paste text
-│   └── Stats             — Storage used, vector count, recent access
+├── 🧠 Memory             — Memory browser (stub)
+│   └── Stats             — Storage used, vector count
 │
 ├── 💬 Chat               — Direct conversation
-│   ├── Conductor         — Normal conversation (routes automatically)
+│   ├── Conductor         — Talk to the Conductor AI
 │   └── Direct to Agent   — Talk to specific agent (debugging/testing)
 │
-├── ⚡ Automation          — Cron management
-│   ├── Schedule list     — Active/inactive, next run time
-│   ├── Create/Edit       — Cron expression builder, workflow steps
-│   └── History           — Execution logs with results
+├── ⚡ Automation          — Cron management (stub)
 │
-├── 📊 Activity            — Monitoring
-│   ├── Timeline          — Who did what, when
-│   ├── A2A Log           — Agent-to-agent communication history
-│   └── Cost tracking     — API calls, tokens used, estimated cost
-│
-├── 📡 Channels            — External connections
-│   ├── Connected         — Telegram/Discord/Slack status
-│   └── Add channel       — Linking code flow
-│
-└── ⚙️ Settings
-    ├── Conductor Identity — Name, communication style, traits, presets (JARVIS/Friday/Alfred)
-    ├── Backend           — Select CLI backend + capability display
-    ├── Auth              — BYOK (API key) or CLI login (re-auth anytime)
-    └── System            — Memory provider, idle timeout, max agents
+└── 📊 Activity            — Debug Console
+    ├── Timeline          — Who did what, when
+    ├── Filters           — Category, level, search
+    └── Live stream       — Real-time debug events via WebSocket
 ```
 
 ---
@@ -565,10 +360,10 @@ Backend selection, API keys (per provider), default model, idle timeout, max age
 | `GET`    | `/api/agents`             | List all agents with status    |
 | `POST`   | `/api/agents`             | Create agent                   |
 | `PUT`    | `/api/agents/:id`         | Update agent                   |
-| `DELETE` | `/api/agents/:id`         | Delete agent (user-owned only) |
+| `DELETE` | `/api/agents/:id`         | Delete agent                   |
 | `POST`   | `/api/agents/:id/restart` | Restart agent process          |
 | `GET`    | `/api/memory/search`      | Search memory                  |
-| `POST`   | `/api/memory/ingest`      | Ingest file/text               |
+| `POST`   | `/api/memory/ingest`      | Ingest text                    |
 | `GET`    | `/api/memory/stats`       | Memory statistics              |
 | `GET`    | `/api/crons`              | List cron jobs                 |
 | `POST`   | `/api/crons`              | Create cron                    |
@@ -576,8 +371,6 @@ Backend selection, API keys (per provider), default model, idle timeout, max age
 | `DELETE` | `/api/crons/:id`          | Delete cron                    |
 | `POST`   | `/api/crons/:id/trigger`  | Manually trigger cron          |
 | `GET`    | `/api/activity`           | Activity timeline              |
-| `GET`    | `/api/conductor/settings` | Get conductor identity + session info |
-| `PUT`    | `/api/conductor/settings` | Update conductor personality    |
 | `GET`    | `/api/config`             | Get config (keys redacted)     |
 | `PUT`    | `/api/config`             | Update config                  |
 
@@ -597,7 +390,7 @@ Server → Client:
 - `error`: error message
 - `pong`: keepalive
 - `agent_status`: all agent statuses
-- `a2a_event`: agent-to-agent delegation event (from, to, task)
+- `conductor_status`: pipeline phase updates (memory_search, delegating, responding, memory_store)
 
 ---
 
@@ -605,16 +398,14 @@ Server → Client:
 
 | Variable            | Required  | Default               | Description                             |
 | ------------------- | --------- | --------------------- | --------------------------------------- |
-| `DATA_DIR`          | No        | `./data`              | Data volume path (`./data` local, `/data` Docker) |
+| `DATA_DIR`          | No        | `./data`              | Data volume path                        |
 | `PORT`              | No        | `3001`                | Runtime server port                     |
-| `RUNTIME_URL`       | Dashboard | `http://localhost:3001` | Runtime API URL (`http://runtime:3001` in Docker) |
+| `RUNTIME_URL`       | Dashboard | `http://localhost:3001` | Runtime API URL                        |
 | `AI_BACKEND`        | No        | `claude`              | CLI backend to use                      |
 | `IDLE_TIMEOUT_MS`   | No        | `300000`              | Agent idle timeout (5 min)              |
 | `MAX_AGENTS`        | No        | `10`                  | Max concurrent agents                   |
 | `VECTOR_PROVIDER`   | No        | `lancedb`             | Vector DB provider                      |
-| `QDRANT_URL`        | No        | —                     | Qdrant URL (if using Qdrant)            |
 | `LOG_LEVEL`         | No        | `info`                | Log level                               |
-| `MODE`              | No        | `standalone`          | `standalone` or `managed`               |
 
 ---
 
@@ -624,13 +415,12 @@ How products customize this template:
 
 1. **Fork the repo**
 2. **Add agent definitions** in `/data/agents/` — or users create via Dashboard UI
-3. **Override Conductor routing** via `conductor.setRouter(customFn)`
+3. **Extend Conductor** — add routing logic, permissions, personality, pending question tracking
 4. **Ingest domain data** into Memory via Dashboard UI or API
 5. **Add packages** to monorepo for product-specific logic
-6. **Add channel modules** connecting to the server webhooks
+6. **Add channel adapters** by implementing webhook handlers on the server
 7. **Customize Dashboard** — add product-specific pages/sections
 8. **Customize Dockerfile** — add product dependencies
-9. **Add Control Plane Portal** — for cloud SaaS offering
 
 **The template provides the autonomous runtime.**
 **The product provides the agents, data, and domain logic.**
@@ -640,14 +430,12 @@ How products customize this template:
 ```
 1. git clone template && docker-compose up         ← 5분
 2. localhost:3000 접속 (Dashboard)
-3. Onboarding: API key 입력 또는 CLI 로그인 (예: claude login) ← 1분
-4. "Create Agent" 버튼 → 품질검사 전문가 생성       ← RPG처럼
-5. 같은 방식으로 재고관리, 리포트 작성 Agent 생성
-6. Memory에 회사 데이터 Ingest (PDF, CSV 업로드)
-7. Channel 연결 (Telegram/Slack)                    ← 선택
-8. 바로 사용 시작
+3. "Create Agent" 버튼 → 품질검사 전문가 생성       ← RPG처럼
+4. 같은 방식으로 재고관리, 리포트 작성 Agent 생성
+5. Memory에 회사 데이터 Ingest
+6. 바로 사용 시작
    "이번 달 불량률 분석해줘"
-   → Conductor → 품질검사 Agent + 리포트 Agent 협업 → 결과
+   → Conductor → Agent에게 위임 → 결과
 
 코드 수정 없이 Dashboard UI만으로 여기까지 가능.
 커스텀 코드는 ERP 연동 등 심화 단계에서만 필요.
@@ -657,18 +445,27 @@ How products customize this template:
 
 ## 14. Build Order
 
-Implement in this sequence. Steps 1-7 complete.
+Implement in this sequence.
 
-| Step | Package           | What                                                                     | Test                                    |
-| ---- | ----------------- | ------------------------------------------------------------------------ | --------------------------------------- |
-| 1    | Scaffold          | Bun workspace, Turborepo, shared types                                   | Build passes                            |
-| 2    | agent-manager     | CLI process spawn/communicate, pool, claude backend                      | Spawn agent, send message, get response |
-| 3    | memory            | bun:sqlite schema, LanceDB integration, short/long-term, naive RAG       | Store, search, retrieve                 |
-| 4    | conductor         | Router, Conductor class, agent CRUD with ownership                       | Route messages, multi-agent delegation  |
-| 5    | server            | REST API, WebSocket, webhook receivers, Bun.serve entry                  | Full message flow via WS                |
-| 6    | dashboard         | Next.js 16, agent management, memory browser, chat, monitoring, settings | UI functional                           |
-| 7    | conductor (AI)    | AI-powered routing, dynamic agent creation, conductor_status WS events   | AI routes, creates agents, emits events |
-| 8    | cron-manager      | File watcher, workflow executor                                          | Create cron, verify execution           |
-| 9    | docker            | Dockerfile.runtime, Dockerfile.dashboard, docker-compose, default data   | `docker-compose up`, full flow          |
-| 10   | memory (advanced) | Graph RAG, Agentic RAG, file ingest (PDF/CSV/TXT), Qdrant provider       | Can parallel with 8-9                   |
-| 11   | control-plane     | ContainerProvider + Fly.io, Auth (Supabase), Billing (Stripe), Portal    | Optional, cloud mode                    |
+| Step | Package           | What                                                           | Status      |
+| ---- | ----------------- | -------------------------------------------------------------- | ----------- |
+| 1    | Scaffold          | Bun workspace, Turborepo, shared types                         | ✅ Done      |
+| 2    | agent-manager     | CLI process spawn/communicate, pool, claude backend            | ✅ Done      |
+| 3    | memory            | bun:sqlite schema, LanceDB integration, short/long-term, naive RAG | ✅ Done  |
+| 4    | conductor         | Conductor class, agent CRUD, memory integration                | ✅ Done      |
+| 5    | server            | REST API, WebSocket, Bun.serve entry                           | ✅ Done      |
+| 6    | dashboard         | Next.js 16.1, agent management, chat, debug console            | ✅ Done      |
+| 7    | backends          | BackendRegistry, per-agent backend selection, session support   | ✅ Done      |
+| 8    | cron-manager      | CronManager class, workflow executor, server routes, dashboard UI | ⬜ Not started |
+| 9    | docker            | Dockerfile.runtime, Dockerfile.dashboard, docker-compose       | ⬜ Not started |
+| 10   | memory (advanced) | Graph RAG, Agentic RAG, file ingest (PDF/CSV/TXT), memory browser UI | ⬜ Not started |
+| 11   | control-plane     | Container orchestration, Auth, Billing, Portal                 | ⬜ Optional  |
+
+### Remaining Stubs
+
+These items exist as stubs and will be completed with their parent steps:
+
+- `PUT /api/config` — returns 501 (implement with Step 9 or standalone)
+- `POST /api/crons/:id/trigger` — spec'd but not wired (implement with Step 8)
+- Dashboard Memory page — stub placeholder (implement with Step 10)
+- Dashboard Automation page — stub placeholder (implement with Step 8)

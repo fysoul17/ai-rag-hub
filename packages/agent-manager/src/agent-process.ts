@@ -1,5 +1,5 @@
 import type { AgentDefinition, AgentId, AgentRuntimeInfo } from '@autonomy/shared';
-import { AgentStatus, deriveLifecycle, isAgentPersistent } from '@autonomy/shared';
+import { AgentStatus } from '@autonomy/shared';
 import type { BackendProcess, CLIBackend } from './backends/types.ts';
 import { AgentStateError, BackendError } from './errors.ts';
 
@@ -34,7 +34,7 @@ export class AgentProcess {
     this.idleTimeoutMs = options?.idleTimeoutMs ?? 0;
     // Auto-generate sessionId for persistent agents that don't have one
     this._sessionId =
-      definition.sessionId ?? (isAgentPersistent(definition) ? crypto.randomUUID() : undefined);
+      definition.sessionId ?? (definition.persistent ? crypto.randomUUID() : undefined);
   }
 
   get status(): AgentStatus {
@@ -113,7 +113,6 @@ export class AgentProcess {
       owner: this.definition.owner,
       persistent: this.definition.persistent,
       createdAt: this.definition.createdAt,
-      lifecycle: deriveLifecycle(this.definition),
       sessionId: this._sessionId,
       backend: this.backend.name,
     };

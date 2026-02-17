@@ -1,16 +1,6 @@
 'use client';
 
-import {
-  Bot,
-  Brain,
-  Cpu,
-  Home,
-  MessageSquare,
-  Radio,
-  Settings,
-  Terminal,
-  Timer,
-} from 'lucide-react';
+import { Bot, Brain, Cpu, Home, MessageSquare, Terminal, Timer } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -33,8 +23,6 @@ const mainNav = [
 const systemNav = [
   { href: '/automation', label: 'Automation', icon: Timer },
   { href: '/activity', label: 'Debug Console', icon: Terminal },
-  { href: '/channels', label: 'Channels', icon: Radio },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AppSidebar() {

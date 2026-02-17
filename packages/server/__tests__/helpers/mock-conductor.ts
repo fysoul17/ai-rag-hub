@@ -1,4 +1,4 @@
-import type { ConductorResponse, IncomingMessage, RouterFn } from '@autonomy/conductor';
+import type { ConductorResponse, IncomingMessage } from '@autonomy/conductor';
 import type { ActivityEntry, AgentId, AgentRuntimeInfo } from '@autonomy/shared';
 import { ActivityType, AgentOwner, AgentStatus } from '@autonomy/shared';
 
@@ -65,8 +65,9 @@ export class MockConductor {
     return `Response from ${agentId}: ${message}`;
   }
 
-  setRouter(_fn: RouterFn): void {}
-  resetRouter(): void {}
+  get conductorName(): string {
+    return 'Conductor';
+  }
 
   getActivity(limit?: number): ActivityEntry[] {
     const l = limit ?? this.activity.length;

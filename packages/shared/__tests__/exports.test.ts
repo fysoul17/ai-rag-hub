@@ -49,8 +49,6 @@ describe('@autonomy/shared exports', () => {
   test('exports RAGStrategy enum', () => {
     expect(shared.RAGStrategy).toBeDefined();
     expect(shared.RAGStrategy.NAIVE).toBe('naive');
-    expect(shared.RAGStrategy.GRAPH).toBe('graph');
-    expect(shared.RAGStrategy.AGENTIC).toBe('agentic');
   });
 
   test('exports VectorProvider enum', () => {
@@ -81,13 +79,6 @@ describe('@autonomy/shared exports', () => {
     expect(shared.WSServerMessageType.A2A_EVENT).toBe('a2a_event');
   });
 
-  test('exports ChannelType enum', () => {
-    expect(shared.ChannelType).toBeDefined();
-    expect(shared.ChannelType.TELEGRAM).toBe('telegram');
-    expect(shared.ChannelType.DISCORD).toBe('discord');
-    expect(shared.ChannelType.SLACK).toBe('slack');
-  });
-
   test('exports ActivityType enum', () => {
     expect(shared.ActivityType).toBeDefined();
     expect(shared.ActivityType.MESSAGE).toBe('message');
@@ -105,27 +96,6 @@ describe('@autonomy/shared exports', () => {
     expect(shared.A2ACommunicationMode.DIRECT).toBe('direct');
     expect(shared.A2ACommunicationMode.RELAY).toBe('relay');
     expect(Object.keys(shared.A2ACommunicationMode)).toHaveLength(2);
-  });
-
-  test('exports ConductorAction enum', () => {
-    expect(shared.ConductorAction).toBeDefined();
-    expect(shared.ConductorAction.CREATE).toBe('create');
-    expect(shared.ConductorAction.MODIFY).toBe('modify');
-    expect(shared.ConductorAction.DELETE).toBe('delete');
-    expect(shared.ConductorAction.DELEGATE).toBe('delegate');
-    expect(shared.ConductorAction.READ).toBe('read');
-    expect(shared.ConductorAction.WRITE).toBe('write');
-    expect(Object.keys(shared.ConductorAction)).toHaveLength(6);
-  });
-
-  test('exports ConductorTarget enum', () => {
-    expect(shared.ConductorTarget).toBeDefined();
-    expect(shared.ConductorTarget.OWN_AGENT).toBe('own-agent');
-    expect(shared.ConductorTarget.USER_AGENT).toBe('user-agent');
-    expect(shared.ConductorTarget.SELF).toBe('self');
-    expect(shared.ConductorTarget.MEMORY).toBe('memory');
-    expect(shared.ConductorTarget.CRON).toBe('cron');
-    expect(Object.keys(shared.ConductorTarget)).toHaveLength(5);
   });
 
   test('exports DEFAULTS constants', () => {

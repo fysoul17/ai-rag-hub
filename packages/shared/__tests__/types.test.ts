@@ -3,7 +3,6 @@ import type {
   ActivityEntry,
   AgentDefinition,
   AgentRegistryEntry,
-  ChannelMessage,
   CronConfig,
   MemoryEntry,
   PlatformConfig,
@@ -99,17 +98,6 @@ describe('@autonomy/shared type definitions', () => {
 
     const error: WSServerMessage = { type: 'error', message: 'Something went wrong' };
     expect(error.type).toBe('error');
-  });
-
-  test('ChannelMessage type is structurally valid', () => {
-    const msg: ChannelMessage = {
-      channelType: 'telegram',
-      senderId: '12345',
-      senderName: 'User',
-      content: 'Hello agent',
-      timestamp: new Date().toISOString(),
-    };
-    expect(msg.channelType).toBe('telegram');
   });
 
   test('MemoryEntry type is structurally valid', () => {

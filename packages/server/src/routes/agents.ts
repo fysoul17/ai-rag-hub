@@ -5,8 +5,6 @@ import {
   AgentOwner,
   AIBackend,
   type CreateAgentRequest,
-  deriveLifecycle,
-  isAgentPersistent,
 } from '@autonomy/shared';
 import { nanoid } from 'nanoid';
 import { BadRequestError, NotFoundError } from '../errors.ts';
@@ -49,12 +47,9 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
         createdBy: 'api',
         createdAt: new Date().toISOString(),
         systemPrompt: body.systemPrompt,
-        department: body.department,
         backend: body.backend,
+        sessionId: persistent ? crypto.randomUUID() : undefined,
       };
-      // Derive lifecycle from explicit field or persistent flag, then set sessionId
-      definition.lifecycle = body.lifecycle ?? deriveLifecycle(definition);
-      definition.sessionId = isAgentPersistent(definition) ? crypto.randomUUID() : undefined;
 
       const process = await pool.create(definition);
       return jsonResponse(process.toRuntimeInfo(), 201);

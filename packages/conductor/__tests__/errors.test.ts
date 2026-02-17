@@ -1,10 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  ApprovalRequiredError,
   ConductorError,
   ConductorNotInitializedError,
   DelegationError,
-  PermissionDeniedError,
   RoutingError,
 } from '../src/errors.ts';
 
@@ -33,36 +31,6 @@ describe('ConductorNotInitializedError', () => {
     const err = new ConductorNotInitializedError();
     expect(err.name).toBe('ConductorNotInitializedError');
     expect(err.message).toContain('not initialized');
-  });
-});
-
-describe('PermissionDeniedError', () => {
-  test('extends ConductorError', () => {
-    const err = new PermissionDeniedError('delete', 'self', 'system-protected');
-    expect(err).toBeInstanceOf(ConductorError);
-  });
-
-  test('includes action, target, and reason in message', () => {
-    const err = new PermissionDeniedError('delete', 'self', 'system-protected');
-    expect(err.name).toBe('PermissionDeniedError');
-    expect(err.message).toContain('delete');
-    expect(err.message).toContain('self');
-    expect(err.message).toContain('system-protected');
-  });
-});
-
-describe('ApprovalRequiredError', () => {
-  test('extends ConductorError', () => {
-    const err = new ApprovalRequiredError('modify', 'user-agent');
-    expect(err).toBeInstanceOf(ConductorError);
-  });
-
-  test('includes action and target in message', () => {
-    const err = new ApprovalRequiredError('modify', 'user-agent');
-    expect(err.name).toBe('ApprovalRequiredError');
-    expect(err.message).toContain('modify');
-    expect(err.message).toContain('user-agent');
-    expect(err.message).toContain('approval');
   });
 });
 

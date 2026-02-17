@@ -8,8 +8,6 @@ export type MemoryType = (typeof MemoryType)[keyof typeof MemoryType];
 
 export const RAGStrategy = {
   NAIVE: 'naive',
-  GRAPH: 'graph',
-  AGENTIC: 'agentic',
 } as const;
 export type RAGStrategy = (typeof RAGStrategy)[keyof typeof RAGStrategy];
 

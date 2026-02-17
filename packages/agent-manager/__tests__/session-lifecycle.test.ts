@@ -104,20 +104,6 @@ describe('V2 Phase 1 — Session lifecycle in agent-manager', () => {
       expect((info as Record<string, unknown>).sessionId).toBeDefined();
     });
 
-    test('toRuntimeInfo() includes lifecycle field', async () => {
-      const def = makeAgent({
-        id: 'lifecycle-agent',
-        persistent: true,
-      });
-
-      const agent = new AgentProcess(def, backend);
-      await agent.start();
-
-      const info = agent.toRuntimeInfo();
-      // After V2, runtime info should expose lifecycle
-      expect((info as Record<string, unknown>).lifecycle).toBeDefined();
-    });
-
     test('session ID survives restart for persistent agent', async () => {
       const def = makeAgent({
         id: 'restart-session-agent',

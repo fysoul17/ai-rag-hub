@@ -51,7 +51,6 @@ export function CreateAgentDialog() {
     const role = form.get('role') as string;
     const systemPrompt = form.get('systemPrompt') as string;
     const toolsRaw = form.get('tools') as string;
-    const department = form.get('department') as string;
     const canModifyFiles = form.get('canModifyFiles') === 'on';
     const canDelegateToAgents = form.get('canDelegateToAgents') === 'on';
     const persistent = form.get('persistent') === 'on';
@@ -79,7 +78,6 @@ export function CreateAgentDialog() {
         ...(backend !== BACKEND_DEFAULT
           ? { backend: backend as 'claude' | 'codex' | 'gemini' | 'goose' }
           : {}),
-        ...(department ? { department } : {}),
       });
       setOpen(false);
       setBackend(BACKEND_DEFAULT);
@@ -134,32 +132,20 @@ export function CreateAgentDialog() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="backend">Backend</Label>
-              <Select value={backend} onValueChange={setBackend}>
-                <SelectTrigger id="backend">
-                  <SelectValue placeholder="Default (platform)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BACKEND_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                name="department"
-                placeholder="e.g. engineering"
-                className="font-mono"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="backend">Backend</Label>
+            <Select value={backend} onValueChange={setBackend}>
+              <SelectTrigger id="backend">
+                <SelectValue placeholder="Default (platform)" />
+              </SelectTrigger>
+              <SelectContent>
+                {BACKEND_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-3">

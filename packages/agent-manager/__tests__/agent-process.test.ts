@@ -289,7 +289,6 @@ describe('AgentProcess', () => {
       expect(info.owner).toBe('user');
       expect(info.persistent).toBe(false);
       expect(info.createdAt).toBeDefined();
-      expect(info.lifecycle).toBeDefined();
       expect(info.backend).toBe('claude');
     });
   });
