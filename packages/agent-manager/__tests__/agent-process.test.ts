@@ -270,6 +270,30 @@ describe('AgentProcess', () => {
     });
   });
 
+  describe('toRuntimeInfo()', () => {
+    test('includes backend field from the backend instance', async () => {
+      const agent = new AgentProcess(definition, backend);
+      await agent.start();
+      const info = agent.toRuntimeInfo();
+      expect(info.backend).toBe('claude');
+    });
+
+    test('includes all expected fields', async () => {
+      const agent = new AgentProcess(definition, backend);
+      await agent.start();
+      const info = agent.toRuntimeInfo();
+      expect(info.id).toBe('agent-1');
+      expect(info.name).toBe('Test Agent');
+      expect(info.role).toBe('tester');
+      expect(info.status).toBe(AgentStatus.IDLE);
+      expect(info.owner).toBe('user');
+      expect(info.persistent).toBe(false);
+      expect(info.createdAt).toBeDefined();
+      expect(info.lifecycle).toBeDefined();
+      expect(info.backend).toBe('claude');
+    });
+  });
+
   describe('error handling', () => {
     test('sets status to ERROR on backend process failure during send', async () => {
       const agent = new AgentProcess(definition, backend);

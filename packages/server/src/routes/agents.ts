@@ -3,6 +3,7 @@ import type { Conductor } from '@autonomy/conductor';
 import {
   type AgentDefinition,
   AgentOwner,
+  AIBackend,
   type CreateAgentRequest,
   deriveLifecycle,
   isAgentPersistent,
@@ -24,6 +25,13 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
 
       if (!body.name || !body.role || !body.systemPrompt) {
         throw new BadRequestError('name, role, and systemPrompt are required');
+      }
+
+      const validBackends = Object.values(AIBackend) as string[];
+      if (body.backend && !validBackends.includes(body.backend)) {
+        throw new BadRequestError(
+          `Invalid backend "${body.backend}". Valid: ${validBackends.join(', ')}`,
+        );
       }
 
       const id = nanoid();

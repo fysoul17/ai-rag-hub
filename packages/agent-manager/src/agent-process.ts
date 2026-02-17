@@ -115,6 +115,7 @@ export class AgentProcess {
       createdAt: this.definition.createdAt,
       lifecycle: deriveLifecycle(this.definition),
       sessionId: this._sessionId,
+      backend: this.backend.name,
     };
   }
 

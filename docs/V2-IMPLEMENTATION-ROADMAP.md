@@ -2,24 +2,24 @@
 
 > Generated from codebase scan + V2 Architecture comparison, 2026-02-17
 > Reference docs: `ARCHITECTURE-V2.md`, `CLI-BACKEND-RESEARCH.md`, `PRODUCT-DISCOVERY.md`, `SPEC.md`
-> Last updated: 2026-02-17 (Phase 1 complete)
+> Last updated: 2026-02-17 (Phase 2 complete)
 
 ---
 
 ## Current State Summary
 
-**7 of 11 build steps complete + V2 Phase 1 complete.** 6 packages + dashboard implemented with 606 tests (1170 assertions). The foundation is solid — V2 Phase 1 (Session Support) has been implemented and reviewed.
+**7 of 11 build steps complete + V2 Phase 2 complete.** 6 packages + dashboard implemented. The foundation is solid — V2 Phase 1 (Session Support), Phase 1 Continued (Conductor Soul), and Phase 2 (Backend Registry) have been implemented and reviewed.
 
 ### What Exists (Steps 1-7 + V2 Phase 1)
 
 | Package | Status | Key Capabilities |
 |---------|--------|-----------------|
 | `@autonomy/shared` | Complete + V2 P1 | 33+ interfaces, session types (`AgentLifecycle`, `SessionConfig`), `deriveLifecycle()`, `isAgentPersistent()` utilities, GOOSE backend, fixed capabilities |
-| `@autonomy/agent-manager` | Complete + V2 P1 | CLIBackend interface, AgentProcess (lifecycle + message queue + **session persistence**), AgentPool (CRUD + maxAgents), ClaudeBackend (**--session-id/--resume/--no-session-persistence**) |
+| `@autonomy/agent-manager` | Complete + V2 P2 | CLIBackend interface, **BackendRegistry** (per-agent backend resolution), AgentProcess (lifecycle + message queue + session persistence + **backend in RuntimeInfo**), AgentPool (CRUD + maxAgents + **registry support**), ClaudeBackend (--session-id/--resume/--no-session-persistence) |
 | `@autonomy/memory` | Complete | SQLiteStore (WAL mode) + LanceDB vectors, NaiveRAG engine, dual-layer memory |
 | `@autonomy/conductor` | Complete + V2 P1 | AI router (Opus) + keyword fallback, permissions, activity log, message queue, ConductorEvents, **session persistence (sessionId + conductorName)** |
-| `@autonomy/server` | Complete + V2 P1 | Bun.serve HTTP+WS, REST API (agents/memory/activity/config), WebSocket chat + debug streaming, **lifecycle derivation on agent create** |
-| `dashboard` | Phases 1-4 + V2 P1 | Next.js 16.1, cyberpunk theme, agents CRUD, chat with streaming, debug console, **LifecycleBadge, lifecycle-grouped agent list, accessible agent selector with lifecycle icons** |
+| `@autonomy/server` | Complete + V2 P2 | Bun.serve HTTP+WS, REST API (agents/memory/activity/config), WebSocket chat + debug streaming, lifecycle derivation on agent create, **DefaultBackendRegistry initialization, backend validation on agent create** |
+| `dashboard` | Phases 1-4 + V2 P2 | Next.js 16.1, cyberpunk theme, agents CRUD, chat with streaming, debug console, LifecycleBadge, lifecycle-grouped agent list, accessible agent selector, **BackendBadge on agent cards, backend selector + department input in create dialog** |
 
 ---
 
@@ -69,23 +69,35 @@
 
 ---
 
-### Phase 2: Backend Registry (Medium, Replaces Single Backend)
+### Phase 2: Backend Registry — COMPLETED (2026-02-17)
 
-| Gap | Current | V2 Requires | Effort |
-|-----|---------|-------------|--------|
-| **Single backend** | All agents share one `CLIBackend` instance | `BackendRegistry` mapping `AIBackend → CLIBackend` | Medium |
-| **No per-agent backend** | `AgentDefinition` has no `backend` field | Each agent chooses backend (CTO: Claude, QA: Gemini, etc.) | Medium |
-| **Wrong capabilities** | `BACKEND_CAPABILITIES` has 3 errors for Codex/Gemini | All Tier 1 backends have sessions + streaming | Low |
-| **Missing backends** | Only Claude implemented | Goose (priority 2), Codex (3), Gemini (4) | High (per backend) |
+| Gap | Status | What Was Done |
+|-----|--------|---------------|
+| **Single backend** | DONE | `BackendRegistry` interface + `DefaultBackendRegistry` class in `backends/registry.ts`. Module-level default registry in `backends/index.ts` preserves backward-compat `getBackend()`/`registerBackend()` |
+| **No per-agent backend** | DONE | `AgentPool` accepts `CLIBackend | BackendRegistry`, `resolveBackend()` checks `definition.backend` field, falls back to registry default |
+| **Backend in RuntimeInfo** | DONE | `AgentRuntimeInfo.backend?` field added to shared types, `toRuntimeInfo()` includes `backend.name` |
+| **Server registry init** | DONE | Server creates `DefaultBackendRegistry`, passes to `AgentPool`. Conductor receives `registry.getDefault()` |
+| **Backend validation** | DONE | Server route validates `body.backend` against `AIBackend` enum values, returns 400 for invalid |
+| **Dashboard backend UI** | DONE | Backend `<Select>` dropdown + department `<Input>` in create-agent dialog. `BackendBadge` component on agent cards |
+| **Missing backends** | DEFERRED | GooseBackend, CodexBackend, GeminiBackend implementations deferred to future phases |
 
-**Concrete files to change:**
-- `packages/shared/src/types/a2a.ts` — add `GOOSE` to `AIBackend`, fix capability values
-- `packages/shared/src/constants/capabilities.ts` — correct Codex/Gemini capabilities
-- `packages/shared/src/types/agent.ts` — add `backend?: AIBackend`, `backendModel?: string`
-- `packages/agent-manager/src/backends/` — new `registry.ts`, new `goose.ts`
-- `packages/agent-manager/src/agent-pool.ts` — accept `BackendRegistry` instead of single backend
+**Files changed (7 modified, 3 new):**
+- `packages/agent-manager/src/backends/registry.ts` (NEW) — `BackendRegistry` interface, `DefaultBackendRegistry` class
+- `packages/agent-manager/src/backends/index.ts` — Re-exports registry, global functions delegate to module-level registry
+- `packages/agent-manager/src/agent-pool.ts` — `CLIBackend | BackendRegistry` constructor, `resolveBackend()` method
+- `packages/agent-manager/src/agent-process.ts` — `toRuntimeInfo()` includes `backend` field
+- `packages/agent-manager/src/index.ts` — Exports `DefaultBackendRegistry`, `BackendRegistry` type
+- `packages/shared/src/types/agent.ts` — `AgentRuntimeInfo.backend?` field
+- `packages/server/src/index.ts` — Uses `DefaultBackendRegistry` instead of `getBackend()`
+- `packages/server/src/routes/agents.ts` — `AIBackend` enum validation on create
+- `dashboard/app/components/agents/backend-badge.tsx` (NEW) — Backend badge with per-backend colors
+- `dashboard/app/components/agents/create-agent-dialog.tsx` — Backend selector + department input
+- `dashboard/app/components/agents/agent-card.tsx` — Renders `BackendBadge`
 
-**Why second:** This enables cost optimization (70% savings per V2 estimates) and is prerequisite for Goose/Codex/Gemini agents.
+**Key design decisions:**
+- `BackendRegistry` is a clean interface; `DefaultBackendRegistry` is the Map-backed implementation.
+- `AgentPool` uses structural typing (`isRegistry()` checks for `getDefault` + `list`) to distinguish registry from single backend — fully backward-compatible.
+- GooseBackend deferred — registry infrastructure is in place for future backends to plug in.
 
 ---
 
@@ -156,7 +168,7 @@
 |---|---|---|---|
 | **Agents page** | No ephemeral vs persistent visual distinction | Phase 1 | DONE — LifecycleBadge + lifecycle-grouped list |
 | **Agents page** | No hierarchy tree / parentId display | Phase 3 | TODO |
-| **Agent creation** | Missing: backend, department, model fields | Phase 2 | TODO (lifecycle derived from persistent toggle) |
+| **Agent creation** | Backend selector + department input | Phase 2 | DONE — Select dropdown for backend, department text input |
 | **Chat** | No conductor routing explanation ("why this agent") | Phase 1+ | TODO |
 | **Chat** | No ephemeral agent labeling in messages | Phase 1 | DONE — lifecycle icons in agent selector |
 | **Memory** | Stub page — no namespace browser | Phase 4 | TODO |
@@ -177,7 +189,7 @@
 | 4 | **Add Goose to AIBackend enum** | DONE (Phase 1) | Phase 2 |
 | 5 | **Add `sessionId` to BackendSpawnConfig** | DONE (Phase 1) | Phase 1 |
 | 6 | **Add `--session-id`/`--resume` to ClaudeBackend** | DONE (Phase 1) | Phase 1 |
-| 7 | **Define BackendRegistry interface** (no impl yet) | TODO | Phase 2 |
+| 7 | **Define BackendRegistry interface** | DONE (Phase 2) | Phase 2 |
 | 8 | **Add FTS5 table to SQLiteStore** | TODO | Phase 4 |
 | 9 | **Add ephemeral/persistent badges to dashboard** | DONE (Phase 1) | Phase 1 |
 | 10 | **Pending question tracking types** | DONE (Phase 1 cont.) | Phase 1 (cont.) |
@@ -333,14 +345,16 @@ DONE: Conductor Soul (Phase 1 continued — 2026-02-17)
   ├── Prompt injection defense (isPromptSafe blocklist on personality fields) ✓
   └── 5-person code review (security, quality, test, product, performance) ✓
 
-NEXT: Backend Registry (Phase 2)
-  ├── BackendRegistry interface + implementation
-  ├── AgentPool refactor to use registry
-  ├── GooseBackend implementation
-  ├── Per-agent backend selection in API/dashboard
-  └── Tests + integration
+DONE: Backend Registry (Phase 2 — 2026-02-17)
+  ├── BackendRegistry interface + DefaultBackendRegistry implementation ✓
+  ├── AgentPool refactor to accept registry (backward-compatible) ✓
+  ├── AgentRuntimeInfo.backend field + toRuntimeInfo() update ✓
+  ├── Server: DefaultBackendRegistry init + backend validation ✓
+  ├── Dashboard: backend selector + department input + BackendBadge ✓
+  ├── GooseBackend implementation — DEFERRED
+  └── Tests (registry, pool integration, process runtime info) ✓
 
-THEN: Hierarchy & Memory (Phase 3-4)
+NEXT: Hierarchy & Memory (Phase 3-4)
   ├── parentId + hierarchy queries in AgentPool
   ├── Permission inheritance (child ⊆ parent)
   ├── Ephemeral auto-destroy + tracker

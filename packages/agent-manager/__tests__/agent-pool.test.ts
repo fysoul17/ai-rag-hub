@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { type AgentDefinition, type AgentRuntimeInfo, AgentStatus } from '@autonomy/shared';
+import {
+  type AgentDefinition,
+  type AgentRuntimeInfo,
+  AgentStatus,
+  type AIBackend,
+} from '@autonomy/shared';
 import { AgentPool } from '../src/agent-pool.ts';
+import { DefaultBackendRegistry } from '../src/backends/registry.ts';
 import { MockBackend } from './helpers/mock-backend.ts';
 
 /** Helper to build a minimal valid AgentDefinition for tests. */
@@ -285,6 +291,60 @@ describe('AgentPool', () => {
       expect(pool.list()).toHaveLength(1);
       await pool.remove('c2');
       expect(pool.list()).toHaveLength(0);
+    });
+  });
+
+  describe('BackendRegistry integration', () => {
+    test('resolves definition.backend to the correct registry backend', async () => {
+      const claudeBackend = new MockBackend('claude' as AIBackend);
+      const codexBackend = new MockBackend('codex' as AIBackend);
+      claudeBackend.setResponses(['claude-resp']);
+      codexBackend.setResponses(['codex-resp']);
+
+      const registry = new DefaultBackendRegistry('claude' as AIBackend);
+      registry.register(claudeBackend);
+      registry.register(codexBackend);
+
+      const registryPool = new AgentPool(registry, { maxAgents: 5 });
+
+      await registryPool.create(makeAgent({ id: 'codex-agent', backend: 'codex' as AIBackend }));
+
+      // Codex backend should have been spawned
+      expect(codexBackend.spawnCalls).toHaveLength(1);
+      expect(codexBackend.spawnCalls[0].agentId).toBe('codex-agent');
+      // Claude backend should NOT have been spawned
+      expect(claudeBackend.spawnCalls).toHaveLength(0);
+
+      await registryPool.shutdown();
+    });
+
+    test('falls back to default when no definition.backend', async () => {
+      const claudeBackend = new MockBackend('claude' as AIBackend);
+      claudeBackend.setResponses(['default-resp']);
+
+      const registry = new DefaultBackendRegistry('claude' as AIBackend);
+      registry.register(claudeBackend);
+
+      const registryPool = new AgentPool(registry, { maxAgents: 5 });
+
+      await registryPool.create(makeAgent({ id: 'default-agent' }));
+
+      expect(claudeBackend.spawnCalls).toHaveLength(1);
+      expect(claudeBackend.spawnCalls[0].agentId).toBe('default-agent');
+
+      await registryPool.shutdown();
+    });
+
+    test('single CLIBackend still works (backward compat)', async () => {
+      const singleBackend = new MockBackend();
+      singleBackend.setResponses(['compat-resp']);
+
+      const compatPool = new AgentPool(singleBackend, { maxAgents: 5 });
+      await compatPool.create(makeAgent({ id: 'compat-agent' }));
+
+      expect(singleBackend.spawnCalls).toHaveLength(1);
+
+      await compatPool.shutdown();
     });
   });
 });

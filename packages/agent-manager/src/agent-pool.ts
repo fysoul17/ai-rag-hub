@@ -1,6 +1,7 @@
 import type { AgentDefinition, AgentId, AgentRuntimeInfo } from '@autonomy/shared';
 import { DEFAULTS } from '@autonomy/shared';
 import { AgentProcess } from './agent-process.ts';
+import type { BackendRegistry } from './backends/registry.ts';
 import type { CLIBackend } from './backends/types.ts';
 import { AgentManagerError, AgentNotFoundError, MaxAgentsReachedError } from './errors.ts';
 
@@ -11,11 +12,11 @@ export interface AgentPoolOptions {
 
 export class AgentPool {
   private agents = new Map<AgentId, AgentProcess>();
-  private backend: CLIBackend;
+  private backend: CLIBackend | BackendRegistry;
   private maxAgents: number;
   private idleTimeoutMs: number;
 
-  constructor(backend: CLIBackend, options?: AgentPoolOptions) {
+  constructor(backend: CLIBackend | BackendRegistry, options?: AgentPoolOptions) {
     this.backend = backend;
     this.maxAgents = options?.maxAgents ?? DEFAULTS.MAX_AGENTS;
     this.idleTimeoutMs = options?.idleTimeoutMs ?? 0;
@@ -29,7 +30,8 @@ export class AgentPool {
       throw new MaxAgentsReachedError(this.maxAgents);
     }
 
-    const agent = new AgentProcess(definition, this.backend, {
+    const resolved = this.resolveBackend(definition);
+    const agent = new AgentProcess(definition, resolved, {
       idleTimeoutMs: this.idleTimeoutMs,
     });
     await agent.start();
@@ -64,5 +66,19 @@ export class AgentPool {
     const stopPromises = [...this.agents.values()].map((a) => a.stop());
     await Promise.all(stopPromises);
     this.agents.clear();
+  }
+
+  private resolveBackend(definition: AgentDefinition): CLIBackend {
+    if (this.isRegistry(this.backend)) {
+      if (definition.backend) {
+        return this.backend.get(definition.backend);
+      }
+      return this.backend.getDefault();
+    }
+    return this.backend;
+  }
+
+  private isRegistry(backend: CLIBackend | BackendRegistry): backend is BackendRegistry {
+    return 'getDefault' in backend && 'list' in backend;
   }
 }

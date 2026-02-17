@@ -53,4 +53,6 @@ export interface AgentRuntimeInfo {
   lifecycle?: AgentLifecycle;
   /** Active session UUID if persistent. */
   sessionId?: string;
+  /** Which AI backend powers this agent. */
+  backend?: AIBackend;
 }

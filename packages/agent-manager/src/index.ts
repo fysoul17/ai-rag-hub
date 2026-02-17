@@ -2,7 +2,13 @@
 
 export { AgentPool, type AgentPoolOptions } from './agent-pool.ts';
 export { AgentProcess, type AgentProcessOptions } from './agent-process.ts';
-export { ClaudeBackend, getBackend, registerBackend } from './backends/index.ts';
+export {
+  ClaudeBackend,
+  DefaultBackendRegistry,
+  getBackend,
+  registerBackend,
+} from './backends/index.ts';
+export type { BackendRegistry } from './backends/registry.ts';
 export type { BackendProcess, BackendSpawnConfig, CLIBackend } from './backends/types.ts';
 export {
   AgentManagerError,

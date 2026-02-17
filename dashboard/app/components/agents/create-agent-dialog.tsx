@@ -13,15 +13,31 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createAgent } from '@/lib/api';
+
+const BACKEND_OPTIONS = [
+  { value: '', label: 'Default (platform)' },
+  { value: 'claude', label: 'Claude' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'goose', label: 'Goose' },
+] as const;
 
 export function CreateAgentDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [backend, setBackend] = useState('_default');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,6 +49,7 @@ export function CreateAgentDialog() {
     const role = form.get('role') as string;
     const systemPrompt = form.get('systemPrompt') as string;
     const toolsRaw = form.get('tools') as string;
+    const department = form.get('department') as string;
     const canModifyFiles = form.get('canModifyFiles') === 'on';
     const canDelegateToAgents = form.get('canDelegateToAgents') === 'on';
     const persistent = form.get('persistent') === 'on';
@@ -57,8 +74,13 @@ export function CreateAgentDialog() {
         canModifyFiles,
         canDelegateToAgents,
         persistent,
+        ...(backend && backend !== '_default'
+          ? { backend: backend as 'claude' | 'codex' | 'gemini' | 'goose' }
+          : {}),
+        ...(department ? { department } : {}),
       });
       setOpen(false);
+      setBackend('_default');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create agent');
@@ -108,6 +130,34 @@ export function CreateAgentDialog() {
               placeholder="read, write, search"
               className="font-mono"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="backend">Backend</Label>
+              <Select value={backend} onValueChange={setBackend}>
+                <SelectTrigger id="backend">
+                  <SelectValue placeholder="Default (platform)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BACKEND_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value || '_default'} value={opt.value || '_default'}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Input
+                id="department"
+                name="department"
+                placeholder="eng, mktg..."
+                className="font-mono"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-3">

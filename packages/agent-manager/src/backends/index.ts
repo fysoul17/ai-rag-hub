@@ -1,24 +1,20 @@
 import type { AIBackend } from '@autonomy/shared';
-import { BackendError } from '../errors.ts';
 import { ClaudeBackend } from './claude.ts';
+import { DefaultBackendRegistry } from './registry.ts';
 import type { CLIBackend } from './types.ts';
 
-const backends = new Map<string, CLIBackend>();
+// Module-level default registry (used by legacy global functions)
+const defaultRegistry = new DefaultBackendRegistry('claude' as AIBackend);
+defaultRegistry.register(new ClaudeBackend());
 
 export function registerBackend(backend: CLIBackend): void {
-  backends.set(backend.name, backend);
+  defaultRegistry.register(backend);
 }
 
 export function getBackend(name: AIBackend): CLIBackend {
-  const backend = backends.get(name);
-  if (!backend) {
-    throw new BackendError(name, `Not registered. Available: ${[...backends.keys()].join(', ')}`);
-  }
-  return backend;
+  return defaultRegistry.get(name);
 }
 
-// Register built-in backends
-registerBackend(new ClaudeBackend());
-
 export { ClaudeBackend } from './claude.ts';
+export { type BackendRegistry, DefaultBackendRegistry } from './registry.ts';
 export type { BackendProcess, BackendSpawnConfig, CLIBackend } from './types.ts';

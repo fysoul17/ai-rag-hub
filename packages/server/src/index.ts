@@ -1,6 +1,6 @@
 // @autonomy/server — Bun.serve HTTP/WS entry point
 
-import { AgentPool, getBackend } from '@autonomy/agent-manager';
+import { AgentPool, ClaudeBackend, DefaultBackendRegistry } from '@autonomy/agent-manager';
 import { Conductor } from '@autonomy/conductor';
 import { Memory } from '@autonomy/memory';
 import { DebugEventCategory, DebugEventLevel } from '@autonomy/shared';
@@ -134,9 +134,13 @@ async function main() {
     }),
   );
 
-  // Initialize Agent Pool
-  const backend = getBackend(config.AI_BACKEND);
-  const pool = new AgentPool(backend, {
+  // Initialize Backend Registry
+  const registry = new DefaultBackendRegistry(config.AI_BACKEND);
+  registry.register(new ClaudeBackend());
+  // Future: registry.register(new GooseBackend()), etc.
+
+  // Initialize Agent Pool (with registry for per-agent backend selection)
+  const pool = new AgentPool(registry, {
     maxAgents: config.MAX_AGENTS,
     idleTimeoutMs: config.IDLE_TIMEOUT_MS,
   });
@@ -150,9 +154,9 @@ async function main() {
     }),
   );
 
-  // Initialize Conductor (with AI backend for intelligent routing)
+  // Initialize Conductor (with default backend for intelligent routing)
   const conductorSessionId = loadOrCreateConductorSessionId(config.DATA_DIR);
-  const conductor = new Conductor(pool, memory, backend, {
+  const conductor = new Conductor(pool, memory, registry.getDefault(), {
     sessionId: conductorSessionId,
     maxAgents: config.MAX_AGENTS,
     idleTimeoutMs: config.IDLE_TIMEOUT_MS,
