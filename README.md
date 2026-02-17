@@ -146,7 +146,7 @@ docker-compose up
 ### Run Tests
 
 ```bash
-bun run test           # All packages (437 tests)
+bun run test           # All packages (481 tests)
 bun run typecheck      # TypeScript checking
 bun run lint           # Biome linting
 ```
@@ -176,9 +176,10 @@ agent-forge/
 ├── packages/
 │   ├── shared/          # Types, interfaces, constants
 │   ├── agent-manager/   # CLIBackend, AgentProcess, AgentPool, BackendRegistry
-│   ├── memory/          # SQLite + LanceDB + Naive RAG
+│   ├── memory/          # SQLite + LanceDB + Naive/Graph/Agentic RAG + embeddings + ingestion
+│   ├── memory-server/   # Standalone memory sidecar (:3002) — optional
 │   ├── conductor/       # Simple AI agent with memory + delegation
-│   ├── cron-manager/    # Scheduled tasks (planned)
+│   ├── cron-manager/    # Scheduled tasks
 │   └── server/          # Bun.serve HTTP + WebSocket + routes
 ├── dashboard/           # Next.js 16.1 cyberpunk dashboard
 ├── docs/
@@ -196,6 +197,8 @@ agent-forge/
        │
        ├──▶ @autonomy/agent-manager
        ├──▶ @autonomy/memory
+       │         │
+       │         └──▶ @autonomy/memory-server (optional sidecar :3002)
        └──▶ @autonomy/cron-manager
                     │
                     ▼
@@ -266,9 +269,9 @@ bun run typecheck            # Type checking
 
 ### Next Up
 
-- [ ] **Step 8: Cron Manager** — CronManager class, workflow executor, server routes, dashboard Automation page
-- [ ] **Step 9: Docker** — Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml, config update API
-- [ ] **Step 10: Advanced Memory** — Graph RAG, Agentic RAG, file ingest (PDF/CSV/TXT), dashboard Memory browser
+- [x] **Step 8: Cron Manager** — CronManager class, workflow executor, server routes, dashboard Automation page
+- [x] **Step 9: Docker** — Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
+- [x] **Step 10: Advanced Memory** — Memory-server sidecar, pluggable embeddings, Graph/Agentic RAG, file ingestion, Neo4j graph, memory browser UI
 - [ ] **Channel Adapters** — Telegram, Discord, Slack (extension point)
 - [ ] **Step 11: Control Plane** — Container orchestration, auth, billing (optional, cloud mode)
 

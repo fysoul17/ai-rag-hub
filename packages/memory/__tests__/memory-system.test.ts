@@ -135,13 +135,13 @@ describe('Memory (integration)', () => {
         metadata: {},
       });
 
-      const retrieved = memory.get('get-test');
+      const retrieved = await memory.get('get-test');
       expect(retrieved).toBeDefined();
       expect(retrieved?.content).toBe('retrieve me');
     });
 
-    test('returns null for non-existent id', () => {
-      const retrieved = memory.get('nonexistent');
+    test('returns null for non-existent id', async () => {
+      const retrieved = await memory.get('nonexistent');
       expect(retrieved).toBeNull();
     });
   });
@@ -193,15 +193,15 @@ describe('Memory (integration)', () => {
         type: MemoryType.LONG_TERM,
         metadata: {},
       });
-      expect(memory.get('del-1')).toBeDefined();
+      expect(await memory.get('del-1')).toBeDefined();
 
-      const deleted = memory.delete('del-1');
+      const deleted = await memory.delete('del-1');
       expect(deleted).toBe(true);
-      expect(memory.get('del-1')).toBeNull();
+      expect(await memory.get('del-1')).toBeNull();
     });
 
-    test('returns false for non-existent id', () => {
-      const deleted = memory.delete('nonexistent');
+    test('returns false for non-existent id', async () => {
+      const deleted = await memory.delete('nonexistent');
       expect(deleted).toBe(false);
     });
   });
@@ -230,9 +230,9 @@ describe('Memory (integration)', () => {
         metadata: {},
       });
 
-      const cleared = memory.clearSession('sess-1');
+      const cleared = await memory.clearSession('sess-1');
       expect(cleared).toBe(2);
-      expect(memory.get('lt1')).toBeDefined();
+      expect(await memory.get('lt1')).toBeDefined();
     });
   });
 

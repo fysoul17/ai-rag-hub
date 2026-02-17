@@ -39,7 +39,9 @@
       "@autonomy/cron-manager": ["./packages/cron-manager/src/index.ts"],
       "@autonomy/cron-manager/*": ["./packages/cron-manager/src/*"],
       "@autonomy/server": ["./packages/server/src/index.ts"],
-      "@autonomy/server/*": ["./packages/server/src/*"]
+      "@autonomy/server/*": ["./packages/server/src/*"],
+      "@autonomy/memory-server": ["./packages/memory-server/src/index.ts"],
+      "@autonomy/memory-server/*": ["./packages/memory-server/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", ".next", ".turbo"]

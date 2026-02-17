@@ -36,4 +36,5 @@ export interface EnvironmentConfig {
   QDRANT_URL?: string;
   LOG_LEVEL: LogLevel;
   MODE: RuntimeMode;
+  MEMORY_URL?: string;
 }

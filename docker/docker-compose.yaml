@@ -1,5 +1,7 @@
 # docker-compose.yaml — Agent Runtime + Dashboard
-# Usage: docker compose -f docker/docker-compose.yaml up
+# Usage:
+#   Minimal:  docker compose -f docker/docker-compose.yaml up
+#   Full:     docker compose -f docker/docker-compose.yaml --profile full up
 
 services:
   runtime:
@@ -19,6 +21,7 @@ services:
       - VECTOR_PROVIDER=${VECTOR_PROVIDER:-lancedb}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - MODE=standalone
+      - MEMORY_URL=${MEMORY_URL:-}
     restart: unless-stopped
 
   dashboard:
@@ -30,11 +33,66 @@ services:
     environment:
       - RUNTIME_URL=http://runtime:3001
       - NODE_ENV=production
+      - MEMORY_URL=${MEMORY_URL:-}
     depends_on:
       runtime:
         condition: service_healthy
     restart: unless-stopped
 
+  memory:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.memory
+    ports:
+      - "3002:3002"
+    volumes:
+      - memory-data:/data
+    environment:
+      - DATA_DIR=/data
+      - PORT=3002
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-stub}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-}
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles:
+      - full
+
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
+      - NEO4J_PLUGINS=["apoc"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    profiles:
+      - full
+
 volumes:
   agent-data:
+    driver: local
+  memory-data:
+    driver: local
+  neo4j-data:
     driver: local

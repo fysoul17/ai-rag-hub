@@ -5,6 +5,9 @@ import type { SQLiteStore } from '../sqlite-store.ts';
 /** Function that generates vector embeddings from text. */
 export type EmbeddingProvider = (texts: string[]) => Promise<number[][]>;
 
+/** Function that provides AI reasoning for agentic RAG. */
+export type ReasoningProvider = (prompt: string) => Promise<string>;
+
 /** Pluggable RAG strategy for memory search. */
 export interface RAGEngine {
   /** Strategy identifier (e.g., 'naive', 'graph', 'agentic'). */

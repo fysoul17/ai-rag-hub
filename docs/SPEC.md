@@ -164,9 +164,13 @@ template/
 │   ├── agent-manager/           # CLI AI process lifecycle
 │   │   └── backends/            # Pluggable CLI backends (claude, codex, etc.)
 │   ├── memory/                  # Persistent memory system
-│   │   ├── rag/                 # Naive RAG strategy
-│   │   └── providers/           # LanceDB (default)
-│   ├── cron-manager/            # Autonomous scheduling (stub)
+│   │   ├── rag/                 # Naive, Graph, Agentic RAG strategies
+│   │   ├── providers/           # LanceDB (default)
+│   │   ├── embeddings/          # Pluggable embedding providers (stub, anthropic, openai)
+│   │   ├── graph/               # Graph stores (SQLite, Neo4j)
+│   │   └── ingestion/           # File parsers + chunking pipeline
+│   ├── memory-server/           # Standalone memory sidecar (:3002)
+│   ├── cron-manager/            # Autonomous scheduling
 │   └── shared/                  # Types, utils, constants
 │
 ├── dashboard/                   # Next.js 16.1 (built-in UI)
@@ -178,6 +182,7 @@ template/
 ├── docker/
 │   ├── Dockerfile.runtime
 │   ├── Dockerfile.dashboard
+│   ├── Dockerfile.memory
 │   └── docker-compose.yaml
 │
 ├── data/                        # Default /data volume contents
@@ -458,7 +463,7 @@ Implement in this sequence.
 | 7    | backends          | BackendRegistry, per-agent backend selection, session support   | ✅ Done      |
 | 8    | cron-manager      | CronManager class, workflow executor, server routes, dashboard UI | ✅ Done      |
 | 9    | docker            | Dockerfile.runtime, Dockerfile.dashboard, docker-compose       | ✅ Done      |
-| 10   | memory (advanced) | Graph RAG, Agentic RAG, file ingest (PDF/CSV/TXT), memory browser UI | ⬜ Not started |
+| 10   | memory (advanced) | Memory-server sidecar, pluggable embeddings, Graph/Agentic RAG, file ingestion, Neo4j graph, memory browser UI | ✅ Done      |
 | 11   | control-plane     | Container orchestration, Auth, Billing, Portal                 | ⬜ Optional  |
 
 ### Remaining Stubs
@@ -466,4 +471,3 @@ Implement in this sequence.
 These items exist as stubs and will be completed with their parent steps:
 
 - `PUT /api/config` — returns 501 (implement with Step 9 or standalone)
-- Dashboard Memory page — stub placeholder (implement with Step 10)

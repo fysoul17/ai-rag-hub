@@ -1,5 +1,5 @@
 import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
-import type { Memory } from '@autonomy/memory';
+import type { MemoryInterface } from '@autonomy/memory';
 import {
   type ActivityEntry,
   ActivityType,
@@ -72,7 +72,7 @@ function buildAgentDefinition(
 
 export class Conductor {
   private pool: AgentPool;
-  private memory: Memory;
+  private memory: MemoryInterface;
   private backend?: CLIBackend;
   private backendProcess?: BackendProcess;
   private activityLog: ActivityLog;
@@ -81,7 +81,7 @@ export class Conductor {
   private messageQueue: QueuedConductorMessage[] = [];
   private processing = false;
 
-  constructor(pool: AgentPool, memory: Memory, backend?: CLIBackend, options?: ConductorOptions) {
+  constructor(pool: AgentPool, memory: MemoryInterface, backend?: CLIBackend, options?: ConductorOptions) {
     this.pool = pool;
     this.memory = memory;
     this.backend = backend;

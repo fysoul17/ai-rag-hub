@@ -6,11 +6,15 @@ import type {
   CreateCronRequest,
   CronEntry,
   CronExecutionLog,
+  GraphNode,
+  GraphTraversalResult,
   HealthCheckResponse,
+  MemoryEntry,
   MemoryIngestRequest,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
+  RAGStrategy,
   UpdateCronRequest,
 } from '@autonomy/shared';
 
@@ -117,4 +121,57 @@ export async function triggerCron(id: string): Promise<CronExecutionLog> {
   return fetchApi<CronExecutionLog>(`/api/crons/${id}/trigger`, {
     method: 'POST',
   });
+}
+
+// Advanced memory API
+
+export async function searchMemoryWithStrategy(
+  query: string,
+  options?: { limit?: number; strategy?: RAGStrategy; type?: string; agentId?: string },
+): Promise<MemorySearchResult> {
+  const params = new URLSearchParams({ query });
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.strategy) params.set('strategy', options.strategy);
+  if (options?.type) params.set('type', options.type);
+  if (options?.agentId) params.set('agentId', options.agentId);
+  return fetchApi<MemorySearchResult>(`/api/memory/search?${params}`);
+}
+
+export async function deleteMemoryEntry(id: string): Promise<{ deleted: string }> {
+  return fetchApi<{ deleted: string }>(`/api/memory/entries/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getGraphData(): Promise<{
+  nodes: GraphNode[];
+  totalCount: number;
+}> {
+  return fetchApi(`/api/memory/graph/nodes`);
+}
+
+export async function queryGraph(
+  nodeId: string,
+  depth = 1,
+): Promise<GraphTraversalResult> {
+  return fetchApi<GraphTraversalResult>('/api/memory/graph/query', {
+    method: 'POST',
+    body: JSON.stringify({ nodeId, depth }),
+  });
+}
+
+export async function uploadFile(file: File): Promise<unknown> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${RUNTIME_URL}/api/memory/ingest/file`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const body = (await res.json()) as ApiResponse<unknown>;
+  if (!body.success || body.data === undefined) {
+    throw new Error(body.error ?? `API error: ${res.status}`);
+  }
+  return body.data;
 }

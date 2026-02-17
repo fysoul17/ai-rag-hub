@@ -52,5 +52,6 @@ export function parseEnvConfig(): EnvironmentConfig {
     QDRANT_URL: env.QDRANT_URL,
     LOG_LEVEL: logLevel,
     MODE: mode,
+    MEMORY_URL: env.MEMORY_URL,
   };
 }

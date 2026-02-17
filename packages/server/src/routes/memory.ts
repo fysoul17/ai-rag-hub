@@ -1,4 +1,4 @@
-import type { Memory } from '@autonomy/memory';
+import type { MemoryInterface } from '@autonomy/memory';
 import { type MemoryIngestRequest, type MemorySearchParams, MemoryType } from '@autonomy/shared';
 import { BadRequestError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
@@ -15,7 +15,7 @@ function validateMemoryType(value: string | null | undefined): MemoryType | unde
   return value as MemoryType;
 }
 
-export function createMemoryRoutes(memory: Memory) {
+export function createMemoryRoutes(memory: MemoryInterface) {
   return {
     search: async (req: Request): Promise<Response> => {
       const url = new URL(req.url);

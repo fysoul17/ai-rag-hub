@@ -7,7 +7,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"],
-      "env": ["RUNTIME_URL"]
+      "env": ["RUNTIME_URL", "MEMORY_URL"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],
@@ -20,7 +20,7 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": [],
-      "env": ["ANTHROPIC_API_KEY", "DATA_DIR", "AI_BACKEND"]
+      "env": ["ANTHROPIC_API_KEY", "DATA_DIR", "AI_BACKEND", "EMBEDDING_PROVIDER", "EMBEDDING_API_KEY", "NEO4J_URL", "MEMORY_URL"]
     },
     "lint": {
       "outputs": []

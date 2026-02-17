@@ -4,7 +4,10 @@ import type {
   ApiResponse,
   CreateAgentRequest,
   CronEntry,
+  GraphNode,
+  GraphRelationship,
   HealthCheckResponse,
+  MemoryEntry,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
@@ -77,4 +80,48 @@ export async function restartAgent(id: string): Promise<AgentRuntimeInfo> {
 
 export async function getCrons(): Promise<CronEntry[]> {
   return fetchApi<CronEntry[]>('/api/crons');
+}
+
+// Memory server API (uses MEMORY_URL if set, falls back to RUNTIME_URL)
+const MEMORY_URL = process.env.MEMORY_URL;
+
+async function fetchMemoryApi<T>(path: string, options?: RequestInit): Promise<T> {
+  if (MEMORY_URL) {
+    const res = await fetch(`${MEMORY_URL}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+    });
+    const body = (await res.json()) as ApiResponse<T>;
+    if (!body.success || body.data === undefined) {
+      throw new Error(body.error ?? `Memory API error: ${res.status}`);
+    }
+    return body.data;
+  }
+  return fetchApi<T>(path, options);
+}
+
+export async function getMemoryEntries(
+  page = 1,
+  limit = 20,
+  query?: string,
+): Promise<{ entries: MemoryEntry[]; page: number; limit: number; totalCount: number }> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (query) params.set('query', query);
+  return fetchMemoryApi(`/api/memory/entries?${params}`);
+}
+
+export async function getGraphNodes(
+  options?: { name?: string; type?: string; limit?: number },
+): Promise<{ nodes: GraphNode[]; totalCount: number }> {
+  const params = new URLSearchParams();
+  if (options?.name) params.set('name', options.name);
+  if (options?.type) params.set('type', options.type);
+  if (options?.limit) params.set('limit', String(options.limit));
+  return fetchMemoryApi(`/api/memory/graph/nodes?${params}`);
+}
+
+export async function getGraphEdges(): Promise<{
+  stats: { nodeCount: number; edgeCount: number };
+}> {
+  return fetchMemoryApi('/api/memory/graph/edges');
 }

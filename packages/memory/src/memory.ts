@@ -9,10 +9,12 @@ import type {
 import { DEFAULTS, RAGStrategy, type VectorProvider } from '@autonomy/shared';
 import { nanoid } from 'nanoid';
 import { MemoryError } from './errors.ts';
+import type { GraphStore } from './graph/types.ts';
+import type { MemoryInterface } from './memory-interface.ts';
 import { getProvider } from './providers/index.ts';
 import type { VectorStore } from './providers/types.ts';
-import { getRAGEngine } from './rag/index.ts';
-import type { EmbeddingProvider } from './rag/types.ts';
+import { getRAGEngine, GraphRAGEngine, AgenticRAGEngine, registerRAGEngine } from './rag/index.ts';
+import type { EmbeddingProvider, ReasoningProvider } from './rag/types.ts';
 import { SQLiteStore } from './sqlite-store.ts';
 
 export interface MemoryOptions {
@@ -26,9 +28,13 @@ export interface MemoryOptions {
   embedder: EmbeddingProvider;
   /** Embedding vector dimensions. Default: 1024 */
   dimensions?: number;
+  /** Optional graph store for Graph RAG. */
+  graphStore?: GraphStore;
+  /** Optional reasoning provider for Agentic RAG. */
+  reasoningProvider?: ReasoningProvider;
 }
 
-export class Memory {
+export class Memory implements MemoryInterface {
   private sqliteStore: SQLiteStore | null = null;
   private vectorStore: VectorStore | null = null;
   private embedder: EmbeddingProvider;
@@ -43,6 +49,14 @@ export class Memory {
     this.vectorProviderName =
       options.vectorProvider ?? (DEFAULTS.VECTOR_PROVIDER as VectorProvider);
     this.dimensions = options.dimensions ?? 1024;
+
+    // Register optional RAG engines
+    if (options.graphStore) {
+      registerRAGEngine(new GraphRAGEngine(options.graphStore));
+    }
+    if (options.reasoningProvider) {
+      registerRAGEngine(new AgenticRAGEngine(options.reasoningProvider));
+    }
   }
 
   async initialize(): Promise<void> {
@@ -119,7 +133,7 @@ export class Memory {
     return engine.search(params, this.vectorStore, this.sqliteStore, this.embedder);
   }
 
-  get(id: string): MemoryEntry | null {
+  async get(id: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
     if (!this.sqliteStore) {
       throw new MemoryError('Memory not initialized: sqliteStore is null');
@@ -127,7 +141,7 @@ export class Memory {
     return this.sqliteStore.get(id);
   }
 
-  delete(id: string): boolean {
+  async delete(id: string): Promise<boolean> {
     this.ensureInitialized();
     if (!this.sqliteStore) {
       throw new MemoryError('Memory not initialized: sqliteStore is null');
@@ -140,7 +154,7 @@ export class Memory {
     return deleted;
   }
 
-  clearSession(sessionId: string): number {
+  async clearSession(sessionId: string): Promise<number> {
     this.ensureInitialized();
     if (!this.sqliteStore) {
       throw new MemoryError('Memory not initialized: sqliteStore is null');

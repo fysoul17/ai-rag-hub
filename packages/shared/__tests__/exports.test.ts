@@ -107,9 +107,11 @@ describe('@autonomy/shared exports', () => {
     expect(shared.DEFAULTS.MAX_AGENTS).toBe(10);
     expect(shared.DEFAULTS.AI_BACKEND).toBe('claude');
     expect(shared.DEFAULTS.VECTOR_PROVIDER).toBe('lancedb');
+    expect(shared.DEFAULTS.EMBEDDING_PROVIDER).toBe('stub');
     expect(shared.DEFAULTS.LOG_LEVEL).toBe('info');
     expect(shared.DEFAULTS.MODE).toBe('standalone');
-    expect(Object.keys(shared.DEFAULTS)).toHaveLength(9);
+    expect(shared.DEFAULTS.MEMORY_SERVER_PORT).toBe(3002);
+    expect(Object.keys(shared.DEFAULTS)).toHaveLength(11);
   });
 
   test('exports BACKEND_CAPABILITIES', () => {

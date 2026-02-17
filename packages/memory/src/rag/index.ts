@@ -19,8 +19,12 @@ export function getRAGEngine(strategy: RAGStrategy): RAGEngine {
   return engine;
 }
 
-// Register built-in engines
+// Register built-in engines (naive is always available)
 registerRAGEngine(new NaiveRAGEngine());
+// Graph and Agentic engines require constructor injection, so they are registered
+// by the consumer (Memory class or memory-server) when the required dependencies are available.
 
 export { NaiveRAGEngine } from './naive.ts';
-export type { EmbeddingProvider, RAGEngine } from './types.ts';
+export { GraphRAGEngine } from './graph.ts';
+export { AgenticRAGEngine } from './agentic.ts';
+export type { EmbeddingProvider, RAGEngine, ReasoningProvider } from './types.ts';

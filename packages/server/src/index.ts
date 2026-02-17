@@ -3,7 +3,8 @@
 import { AgentPool, ClaudeBackend, DefaultBackendRegistry } from '@autonomy/agent-manager';
 import { Conductor } from '@autonomy/conductor';
 import { CronManager } from '@autonomy/cron-manager';
-import { Memory } from '@autonomy/memory';
+import { createMemory, StubEmbeddingProvider } from '@autonomy/memory';
+import type { MemoryInterface } from '@autonomy/memory';
 import { DebugEventCategory, DebugEventLevel } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import { parseEnvConfig } from './config.ts';
@@ -41,26 +42,8 @@ export { createWebSocketHandler, type WSData } from './websocket.ts';
 
 // --- Bootstrap (only when run directly) ---
 
-function stubEmbedder(texts: string[]): Promise<number[][]> {
-  // Deterministic hash-based embedder for development.
-  // Produces distinct vectors for different texts (enables meaningful search).
-  // Real embedding (Anthropic/OpenAI) requires API key configuration.
-  return Promise.resolve(texts.map((text) => hashToVector(text, 1024)));
-}
-
-/** Generate a deterministic vector from text via simple hash. */
-function hashToVector(text: string, dimensions: number): number[] {
-  const vector: number[] = [];
-  for (let i = 0; i < dimensions; i++) {
-    let hash = 0;
-    const seed = text + String(i);
-    for (let j = 0; j < seed.length; j++) {
-      hash = ((hash << 5) - hash + seed.charCodeAt(j)) | 0;
-    }
-    vector.push(Math.sin(hash));
-  }
-  return vector;
-}
+const stubProvider = new StubEmbeddingProvider();
+const stubEmbedder = (texts: string[]) => stubProvider.embed(texts);
 
 // --- Combined WS data type for Bun.serve ---
 
@@ -87,12 +70,13 @@ async function main() {
     }),
   );
 
-  // Initialize Memory
-  const memory = new Memory({
+  // Initialize Memory (uses MemoryClient if MEMORY_URL is set, otherwise embedded)
+  const memory = createMemory({
     dataDir: config.DATA_DIR,
     vectorProvider: config.VECTOR_PROVIDER,
     qdrantUrl: config.QDRANT_URL,
     embedder: stubEmbedder,
+    memoryUrl: config.MEMORY_URL,
   });
   await memory.initialize();
   console.log('[server] Memory initialized');

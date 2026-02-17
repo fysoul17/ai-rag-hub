@@ -1,9 +1,9 @@
 import type { Conductor } from '@autonomy/conductor';
-import type { Memory } from '@autonomy/memory';
+import type { MemoryInterface } from '@autonomy/memory';
 import type { HealthCheckResponse } from '@autonomy/shared';
 import { jsonResponse } from '../middleware.ts';
 
-export function createHealthRoute(conductor: Conductor, memory: Memory, startTime: number) {
+export function createHealthRoute(conductor: Conductor, memory: MemoryInterface, startTime: number) {
   return async (): Promise<Response> => {
     const uptime = Math.floor((Date.now() - startTime) / 1000);
     const agents = conductor.listAgents();
