@@ -111,6 +111,18 @@ DebugBus (ring buffer + pub/sub) streams events across 5 categories (conductor, 
 ### Pipeline Visualization
 See exactly how the Conductor processes each message: which phase it's in, timing data per step — all rendered live in the chat UI.
 
+### Plugin System
+Event hooks and middleware pipeline for customizing behavior without modifying core source. 8 hook points (`onBeforeMessage`, `onAfterResponse`, `onBeforeAgentCreate`, etc.) with waterfall data flow, priority ordering, and error isolation. Plugins register declaratively via `PluginManager`.
+
+### Session Management
+Full conversation history with browse, resume, and delete. Sessions track messages per agent, persist across restarts, and integrate with WebSocket chat for seamless session continuity.
+
+### Production Hardening
+IP-based rate limiting (configurable window + max), structured JSON logging with log levels, and a standardized streaming contract across all AI backends. Ready for deployment behind a reverse proxy.
+
+### CI/CD Pipeline
+3-job GitHub Actions workflow: quality gate (lint + typecheck + unit tests), E2E integration tests (27 end-to-end scenarios), and Docker build verification. Runs on push to main and PRs.
+
 ---
 
 ## Quick Start
@@ -147,7 +159,7 @@ docker-compose up
 ### Run Tests
 
 ```bash
-bun run test           # All packages (624 tests)
+bun run test           # All packages (925 tests)
 bun run typecheck      # TypeScript checking
 bun run lint           # Biome linting
 ```
@@ -182,6 +194,7 @@ agent-forge/
 │   ├── conductor/       # Simple AI agent with memory + delegation
 │   ├── cron-manager/    # Scheduled tasks
 │   ├── control-plane/   # API key auth, usage tracking, quotas, instance registry
+│   ├── plugin-system/   # Event hooks, middleware pipeline, plugin manager
 │   └── server/          # Bun.serve HTTP + WebSocket + routes
 ├── dashboard/           # Next.js 16.1 cyberpunk dashboard
 ├── docs/
@@ -202,7 +215,8 @@ agent-forge/
        │         │
        │         └──▶ @autonomy/memory-server (optional sidecar :7822)
        ├──▶ @autonomy/cron-manager
-       └──▶ @autonomy/control-plane (auth, usage, quotas)
+       ├──▶ @autonomy/control-plane (auth, usage, quotas)
+       └──▶ @autonomy/plugin-system (hooks, middleware)
                     │
                     ▼
             @autonomy/conductor
@@ -248,6 +262,7 @@ bun run typecheck            # Type checking
 | POST | `/api/agents/:id/restart` | Restart agent |
 | GET | `/api/memory/search?q=` | Semantic search |
 | POST | `/api/memory/ingest` | Store to memory |
+| POST | `/api/memory/ingest/file` | Upload file to memory |
 | GET | `/api/memory/stats` | Memory statistics |
 | GET | `/api/crons` | List cron jobs |
 | POST | `/api/crons` | Create cron |
@@ -265,6 +280,11 @@ bun run typecheck            # Type checking
 | GET | `/api/usage/quotas/:keyId` | Get quotas |
 | PUT | `/api/usage/quotas/:keyId` | Update quotas |
 | GET | `/api/instances` | List runtime instances |
+| GET | `/api/sessions` | List sessions |
+| POST | `/api/sessions` | Create session |
+| GET | `/api/sessions/:id` | Get session with messages |
+| PUT | `/api/sessions/:id` | Update session |
+| DELETE | `/api/sessions/:id` | Delete session |
 | POST | `/api/auth/login` | Dashboard login (Next.js) |
 | POST | `/api/auth/logout` | Dashboard logout (Next.js) |
 
@@ -315,6 +335,11 @@ bun run typecheck            # Type checking
 - [x] **Step 12: Plugin System** — Event hooks, middleware pipeline, `onMessage`/`onResponse`/`onAgentCreate` hooks
 - [x] **Step 13: Sessions** — Conversation history API, session browse/resume/delete, dashboard sessions UI
 - [x] **Step 14: Dashboard Enhancements** — File upload, dashboard auth (login/logout), live health widget
+
+### Production & CI/CD (Steps 15-16) ✅
+
+- [x] **Step 15: Production Hardening** — IP rate limiting, structured JSON logging, standardized streaming contract
+- [x] **Step 16: CI/CD Pipeline** — 3-job GitHub Actions (quality/e2e/docker), 27 E2E integration tests
 
 ### Extension Points
 
