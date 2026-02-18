@@ -231,6 +231,7 @@ async function main() {
 
   router.get('/api/memory/search', memoryRoutes.search);
   router.post('/api/memory/ingest', memoryRoutes.ingest);
+  router.post('/api/memory/ingest/file', memoryRoutes.ingestFile);
   router.get('/api/memory/stats', memoryRoutes.stats);
 
   router.get('/api/crons', cronRoutes.list);
