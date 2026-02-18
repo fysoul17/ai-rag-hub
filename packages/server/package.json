@@ -9,6 +9,7 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "test:e2e": "bun test __tests__/e2e/ --timeout 30000",
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "clean": "rm -rf node_modules .turbo"

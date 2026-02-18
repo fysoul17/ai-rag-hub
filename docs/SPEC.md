@@ -431,6 +431,10 @@ Server → Client:
 | `MAX_AGENTS`      | No        | `10`                    | Max concurrent agents      |
 | `VECTOR_PROVIDER` | No        | `lancedb`               | Vector DB provider         |
 | `LOG_LEVEL`       | No        | `info`                  | Log level                  |
+| `RATE_LIMIT_MAX`  | No        | `100`                   | Max requests per rate limit window per IP |
+| `RATE_LIMIT_WINDOW_MS` | No   | `60000`                 | Rate limit window duration (ms) |
+| `TRUST_PROXY`     | No        | `false`                 | Trust X-Forwarded-For for IP extraction |
+| `STREAM_TIMEOUT_MS` | No      | `300000`                | Max stream duration for AI responses (ms) |
 | `DASHBOARD_USER`  | No        | —                       | Dashboard login username (auth disabled if unset) |
 | `DASHBOARD_PASSWORD` | No     | —                       | Dashboard login password (auth disabled if unset) |
 | `DASHBOARD_SECRET` | No       | (uses `DASHBOARD_PASSWORD`) | Separate HMAC signing key for session tokens |
@@ -556,5 +560,5 @@ Implement in this sequence.
 | 12   | plugin-system     | Event hook system, middleware pipeline, `onMessage`/`onResponse`/`onAgentCreate` hooks                         | ✅ Done    |
 | 13   | sessions          | Conversation history API, session browse/resume/delete, dashboard sessions UI                                  | ✅ Done    |
 | 14   | dashboard-enhance | File upload in memory page, dashboard auth (login), health auto-refresh widget                                 | ✅ Done    |
-| 15   | production        | IP rate limiting, structured JSON logging, standardized streaming contract for all backends                    | 🔲 Planned |
-| 16   | ci-cd             | GitHub Actions (test → lint → build → docker), E2E integration tests                                           | 🔲 Planned |
+| 15   | production        | IP rate limiting, structured JSON logging, standardized streaming contract for all backends                    | ✅ Done    |
+| 16   | ci-cd             | GitHub Actions (test → lint → build → docker), E2E integration tests                                           | ✅ Done    |
