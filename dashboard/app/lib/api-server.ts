@@ -7,13 +7,14 @@ import type {
   CronEntry,
   EnvironmentConfig,
   GraphNode,
-  GraphRelationship,
   HealthCheckResponse,
   InstanceInfo,
   MemoryEntry,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
+  SessionDetail,
+  SessionListResponse,
   UsageSummary,
 } from '@autonomy/shared';
 
@@ -121,9 +122,11 @@ export async function getMemoryEntries(
   return fetchMemoryApi(`/api/memory/entries?${params}`);
 }
 
-export async function getGraphNodes(
-  options?: { name?: string; type?: string; limit?: number },
-): Promise<{ nodes: GraphNode[]; totalCount: number }> {
+export async function getGraphNodes(options?: {
+  name?: string;
+  type?: string;
+  limit?: number;
+}): Promise<{ nodes: GraphNode[]; totalCount: number }> {
   const params = new URLSearchParams();
   if (options?.name) params.set('name', options.name);
   if (options?.type) params.set('type', options.type);
@@ -147,12 +150,20 @@ export async function getApiKeys(): Promise<ApiKey[]> {
   return fetchApi<ApiKey[]>('/api/auth/keys');
 }
 
-export async function getUsageSummary(
-  period: 'day' | 'month' = 'day',
-): Promise<UsageSummary[]> {
+export async function getUsageSummary(period: 'day' | 'month' = 'day'): Promise<UsageSummary[]> {
   return fetchApi<UsageSummary[]>(`/api/usage/summary?period=${period}`);
 }
 
 export async function getInstances(): Promise<InstanceInfo[]> {
   return fetchApi<InstanceInfo[]>('/api/instances');
+}
+
+// --- Sessions ---
+
+export async function getSessions(): Promise<SessionListResponse> {
+  return fetchApi<SessionListResponse>('/api/sessions');
+}
+
+export async function getSessionDetail(id: string): Promise<SessionDetail> {
+  return fetchApi<SessionDetail>(`/api/sessions/${id}`);
 }

@@ -20,6 +20,7 @@ export const WSServerMessageType = {
   CONDUCTOR_STATUS: 'conductor_status',
   DEBUG_EVENT: 'debug_event',
   DEBUG_HISTORY: 'debug_history',
+  SESSION_INIT: 'session_init',
 } as const;
 export type WSServerMessageType = (typeof WSServerMessageType)[keyof typeof WSServerMessageType];
 
@@ -97,6 +98,11 @@ export interface WSServerDebugHistory {
   events: DebugEvent[];
 }
 
+export interface WSServerSessionInit {
+  type: typeof WSServerMessageType.SESSION_INIT;
+  sessionId: string;
+}
+
 export type WSServerMessage =
   | WSServerChunk
   | WSServerComplete
@@ -106,4 +112,5 @@ export type WSServerMessage =
   | WSServerA2AEvent
   | WSServerConductorStatus
   | WSServerDebugEvent
-  | WSServerDebugHistory;
+  | WSServerDebugHistory
+  | WSServerSessionInit;

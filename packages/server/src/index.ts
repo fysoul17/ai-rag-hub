@@ -31,7 +31,9 @@ import { createCronRoutes } from './routes/crons.ts';
 import { createHealthRoute } from './routes/health.ts';
 import { createInstanceRoutes } from './routes/instances.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
+import { createSessionRoutes } from './routes/sessions.ts';
 import { createUsageRoutes } from './routes/usage.ts';
+import { SessionStore } from './session-store.ts';
 import { createWebSocketHandler, type WSData } from './websocket.ts';
 
 export { parseEnvConfig } from './config.ts';
@@ -56,7 +58,9 @@ export { createCronRoutes } from './routes/crons.ts';
 export { createHealthRoute } from './routes/health.ts';
 export { createInstanceRoutes } from './routes/instances.ts';
 export { createMemoryRoutes } from './routes/memory.ts';
+export { createSessionRoutes } from './routes/sessions.ts';
 export { createUsageRoutes } from './routes/usage.ts';
+export { SessionStore } from './session-store.ts';
 export { createWebSocketHandler, type WSData } from './websocket.ts';
 
 // --- Bootstrap (only when run directly) ---
@@ -99,6 +103,7 @@ async function main() {
   const controlPlaneDb = new Database(join(config.DATA_DIR, 'control-plane.sqlite'));
   controlPlaneDb.exec('PRAGMA journal_mode = WAL;');
   const authStore = new AuthStore(controlPlaneDb);
+  const sessionStore = new SessionStore(controlPlaneDb);
   const usageStore = new UsageStore(controlPlaneDb);
   const authMiddleware = new AuthMiddleware(authStore, {
     enabled: config.AUTH_ENABLED,
@@ -194,7 +199,7 @@ async function main() {
   console.log('[server] Instance registered');
 
   // Create WebSocket handlers
-  const ws = createWebSocketHandler(conductor, debugBus);
+  const ws = createWebSocketHandler(conductor, debugBus, sessionStore);
   const debugWs = createDebugWebSocketHandler(debugBus);
   if (debugWsEnabled) {
     console.log(
@@ -214,6 +219,7 @@ async function main() {
   const authRoutes = createAuthRoutes(authStore, authMiddleware);
   const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
   const instanceRoutes = createInstanceRoutes(instanceRegistry);
+  const sessionRoutes = createSessionRoutes(sessionStore, memory);
 
   router.get('/health', healthRoute);
 
@@ -253,6 +259,13 @@ async function main() {
   // Instance routes
   router.get('/api/instances', instanceRoutes.list);
 
+  // Session routes
+  router.get('/api/sessions', sessionRoutes.list);
+  router.post('/api/sessions', sessionRoutes.create);
+  router.get('/api/sessions/:id', sessionRoutes.get);
+  router.put('/api/sessions/:id', sessionRoutes.update);
+  router.delete('/api/sessions/:id', sessionRoutes.remove);
+
   function handleDebugUpgrade(
     req: Request,
     srv: { upgrade(req: Request, options: { data: CombinedWSData }): boolean },
@@ -285,8 +298,19 @@ async function main() {
           const wsAuthResult = authMiddleware.authenticate(req);
           if (wsAuthResult instanceof Response) return wsAuthResult;
         }
+
+        // Session support: parse ?sessionId= from URL
+        const sessionId = url.searchParams.get('sessionId') ?? undefined;
+        if (sessionId) {
+          // Verify session exists
+          const session = sessionStore.getById(sessionId);
+          if (!session) {
+            return new Response('Session not found', { status: 404 });
+          }
+        }
+
         const upgraded = server.upgrade(req, {
-          data: { id: crypto.randomUUID(), type: 'chat' as const },
+          data: { id: crypto.randomUUID(), type: 'chat' as const, sessionId },
         });
         if (upgraded) return undefined as unknown as Response;
         return new Response('WebSocket upgrade failed', { status: 400 });

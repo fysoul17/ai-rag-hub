@@ -2,7 +2,7 @@
 
 import type { AgentRuntimeInfo } from '@autonomy/shared';
 import { Layers } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShowSteps } from '@/hooks/use-show-steps';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { AgentSelector } from './agent-selector';
@@ -10,18 +10,39 @@ import { ChatInput } from './chat-input';
 import { ChatMessageBubble } from './chat-message';
 
 const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL ?? 'http://localhost:7820';
-const WS_URL = `${RUNTIME_URL.replace(/^http/, 'ws')}/ws/chat`;
+const WS_BASE = `${RUNTIME_URL.replace(/^http/, 'ws')}/ws/chat`;
 
 interface ChatInterfaceProps {
   initialAgents: AgentRuntimeInfo[];
+  initialSessionId?: string;
+  initialMessages?: { role: string; content: string; agentId?: string; createdAt: string }[];
 }
 
-export function ChatInterface({ initialAgents }: ChatInterfaceProps) {
+export function ChatInterface({
+  initialAgents,
+  initialSessionId,
+  initialMessages,
+}: ChatInterfaceProps) {
   const [agents, setAgents] = useState<AgentRuntimeInfo[]>(initialAgents);
   const [targetAgent, setTargetAgent] = useState<string | undefined>(undefined);
   const [conductorName, setConductorName] = useState('Conductor');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { showSteps, toggleSteps } = useShowSteps();
+
+  const wsUrl = initialSessionId ? `${WS_BASE}?sessionId=${initialSessionId}` : WS_BASE;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only compute seed messages once on mount
+  const seedMessages = useMemo(
+    () =>
+      initialMessages?.map((m, i) => ({
+        id: `seed-${i}-${Date.now()}`,
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+        agentId: m.agentId,
+        timestamp: Date.parse(m.createdAt),
+      })),
+    [],
+  );
 
   const handleAgentStatus = useCallback(
     (newAgents: AgentRuntimeInfo[], newConductorName?: string) => {
@@ -32,8 +53,9 @@ export function ChatInterface({ initialAgents }: ChatInterfaceProps) {
   );
 
   const { status, messages, sendMessage, isProcessing } = useWebSocket({
-    url: WS_URL,
+    url: wsUrl,
     onAgentStatus: handleAgentStatus,
+    initialMessages: seedMessages,
   });
 
   // Auto-scroll to bottom on new messages

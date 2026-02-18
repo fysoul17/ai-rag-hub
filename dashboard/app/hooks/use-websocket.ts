@@ -33,11 +33,12 @@ export interface ChatMessage {
 interface UseWebSocketOptions {
   url: string;
   onAgentStatus?: (agents: AgentRuntimeInfo[], conductorName?: string) => void;
+  initialMessages?: ChatMessage[];
 }
 
-export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
+export function useWebSocket({ url, onAgentStatus, initialMessages }: UseWebSocketOptions) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -219,6 +220,8 @@ export function useWebSocket({ url, onAgentStatus }: UseWebSocketOptions) {
             break;
           case 'agent_status':
             onAgentStatusRef.current?.(parsed.agents, parsed.conductorName);
+            break;
+          case 'session_init':
             break;
           case 'pong':
             break;

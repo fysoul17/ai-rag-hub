@@ -1,6 +1,18 @@
 'use client';
 
-import { BarChart3, Bot, Brain, Cpu, Home, Key, MessageSquare, Settings, Terminal, Timer } from 'lucide-react';
+import {
+  BarChart3,
+  Bot,
+  Brain,
+  Cpu,
+  History,
+  Home,
+  Key,
+  MessageSquare,
+  Settings,
+  Terminal,
+  Timer,
+} from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +29,7 @@ const mainNav = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/agents', label: 'Agents', icon: Bot },
   { href: '/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/sessions', label: 'Sessions', icon: History },
   { href: '/memory', label: 'Memory', icon: Brain },
 ];
 

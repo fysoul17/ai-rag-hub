@@ -10,22 +10,26 @@ import type {
   WSServerConductorStatus,
   WSServerError,
   WSServerPong,
+  WSServerSessionInit,
 } from '@autonomy/shared';
 import {
   DebugEventCategory,
   DebugEventLevel,
+  MessageRole,
   WSClientMessageType,
   WSServerMessageType,
 } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import type { DebugBus } from './debug-bus.ts';
 import { makeDebugEvent } from './debug-bus.ts';
+import type { SessionStore } from './session-store.ts';
 
 const MAX_WS_MESSAGE_SIZE = 65_536; // 64 KB
 const MAX_WS_CLIENTS = 100;
 
 export interface WSData {
   id: string;
+  sessionId?: string;
 }
 
 function sendWSError(ws: ServerWebSocket<WSData>, message: string): void {
@@ -149,6 +153,7 @@ async function handleConductorMessage(
   conductor: Conductor,
   parsed: WSClientMessage,
   debugBus?: DebugBus,
+  sessionStore?: SessionStore,
 ): Promise<void> {
   const incoming: IncomingMessage = {
     content: parsed.content ?? '',
@@ -168,6 +173,16 @@ async function handleConductorMessage(
     }),
   );
 
+  // Persist user message if session tracking is active
+  const sessionId = ws.data.sessionId;
+  if (sessionStore && sessionId) {
+    try {
+      sessionStore.addMessage(sessionId, MessageRole.USER, parsed.content ?? '');
+    } catch (err) {
+      console.warn(`[ws] Failed to persist user message for session ${sessionId}:`, err);
+    }
+  }
+
   try {
     const onEvent = (event: ConductorEvent) => {
       sendConductorStatus(ws, event);
@@ -183,6 +198,20 @@ async function handleConductorMessage(
 
     const complete: WSServerComplete = { type: WSServerMessageType.COMPLETE };
     ws.send(JSON.stringify(complete));
+
+    // Persist assistant message if session tracking is active
+    if (sessionStore && sessionId) {
+      try {
+        sessionStore.addMessage(
+          sessionId,
+          MessageRole.ASSISTANT,
+          response.content,
+          response.agentId,
+        );
+      } catch (err) {
+        console.warn(`[ws] Failed to persist assistant message for session ${sessionId}:`, err);
+      }
+    }
 
     debugBus?.emit(
       makeDebugEvent({
@@ -212,6 +241,7 @@ function handleParsedMessage(
   conductor: Conductor,
   parsed: WSClientMessage,
   debugBus?: DebugBus,
+  sessionStore?: SessionStore,
 ): Promise<void> | void {
   if (parsed.type === WSClientMessageType.PING) {
     const pong: WSServerPong = { type: WSServerMessageType.PONG };
@@ -220,13 +250,17 @@ function handleParsedMessage(
   }
 
   if (parsed.type === WSClientMessageType.MESSAGE) {
-    return handleConductorMessage(ws, conductor, parsed, debugBus);
+    return handleConductorMessage(ws, conductor, parsed, debugBus, sessionStore);
   }
 
   sendWSError(ws, `Unknown message type: ${(parsed as { type?: string }).type}`);
 }
 
-export function createWebSocketHandler(conductor: Conductor, debugBus?: DebugBus) {
+export function createWebSocketHandler(
+  conductor: Conductor,
+  debugBus?: DebugBus,
+  sessionStore?: SessionStore,
+) {
   const clients = new Set<ServerWebSocket<WSData>>();
   let statusInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -290,13 +324,22 @@ export function createWebSocketHandler(conductor: Conductor, debugBus?: DebugBus
         startStatusBroadcast();
       }
 
+      // Send session_init if this connection has a sessionId
+      if (ws.data.sessionId) {
+        const sessionInit: WSServerSessionInit = {
+          type: WSServerMessageType.SESSION_INIT,
+          sessionId: ws.data.sessionId,
+        };
+        ws.send(JSON.stringify(sessionInit));
+      }
+
       debugBus?.emit(
         makeDebugEvent({
           category: DebugEventCategory.WEBSOCKET,
           level: DebugEventLevel.INFO,
           source: 'ws.connect',
           message: `Chat client connected (${clients.size} total)`,
-          data: { clientId: ws.data.id },
+          data: { clientId: ws.data.id, sessionId: ws.data.sessionId },
         }),
       );
     },
@@ -317,7 +360,7 @@ export function createWebSocketHandler(conductor: Conductor, debugBus?: DebugBus
         return;
       }
 
-      await handleParsedMessage(ws, conductor, parsed, debugBus);
+      await handleParsedMessage(ws, conductor, parsed, debugBus, sessionStore);
     },
 
     close(ws: ServerWebSocket<WSData>): void {

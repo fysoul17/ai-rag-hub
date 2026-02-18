@@ -1,0 +1,95 @@
+'use client';
+
+import { MessageSquare, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { deleteSession } from '@/lib/api';
+
+interface SessionCardActionsProps {
+  sessionId: string;
+  title: string;
+}
+
+export function SessionCardActions({ sessionId, title }: SessionCardActionsProps) {
+  const router = useRouter();
+  const [showDelete, setShowDelete] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleDelete() {
+    setLoading(true);
+    setError('');
+    try {
+      await deleteSession(sessionId);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+    } finally {
+      setLoading(false);
+      setShowDelete(false);
+    }
+  }
+
+  return (
+    <>
+      {error && (
+        <p className="absolute -bottom-5 left-0 right-0 text-[10px] text-neon-red truncate">
+          {error}
+        </p>
+      )}
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-neon-cyan"
+          aria-label="Resume session"
+          asChild
+        >
+          <Link href={`/chat?sessionId=${sessionId}`}>
+            <MessageSquare className="h-4 w-4" />
+          </Link>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-neon-red"
+          aria-label="Delete session"
+          onClick={() => setShowDelete(true)}
+          disabled={loading}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
+        <AlertDialogContent className="glass border-neon-red/30">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Session</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{title}</strong>? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-neon-red hover:bg-neon-red/80">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

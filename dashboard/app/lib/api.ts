@@ -7,6 +7,7 @@ import type {
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   CreateCronRequest,
+  CreateSessionRequest,
   CronEntry,
   CronExecutionLog,
   EnvironmentConfig,
@@ -14,16 +15,19 @@ import type {
   GraphTraversalResult,
   HealthCheckResponse,
   InstanceInfo,
-  MemoryEntry,
   MemoryIngestRequest,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
   QuotaConfig,
   RAGStrategy,
+  Session,
+  SessionDetail,
+  SessionListResponse,
   UpdateAgentRequest,
   UpdateApiKeyRequest,
   UpdateCronRequest,
+  UpdateSessionRequest,
   UsageSummary,
 } from '@autonomy/shared';
 
@@ -33,9 +37,7 @@ const RUNTIME_URL =
     : 'http://localhost:7820';
 
 const RUNTIME_API_KEY =
-  typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_RUNTIME_API_KEY ?? '')
-    : '';
+  typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_RUNTIME_API_KEY ?? '') : '';
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -170,10 +172,7 @@ export async function getGraphData(): Promise<{
   return fetchApi(`/api/memory/graph/nodes`);
 }
 
-export async function queryGraph(
-  nodeId: string,
-  depth = 1,
-): Promise<GraphTraversalResult> {
+export async function queryGraph(nodeId: string, depth = 1): Promise<GraphTraversalResult> {
   return fetchApi<GraphTraversalResult>('/api/memory/graph/query', {
     method: 'POST',
     body: JSON.stringify({ nodeId, depth }),
@@ -204,10 +203,7 @@ export async function uploadFile(file: File): Promise<unknown> {
 
 // --- Agent Update ---
 
-export async function updateAgent(
-  id: string,
-  data: UpdateAgentRequest,
-): Promise<AgentRuntimeInfo> {
+export async function updateAgent(id: string, data: UpdateAgentRequest): Promise<AgentRuntimeInfo> {
   return fetchApi<AgentRuntimeInfo>(`/api/agents/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -220,9 +216,7 @@ export async function getRuntimeConfig(): Promise<EnvironmentConfig> {
   return fetchApi<EnvironmentConfig>('/api/config');
 }
 
-export async function updateConfig(
-  data: Record<string, unknown>,
-): Promise<EnvironmentConfig> {
+export async function updateConfig(data: Record<string, unknown>): Promise<EnvironmentConfig> {
   return fetchApi<EnvironmentConfig>('/api/config', {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -235,19 +229,14 @@ export async function getApiKeys(): Promise<ApiKey[]> {
   return fetchApi<ApiKey[]>('/api/auth/keys');
 }
 
-export async function createApiKey(
-  data: CreateApiKeyRequest,
-): Promise<CreateApiKeyResponse> {
+export async function createApiKey(data: CreateApiKeyRequest): Promise<CreateApiKeyResponse> {
   return fetchApi<CreateApiKeyResponse>('/api/auth/keys', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateApiKey(
-  id: string,
-  data: UpdateApiKeyRequest,
-): Promise<ApiKey> {
+export async function updateApiKey(id: string, data: UpdateApiKeyRequest): Promise<ApiKey> {
   return fetchApi<ApiKey>(`/api/auth/keys/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -262,9 +251,7 @@ export async function deleteApiKey(id: string): Promise<{ deleted: string }> {
 
 // --- Usage ---
 
-export async function getUsageSummary(
-  period: 'day' | 'month' = 'day',
-): Promise<UsageSummary[]> {
+export async function getUsageSummary(period: 'day' | 'month' = 'day'): Promise<UsageSummary[]> {
   return fetchApi<UsageSummary[]>(`/api/usage/summary?period=${period}`);
 }
 
@@ -286,4 +273,43 @@ export async function setQuota(
 
 export async function getInstances(): Promise<InstanceInfo[]> {
   return fetchApi<InstanceInfo[]>('/api/instances');
+}
+
+// --- Sessions ---
+
+export async function getSessions(options?: {
+  agentId?: string;
+  page?: number;
+  limit?: number;
+}): Promise<SessionListResponse> {
+  const params = new URLSearchParams();
+  if (options?.agentId) params.set('agentId', options.agentId);
+  if (options?.page) params.set('page', String(options.page));
+  if (options?.limit) params.set('limit', String(options.limit));
+  const qs = params.toString();
+  return fetchApi<SessionListResponse>(`/api/sessions${qs ? `?${qs}` : ''}`);
+}
+
+export async function getSession(id: string): Promise<SessionDetail> {
+  return fetchApi<SessionDetail>(`/api/sessions/${id}`);
+}
+
+export async function createSession(data: CreateSessionRequest): Promise<Session> {
+  return fetchApi<Session>('/api/sessions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateSession(id: string, data: UpdateSessionRequest): Promise<Session> {
+  return fetchApi<Session>(`/api/sessions/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSession(id: string): Promise<{ deleted: string }> {
+  return fetchApi<{ deleted: string }>(`/api/sessions/${id}`, {
+    method: 'DELETE',
+  });
 }
