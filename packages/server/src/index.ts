@@ -37,6 +37,7 @@ import { createSessionRoutes } from './routes/sessions.ts';
 import { createUsageRoutes } from './routes/usage.ts';
 import { SessionStore } from './session-store.ts';
 import { createTerminalWebSocketHandler, type TerminalWSData } from './terminal-ws.ts';
+import { runSeeds } from './seeds/index.ts';
 import { createWebSocketHandler, type WSData } from './websocket.ts';
 
 export { parseEnvConfig } from './config.ts';
@@ -195,6 +196,10 @@ async function main() {
       message: 'Conductor initialized',
     }),
   );
+
+  // Seed pre-configured agents (idempotent)
+  await runSeeds(pool);
+  logger.info('Agent seeds applied');
 
   // Initialize CronManager
   const cronManager = new CronManager(conductor, { dataDir: config.DATA_DIR });
