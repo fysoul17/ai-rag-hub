@@ -1,7 +1,8 @@
 'use client';
 
 import type { AgentRuntimeInfo } from '@autonomy/shared';
-import { Layers } from 'lucide-react';
+import { Layers, Plus } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShowSteps } from '@/hooks/use-show-steps';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -26,6 +27,7 @@ export function ChatInterface({
   const [agents, setAgents] = useState<AgentRuntimeInfo[]>(initialAgents);
   const [targetAgent, setTargetAgent] = useState<string | undefined>(undefined);
   const [conductorName, setConductorName] = useState('Conductor');
+  const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { showSteps, toggleSteps } = useShowSteps();
 
@@ -52,9 +54,25 @@ export function ChatInterface({
     [],
   );
 
+  const handleSessionInit = useCallback((newSessionId: string) => {
+    setSessionId(newSessionId);
+    // Update URL so navigating away and back preserves the session
+    window.history.replaceState(null, '', `/chat?sessionId=${newSessionId}`);
+  }, []);
+
+  // Remember the current session in a cookie so the server can restore it
+  // when the user navigates away and comes back to /chat.
+  useEffect(() => {
+    if (sessionId) {
+      // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API has limited browser support
+      document.cookie = `lastChatSession=${sessionId};path=/;max-age=31536000;SameSite=Lax`;
+    }
+  }, [sessionId]);
+
   const { status, messages, sendMessage, isProcessing } = useWebSocket({
     url: wsUrl,
     onAgentStatus: handleAgentStatus,
+    onSessionInit: handleSessionInit,
     initialMessages: seedMessages,
   });
 
@@ -76,13 +94,25 @@ export function ChatInterface({
 
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col">
-      {/* Agent selector */}
-      <AgentSelector
-        agents={agents}
-        selected={targetAgent}
-        onSelect={setTargetAgent}
-        conductorName={conductorName}
-      />
+      {/* Agent selector + new chat */}
+      <div className="flex items-center border-b border-border">
+        <div className="flex-1 overflow-hidden">
+          <AgentSelector
+            agents={agents}
+            selected={targetAgent}
+            onSelect={setTargetAgent}
+            conductorName={conductorName}
+          />
+        </div>
+        <Link
+          href="/chat?new"
+          aria-label="New chat"
+          className="flex shrink-0 items-center gap-1 border-l border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">New Chat</span>
+        </Link>
+      </div>
 
       {/* Messages */}
       <div
@@ -115,6 +145,7 @@ export function ChatInterface({
       {/* Connection status + steps toggle */}
       <div className="flex items-center gap-2 border-t border-border/50 px-4 py-1">
         <span
+          aria-hidden="true"
           className={`h-2 w-2 rounded-full animate-pulse-glow ${
             status === 'connected'
               ? 'bg-neon-cyan'
@@ -124,6 +155,15 @@ export function ChatInterface({
           }`}
         />
         <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
+        {sessionId && (
+          <output
+            className="text-[10px] text-muted-foreground/50 font-mono"
+            title={sessionId}
+            aria-label={`Session ID: ${sessionId}`}
+          >
+            {sessionId.slice(0, 8)}
+          </output>
+        )}
 
         <button
           type="button"

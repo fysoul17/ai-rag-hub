@@ -1,4 +1,9 @@
-import type { AIBackend, BackendCapabilities, StreamEvent } from '@autonomy/shared';
+import type {
+  AIBackend,
+  BackendCapabilities,
+  BackendStatus,
+  StreamEvent,
+} from '@autonomy/shared';
 
 /** Configuration passed to CLIBackend.spawn() to create a process. */
 export interface BackendSpawnConfig {
@@ -34,4 +39,8 @@ export interface CLIBackend {
   readonly capabilities: BackendCapabilities;
   /** Spawn a new process with the given configuration. */
   spawn(config: BackendSpawnConfig): Promise<BackendProcess>;
+  /** Optional: check runtime availability, auth status, and capabilities. */
+  getStatus?(): Promise<BackendStatus>;
+  /** Optional: log out from the CLI backend (e.g., revoke CLI session). */
+  logout?(): Promise<void>;
 }

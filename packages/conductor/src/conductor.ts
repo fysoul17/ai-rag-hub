@@ -34,6 +34,7 @@ import {
 
 const DEFAULT_MAX_DELEGATION_DEPTH = 5;
 const DEFAULT_MAX_QUEUE_DEPTH = 50;
+const MAX_SESSION_PROCESSES = 100;
 
 const conductorLogger = new Logger({ context: { source: 'conductor' } });
 
@@ -81,6 +82,8 @@ export class Conductor {
   private memory: MemoryInterface;
   private backend?: CLIBackend;
   private backendProcess?: BackendProcess;
+  /** Per-session backend processes keyed by sessionId. */
+  private sessionProcesses = new Map<string, BackendProcess>();
   private activityLog: ActivityLog;
   private initialized = false;
   private options: ConductorOptions;
@@ -214,8 +217,9 @@ export class Conductor {
         return;
       }
     } else {
-      // Conductor responds directly
-      if (!this.backendProcess) {
+      // Conductor responds directly — use per-session backend process
+      const sessionBackend = await this.getBackendProcess(processedMessage.sessionId);
+      if (!sessionBackend) {
         yield { type: 'chunk', content: FALLBACK_NO_BACKEND };
         yield { type: 'complete' };
         return;
@@ -242,15 +246,15 @@ export class Conductor {
       }
 
       try {
-        if (this.backendProcess.sendStreaming) {
-          for await (const event of this.backendProcess.sendStreaming(prompt)) {
+        if (sessionBackend.sendStreaming) {
+          for await (const event of sessionBackend.sendStreaming(prompt)) {
             if (event.type === 'chunk' && event.content) {
               accumulatedContent += event.content;
             }
             yield event;
           }
         } else {
-          const result = await this.backendProcess.send(prompt);
+          const result = await sessionBackend.send(prompt);
           accumulatedContent = result;
           yield { type: 'chunk', content: result };
           yield { type: 'complete' };
@@ -267,7 +271,7 @@ export class Conductor {
 
     // Store conversation in memory (non-fatal)
     try {
-      await this.storeConversation(processedMessage, decisions);
+      await this.storeConversation(processedMessage, decisions, accumulatedContent);
     } catch {
       // Memory store failures are non-fatal
     }
@@ -360,7 +364,7 @@ export class Conductor {
 
       // 3. Store conversation in memory (non-fatal)
       await this.timedStep(
-        () => this.storeConversation(processedMessage, decisions),
+        () => this.storeConversation(processedMessage, decisions, responseContent),
         (durationMs) =>
           onEvent?.({
             type: ConductorEventType.MEMORY_STORE,
@@ -464,7 +468,61 @@ export class Conductor {
       this.backendProcess = undefined;
     }
 
+    // Stop all per-session backend processes in parallel
+    await Promise.allSettled(
+      [...this.sessionProcesses.values()].map((proc) => proc.stop().catch(() => {})),
+    );
+    this.sessionProcesses.clear();
+
     this.initialized = false;
+  }
+
+  /**
+   * Get or create a backend process for the given sessionId.
+   * If no sessionId, returns the default (session-less) process.
+   */
+  private async getBackendProcess(sessionId?: string): Promise<BackendProcess | undefined> {
+    if (!this.backend) return undefined;
+
+    // No session — use the default process
+    if (!sessionId) return this.backendProcess;
+
+    // Check for existing session process (LRU: delete+re-insert moves to tail)
+    const existing = this.sessionProcesses.get(sessionId);
+    if (existing?.alive) {
+      this.sessionProcesses.delete(sessionId);
+      this.sessionProcesses.set(sessionId, existing);
+      return existing;
+    }
+
+    // Remove dead entry if present
+    if (existing) {
+      this.sessionProcesses.delete(sessionId);
+    }
+
+    // Evict least-recently-used session if at capacity
+    if (this.sessionProcesses.size >= MAX_SESSION_PROCESSES) {
+      const oldest = this.sessionProcesses.keys().next().value;
+      if (oldest) {
+        const oldProc = this.sessionProcesses.get(oldest);
+        this.sessionProcesses.delete(oldest);
+        try {
+          await oldProc?.stop();
+        } catch {
+          // Ignore stop errors during eviction
+        }
+      }
+    }
+
+    // Spawn a new process for this session
+    const systemPrompt = this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+    const proc = await this.backend.spawn({
+      agentId: 'conductor',
+      systemPrompt,
+      sessionId,
+    });
+    this.sessionProcesses.set(sessionId, proc);
+    return proc;
   }
 
   private buildMemoryAugmentedPrompt(
@@ -534,7 +592,8 @@ export class Conductor {
     decisions: ConductorDecision[],
     onEvent?: OnConductorEvent,
   ): Promise<string> {
-    if (!this.backendProcess) {
+    const sessionBackend = await this.getBackendProcess(message.sessionId);
+    if (!sessionBackend) {
       decisions.push({
         timestamp: new Date().toISOString(),
         action: 'direct_response',
@@ -564,7 +623,7 @@ export class Conductor {
     }
 
     try {
-      const response = await this.backendProcess.send(prompt);
+      const response = await sessionBackend.send(prompt);
       decisions.push({
         timestamp: new Date().toISOString(),
         action: 'direct_response',
@@ -604,6 +663,7 @@ export class Conductor {
   private async storeConversation(
     message: IncomingMessage,
     decisions: ConductorDecision[],
+    responseContent?: string,
   ): Promise<void> {
     if (message.content.trim().length === 0) {
       decisions.push({
@@ -646,6 +706,18 @@ export class Conductor {
         sessionId: message.sessionId,
         metadata,
       });
+
+      // Also store assistant response so memory search can find it
+      if (responseContent && responseContent.trim().length > 0) {
+        await this.memory.store({
+          content: responseContent,
+          type: MemoryType.SHORT_TERM,
+          agentId: 'conductor',
+          sessionId: message.sessionId,
+          metadata: { role: 'assistant' },
+        });
+      }
+
       decisions.push({
         timestamp: new Date().toISOString(),
         action: 'store_memory',

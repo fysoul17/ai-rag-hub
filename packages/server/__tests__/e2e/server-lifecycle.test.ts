@@ -531,9 +531,10 @@ describe('E2E: Server Lifecycle', () => {
       });
 
       expect(messages.length).toBeGreaterThanOrEqual(1);
-      const errorMsg = JSON.parse(messages[0] as string) as { type: string; message: string };
-      expect(errorMsg.type).toBe('error');
-      expect(errorMsg.message).toBe('Invalid JSON');
+      const parsed = messages.map((m) => JSON.parse(m) as { type: string; message?: string });
+      const errorMsg = parsed.find((m) => m.type === 'error');
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg!.message).toBe('Invalid JSON');
     });
   });
 

@@ -174,11 +174,23 @@ async function handleConductorMessage(
   debugBus?: DebugBus,
   sessionStore?: SessionStore,
 ): Promise<void> {
+  // Lazy session creation: if no sessionId yet, create one on first message
+  if (!ws.data.sessionId && sessionStore) {
+    const session = sessionStore.create({ title: 'New Chat' });
+    ws.data.sessionId = session.id;
+    // Notify client of the new session ID
+    const sessionInit: WSServerSessionInit = {
+      type: WSServerMessageType.SESSION_INIT,
+      sessionId: session.id,
+    };
+    ws.send(JSON.stringify(sessionInit));
+  }
+
   const incoming: IncomingMessage = {
     content: parsed.content ?? '',
     senderId: 'dashboard',
     senderName: 'Dashboard User',
-    sessionId: ws.data.id,
+    sessionId: ws.data.sessionId,
     targetAgentId: parsed.targetAgent,
   };
 
@@ -192,11 +204,18 @@ async function handleConductorMessage(
     }),
   );
 
-  // Persist user message if session tracking is active
+  // Persist user message
   const sessionId = ws.data.sessionId;
   if (sessionStore && sessionId) {
     try {
-      sessionStore.addMessage(sessionId, MessageRole.USER, parsed.content ?? '');
+      const content = parsed.content ?? '';
+      sessionStore.addMessage(sessionId, MessageRole.USER, content);
+      // Auto-title session from first message (if still "New Chat")
+      const session = sessionStore.getById(sessionId);
+      if (session && session.title === 'New Chat' && session.messageCount <= 1 && content) {
+        const title = content.length > 60 ? `${content.slice(0, 57)}...` : content;
+        sessionStore.update(sessionId, { title });
+      }
     } catch (err) {
       wsLogger.warn('Failed to persist user message', {
         sessionId,

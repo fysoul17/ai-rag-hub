@@ -3,6 +3,7 @@ import type {
   AgentRuntimeInfo,
   ApiKey,
   ApiResponse,
+  BackendStatusResponse,
   CreateAgentRequest,
   CreateApiKeyRequest,
   CreateApiKeyResponse,
@@ -220,6 +221,25 @@ export async function updateConfig(data: Record<string, unknown>): Promise<Envir
   return fetchApi<EnvironmentConfig>('/api/config', {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+}
+
+// --- Backends ---
+
+export async function getBackendStatus(): Promise<BackendStatusResponse> {
+  return fetchApi<BackendStatusResponse>('/api/backends/status');
+}
+
+export async function updateBackendApiKey(apiKey: string | null): Promise<BackendStatusResponse> {
+  return fetchApi<BackendStatusResponse>('/api/backends/api-key', {
+    method: 'PUT',
+    body: JSON.stringify({ apiKey }),
+  });
+}
+
+export async function logoutClaudeBackend(): Promise<BackendStatusResponse> {
+  return fetchApi<BackendStatusResponse>('/api/backends/claude/logout', {
+    method: 'POST',
   });
 }
 

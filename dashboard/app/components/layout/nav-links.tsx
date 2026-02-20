@@ -17,7 +17,10 @@ export function NavLinks({ items }: { items: NavItem[] }) {
   return (
     <>
       {items.map((item) => {
-        const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+        const isActive =
+          item.href === '/'
+            ? pathname === '/'
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
         return (
           <SidebarMenuItem key={item.href}>

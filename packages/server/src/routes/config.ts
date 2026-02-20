@@ -9,6 +9,7 @@ export function createConfigRoutes(configManager: ConfigManager) {
       const redacted = {
         ...config,
         ANTHROPIC_API_KEY: config.ANTHROPIC_API_KEY ? '***' : undefined,
+        AUTH_MASTER_KEY: config.AUTH_MASTER_KEY ? '***' : undefined,
       };
       return jsonResponse(redacted);
     },
@@ -21,6 +22,7 @@ export function createConfigRoutes(configManager: ConfigManager) {
         const redacted = {
           ...updated,
           ANTHROPIC_API_KEY: updated.ANTHROPIC_API_KEY ? '***' : undefined,
+          AUTH_MASTER_KEY: updated.AUTH_MASTER_KEY ? '***' : undefined,
         };
         return jsonResponse(redacted);
       } catch (error) {

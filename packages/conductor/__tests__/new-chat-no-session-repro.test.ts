@@ -1,0 +1,345 @@
+/**
+ * Reproduction tests: New chats use ephemeral WS UUID as session — context lost on reconnect
+ *
+ * Current state (partially fixed):
+ *  - handleConductorMessage uses `ws.data.sessionId ?? ws.data.id` as effectiveSessionId
+ *  - So the conductor DOES get a sessionId (the WS connection UUID)
+ *  - This provides conversation continuity WITHIN a single WS connection
+ *  - BUT: messages are NOT persisted to the session store
+ *  - AND: on reconnect, a new UUID is generated, losing all context
+ *
+ * Remaining bugs proven by these tests:
+ *  1. Ephemeral session IDs mean WS reconnect = total context loss
+ *  2. Messages are not persisted (session store requires ws.data.sessionId, not effectiveSessionId)
+ *  3. No session_init sent to client, so client can't maintain session across reconnects
+ */
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
+import type { Memory } from '@autonomy/memory';
+import type { BackendSpawnConfig } from '@autonomy/agent-manager';
+import { Conductor } from '../src/conductor.ts';
+import { makeMessage } from './helpers/fixtures.ts';
+import { MockMemory } from './helpers/mock-memory.ts';
+
+// Tracks ALL spawn calls and their configs
+function createTrackingBackend() {
+  const spawnConfigs: BackendSpawnConfig[] = [];
+  const sendHistory: Array<{ processIndex: number; message: string }> = [];
+  const processes: BackendProcess[] = [];
+
+  const backend: CLIBackend = {
+    name: 'claude' as any,
+    capabilities: {
+      streaming: true,
+      sessionPersistence: true,
+      customTools: true,
+      fileAccess: true,
+    },
+    spawn: mock(async (config: BackendSpawnConfig) => {
+      spawnConfigs.push(config);
+      const processIndex = processes.length;
+      const proc: BackendProcess = {
+        send: mock(async (msg: string) => {
+          sendHistory.push({ processIndex, message: msg });
+          return `Response from process-${processIndex}`;
+        }),
+        sendStreaming: mock(async function* (msg: string) {
+          sendHistory.push({ processIndex, message: msg });
+          yield { type: 'chunk' as const, content: `Response from process-${processIndex}` };
+          yield { type: 'complete' as const };
+        }),
+        stop: mock(async () => {}),
+        alive: true,
+      };
+      processes.push(proc);
+      return proc;
+    }),
+  };
+
+  return {
+    backend,
+    getSpawnConfigs: () => spawnConfigs,
+    getSendHistory: () => sendHistory,
+    getProcesses: () => processes,
+  };
+}
+
+function createMockPool() {
+  return {
+    create: mock(async () => ({
+      id: 'test',
+      definition: {} as any,
+      toRuntimeInfo: () => ({
+        id: 'test',
+        name: 'Test',
+        role: 'test',
+        status: 'idle',
+        owner: 'conductor',
+        persistent: false,
+        createdAt: new Date().toISOString(),
+      }),
+    })),
+    get: mock(() => undefined),
+    list: mock(() => []),
+    remove: mock(async () => {}),
+    sendMessage: mock(async () => 'response'),
+    sendMessageStreaming: mock(async function* () {
+      yield { type: 'chunk' as const, content: 'response' };
+      yield { type: 'complete' as const };
+    }),
+    shutdown: mock(async () => {}),
+  };
+}
+
+describe('New chat with ephemeral WS UUID as sessionId', () => {
+  let pool: ReturnType<typeof createMockPool>;
+  let memory: MockMemory;
+  let tracking: ReturnType<typeof createTrackingBackend>;
+
+  beforeEach(() => {
+    pool = createMockPool();
+    memory = new MockMemory();
+    tracking = createTrackingBackend();
+  });
+
+  test('ephemeral WS UUID creates per-session backend process', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+      { systemPrompt: 'Test prompt' },
+    );
+    await conductor.initialize();
+
+    // Simulate: WS handler passes ws.data.id as sessionId for new chats
+    await conductor.handleMessage(
+      makeMessage({ content: 'Hello', sessionId: 'ws-conn-uuid-abc' }),
+    );
+
+    // 2 spawns: default (at init) + session-specific for the WS UUID
+    const configs = tracking.getSpawnConfigs();
+    expect(configs.length).toBe(2);
+    expect(configs[0].sessionId).toBeUndefined(); // default process
+    expect(configs[1].sessionId).toBe('ws-conn-uuid-abc'); // ephemeral session
+  });
+
+  test('multiple messages with same ephemeral UUID reuse same process', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    // All messages in a single WS connection get the same UUID
+    await conductor.handleMessage(
+      makeMessage({ content: 'My name is Alice', sessionId: 'ws-conn-1' }),
+    );
+    await conductor.handleMessage(
+      makeMessage({ content: 'What is my name?', sessionId: 'ws-conn-1' }),
+    );
+
+    // Only 2 spawns: default + 1 session process (reused)
+    expect(tracking.getSpawnConfigs().length).toBe(2);
+
+    // Both messages go to the session process (index 1)
+    const history = tracking.getSendHistory();
+    expect(history[0].processIndex).toBe(1);
+    expect(history[1].processIndex).toBe(1);
+  });
+
+  test('BUG: WS reconnect creates new session, loses all context', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    // First WS connection
+    await conductor.handleMessage(
+      makeMessage({ content: 'My name is Alice', sessionId: 'ws-conn-1' }),
+    );
+
+    // WS reconnects — new UUID generated
+    await conductor.handleMessage(
+      makeMessage({ content: 'What is my name?', sessionId: 'ws-conn-2' }),
+    );
+
+    // 3 spawns: default + ws-conn-1 + ws-conn-2 (TWO separate session processes)
+    const configs = tracking.getSpawnConfigs();
+    expect(configs.length).toBe(3);
+    expect(configs[1].sessionId).toBe('ws-conn-1');
+    expect(configs[2].sessionId).toBe('ws-conn-2');
+
+    // Messages go to different processes — context is LOST
+    const history = tracking.getSendHistory();
+    expect(history[0].processIndex).toBe(1); // ws-conn-1 process
+    expect(history[1].processIndex).toBe(2); // ws-conn-2 process (no context from conn-1)
+
+    // BUG PROVEN: The second message is sent to a brand new Claude CLI session
+    // that has no knowledge of the first message. User asked "What is my name?"
+    // but the AI has never seen "My name is Alice".
+  });
+
+  test('streaming: ephemeral UUID creates per-session process', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    const events = [];
+    for await (const event of conductor.handleMessageStreaming(
+      makeMessage({ content: 'Hello streaming', sessionId: 'ws-stream-uuid' }),
+    )) {
+      events.push(event);
+    }
+
+    expect(events.some((e) => e.type === 'chunk')).toBe(true);
+
+    // Session-specific process was created
+    const configs = tracking.getSpawnConfigs();
+    expect(configs.length).toBe(2);
+    expect(configs[1].sessionId).toBe('ws-stream-uuid');
+  });
+});
+
+describe('Contrast: proper session vs ephemeral session behavior', () => {
+  let pool: ReturnType<typeof createMockPool>;
+  let memory: MockMemory;
+  let tracking: ReturnType<typeof createTrackingBackend>;
+
+  beforeEach(() => {
+    pool = createMockPool();
+    memory = new MockMemory();
+    tracking = createTrackingBackend();
+  });
+
+  test('real sessionId survives reconnect (same sessionId used)', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    // Real session: same ID used across reconnections
+    await conductor.handleMessage(
+      makeMessage({ content: 'First message', sessionId: 'real-session-abc' }),
+    );
+    await conductor.handleMessage(
+      makeMessage({ content: 'After reconnect', sessionId: 'real-session-abc' }),
+    );
+
+    // Only 2 spawns: default + 1 session process (reused across "reconnects")
+    expect(tracking.getSpawnConfigs().length).toBe(2);
+
+    // Both messages go to the same process — context is preserved
+    const history = tracking.getSendHistory();
+    expect(history[0].processIndex).toBe(1);
+    expect(history[1].processIndex).toBe(1);
+  });
+
+  test('messages without sessionId at all use default process', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    // No sessionId at all (not even ephemeral UUID)
+    await conductor.handleMessage(makeMessage({ content: 'No session' }));
+
+    // Only 1 spawn (default at init)
+    expect(tracking.getSpawnConfigs().length).toBe(1);
+    expect(tracking.getSpawnConfigs()[0].sessionId).toBeUndefined();
+  });
+});
+
+describe('Edge cases: session process lifecycle', () => {
+  let pool: ReturnType<typeof createMockPool>;
+  let memory: MockMemory;
+  let tracking: ReturnType<typeof createTrackingBackend>;
+
+  beforeEach(() => {
+    pool = createMockPool();
+    memory = new MockMemory();
+    tracking = createTrackingBackend();
+  });
+
+  test('empty string sessionId uses default process (no session)', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    // Edge case: empty string sessionId
+    await conductor.handleMessage(
+      makeMessage({ content: 'Hello', sessionId: '' }),
+    );
+
+    // Empty string is falsy, getBackendProcess('') returns default
+    expect(tracking.getSpawnConfigs().length).toBe(1);
+    expect(tracking.getSpawnConfigs()[0].sessionId).toBeUndefined();
+  });
+
+  test('mixed: some messages have real sessions, some have ephemeral UUIDs', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    // New chat: ephemeral UUID
+    await conductor.handleMessage(
+      makeMessage({ content: 'First', sessionId: 'ws-ephemeral-1' }),
+    );
+
+    // Resumed session: real session ID
+    await conductor.handleMessage(
+      makeMessage({ content: 'Second', sessionId: 'real-session-xyz' }),
+    );
+
+    // Another new chat: different ephemeral UUID
+    await conductor.handleMessage(
+      makeMessage({ content: 'Third', sessionId: 'ws-ephemeral-2' }),
+    );
+
+    const history = tracking.getSendHistory();
+    expect(history.length).toBe(3);
+
+    // Each gets its own session process
+    expect(history[0].processIndex).toBe(1); // ws-ephemeral-1
+    expect(history[1].processIndex).toBe(2); // real-session-xyz
+    expect(history[2].processIndex).toBe(3); // ws-ephemeral-2
+
+    // Total: 4 spawns (default + 3 session processes)
+    expect(tracking.getSpawnConfigs().length).toBe(4);
+  });
+
+  test('shutdown stops ephemeral session processes too', async () => {
+    const conductor = new Conductor(
+      pool as unknown as AgentPool,
+      memory as unknown as Memory,
+      tracking.backend,
+    );
+    await conductor.initialize();
+
+    await conductor.handleMessage(
+      makeMessage({ content: 'A', sessionId: 'ws-ephemeral' }),
+    );
+
+    await conductor.shutdown();
+
+    // stop() should have been called on all processes
+    for (const proc of tracking.getProcesses()) {
+      expect(proc.stop).toHaveBeenCalled();
+    }
+  });
+});

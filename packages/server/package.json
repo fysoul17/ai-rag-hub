@@ -15,13 +15,13 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
-    "@autonomy/shared": "workspace:*",
-    "@autonomy/conductor": "workspace:*",
     "@autonomy/agent-manager": "workspace:*",
-    "@autonomy/plugin-system": "workspace:*",
-    "@autonomy/memory": "workspace:*",
-    "@autonomy/cron-manager": "workspace:*",
+    "@autonomy/conductor": "workspace:*",
     "@autonomy/control-plane": "workspace:*",
+    "@autonomy/cron-manager": "workspace:*",
+    "@autonomy/memory": "workspace:*",
+    "@autonomy/plugin-system": "workspace:*",
+    "@autonomy/shared": "workspace:*",
     "nanoid": "^5.1.6"
   }
 }

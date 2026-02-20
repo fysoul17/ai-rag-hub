@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { AIBackend, DEFAULTS, type EnvironmentConfig } from '@autonomy/shared';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { AIBackend, DEFAULTS, type EnvironmentConfig } from '@autonomy/shared';
 import { ConfigManager, ConfigUpdateError } from '../src/config-manager.ts';
 
 const TEST_DATA_DIR = join(import.meta.dir, '.test-data-config');
@@ -102,6 +102,16 @@ describe('ConfigManager', () => {
     const result = cm.update({ UNKNOWN_FIELD: 'value', MAX_AGENTS: 5 });
     expect(result.MAX_AGENTS).toBe(5);
     expect((result as Record<string, unknown>).UNKNOWN_FIELD).toBeUndefined();
+  });
+
+  test('update() rejects invalid AI_BACKEND values', () => {
+    const cm = new ConfigManager(makeConfig());
+    cm.initialize();
+
+    expect(() => cm.update({ AI_BACKEND: 'invalid-backend' })).toThrow(ConfigUpdateError);
+    expect(() => cm.update({ AI_BACKEND: '' })).toThrow(ConfigUpdateError);
+    // Valid backends should work
+    expect(() => cm.update({ AI_BACKEND: 'codex' })).not.toThrow();
   });
 
   test('second ConfigManager instance loads persisted changes', () => {

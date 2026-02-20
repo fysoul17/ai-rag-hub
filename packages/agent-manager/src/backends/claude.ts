@@ -1,6 +1,17 @@
-import { AIBackend, BACKEND_CAPABILITIES, type StreamEvent } from '@autonomy/shared';
+import {
+  AIBackend,
+  BACKEND_CAPABILITIES,
+  type BackendStatus,
+  type StreamEvent,
+} from '@autonomy/shared';
 import { BackendError } from '../errors.ts';
 import type { BackendProcess, BackendSpawnConfig, CLIBackend } from './types.ts';
+
+/** Mask an API key: show only last 4 chars. Returns undefined for short/missing keys. */
+function maskApiKey(key: string | undefined): string | undefined {
+  if (!key || key.length < 12) return undefined;
+  return `sk-...${key.slice(-4)}`;
+}
 
 /** Env vars allowlisted for child processes. Only forward what claude CLI needs. */
 const ALLOWED_ENV_KEYS = [
@@ -20,12 +31,14 @@ function buildSafeEnv(): Record<string, string> {
     const val = process.env[key];
     if (val !== undefined) env[key] = val;
   }
-  // Also forward any CLAUDE_* env vars
+  // Forward CLAUDE_* env vars but exclude vars that block nested sessions
   for (const [key, val] of Object.entries(process.env)) {
     if (key.startsWith('CLAUDE_') && val !== undefined) {
       env[key] = val;
     }
   }
+  // Never forward CLAUDECODE — it prevents the CLI from launching as a child process
+  delete env.CLAUDECODE;
   return env;
 }
 
@@ -198,5 +211,53 @@ export class ClaudeBackend implements CLIBackend {
 
   async spawn(config: BackendSpawnConfig): Promise<BackendProcess> {
     return new ClaudeProcess(config);
+  }
+
+  async logout(): Promise<void> {
+    const env = buildSafeEnv();
+    const proc = Bun.spawn(['claude', 'auth', 'logout'], {
+      cwd: process.cwd(),
+      env,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+      const stderr = await new Response(proc.stderr as ReadableStream).text();
+      throw new BackendError('claude', `Logout failed (exit ${exitCode}): ${stderr.trim()}`);
+    }
+  }
+
+  async getStatus(): Promise<BackendStatus> {
+    // Check if claude CLI is on PATH
+    const cliPath = typeof Bun !== 'undefined' ? Bun.which('claude') : null;
+    const available = cliPath !== null;
+
+    // Detect auth mode: API key takes precedence, then CLI login (CLAUDE_* env vars)
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const hasApiKey = !!apiKey;
+    const hasCliAuth = Object.keys(process.env).some(
+      (k) => k.startsWith('CLAUDE_') && k !== 'CLAUDE_CODE_VERSION',
+    );
+
+    let authMode: BackendStatus['authMode'] = 'none';
+    if (hasApiKey) {
+      authMode = 'api_key';
+    } else if (hasCliAuth || available) {
+      // If the CLI is installed, it may have its own subscription login
+      authMode = 'cli_login';
+    }
+
+    const configured = hasApiKey || hasCliAuth || available;
+
+    return {
+      name: this.name,
+      available,
+      configured,
+      apiKeyMasked: maskApiKey(apiKey),
+      authMode,
+      capabilities: this.capabilities,
+      error: available ? undefined : 'claude CLI not found on PATH',
+    };
   }
 }

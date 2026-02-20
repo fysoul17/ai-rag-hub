@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Conductor } from '@autonomy/conductor';
 import { MessageRole, WSClientMessageType, WSServerMessageType } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
@@ -50,11 +50,7 @@ describe('WebSocket session support', () => {
     db = new Database(':memory:');
     db.exec('PRAGMA foreign_keys = ON;');
     sessionStore = new SessionStore(db);
-    wsHandler = createWebSocketHandler(
-      conductor as unknown as Conductor,
-      undefined,
-      sessionStore,
-    );
+    wsHandler = createWebSocketHandler(conductor as unknown as Conductor, undefined, sessionStore);
   });
 
   test('sends session_init on open when sessionId is present', () => {
@@ -89,9 +85,9 @@ describe('WebSocket session support', () => {
     );
 
     const detail = sessionStore.getDetail(session.id);
-    expect(detail!.messages.length).toBe(2); // user + assistant
-    expect(detail!.messages[0].role).toBe(MessageRole.USER);
-    expect(detail!.messages[0].content).toBe('Hello from user');
+    expect(detail?.messages.length).toBe(2); // user + assistant
+    expect(detail?.messages[0].role).toBe(MessageRole.USER);
+    expect(detail?.messages[0].content).toBe('Hello from user');
   });
 
   test('persists assistant response after conductor reply', async () => {
@@ -107,23 +103,37 @@ describe('WebSocket session support', () => {
     );
 
     const detail = sessionStore.getDetail(session.id);
-    expect(detail!.messages.length).toBe(2);
-    expect(detail!.messages[1].role).toBe(MessageRole.ASSISTANT);
-    expect(detail!.messages[1].content).toBe('Assistant reply');
+    expect(detail?.messages.length).toBe(2);
+    expect(detail?.messages[1].role).toBe(MessageRole.ASSISTANT);
+    expect(detail?.messages[1].content).toBe('Assistant reply');
   });
 
-  test('does not persist messages when no sessionId', async () => {
+  test('lazily creates session on first message when no sessionId', async () => {
     const ws = new MockWebSocket('ws-1');
     wsHandler.handler.open(asWS(ws));
 
+    // No session_init sent on open (no sessionId yet)
+    expect(ws.sent.length).toBe(0);
+
     await wsHandler.handler.message(
       asWS(ws),
-      JSON.stringify({ type: WSClientMessageType.MESSAGE, content: 'No session' }),
+      JSON.stringify({ type: WSClientMessageType.MESSAGE, content: 'Hello' }),
     );
 
-    // No sessions should have any messages
+    // Should have created a session lazily and sent session_init
+    const sessionInit = ws.sent.find(
+      (m) => JSON.parse(m).type === WSServerMessageType.SESSION_INIT,
+    );
+    expect(sessionInit).toBeDefined();
+    const initParsed = JSON.parse(sessionInit as string);
+    expect(initParsed.sessionId).toBeDefined();
+
+    // Message should be persisted to the new session
     const result = sessionStore.list();
-    expect(result.total).toBe(0);
+    expect(result.total).toBe(1);
+    const detail = sessionStore.getDetail(initParsed.sessionId);
+    expect(detail?.messages.length).toBeGreaterThanOrEqual(1);
+    expect(detail?.messages[0].content).toBe('Hello');
   });
 
   test('updates session message count after messages', async () => {
@@ -137,7 +147,7 @@ describe('WebSocket session support', () => {
     );
 
     const updated = sessionStore.getById(session.id);
-    expect(updated!.messageCount).toBe(2); // user + assistant
+    expect(updated?.messageCount).toBe(2); // user + assistant
   });
 
   test('still works when session store addMessage fails', async () => {
@@ -174,12 +184,9 @@ describe('WebSocket session support', () => {
     wsHandler.handler.open(asWS(ws));
     ws.sent = [];
 
-    await wsHandler.handler.message(
-      asWS(ws),
-      JSON.stringify({ type: WSClientMessageType.PING }),
-    );
+    await wsHandler.handler.message(asWS(ws), JSON.stringify({ type: WSClientMessageType.PING }));
 
-    expect(ws.lastMessage()!.type).toBe(WSServerMessageType.PONG);
+    expect(ws.lastMessage()?.type).toBe(WSServerMessageType.PONG);
   });
 
   test('persists assistant message with agentId when targeted', async () => {
@@ -197,7 +204,7 @@ describe('WebSocket session support', () => {
     );
 
     const detail = sessionStore.getDetail(session.id);
-    const assistantMsg = detail!.messages.find((m) => m.role === MessageRole.ASSISTANT);
-    expect(assistantMsg!.agentId).toBe('agent-1');
+    const assistantMsg = detail?.messages.find((m) => m.role === MessageRole.ASSISTANT);
+    expect(assistantMsg?.agentId).toBe('agent-1');
   });
 });

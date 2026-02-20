@@ -25,7 +25,7 @@ export function AgentSelector({
   conductorName = 'Conductor',
 }: AgentSelectorProps) {
   return (
-    <ScrollArea className="border-b border-border">
+    <ScrollArea>
       <div className="flex items-center gap-2 p-2">
         <button
           type="button"

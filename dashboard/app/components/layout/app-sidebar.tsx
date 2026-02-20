@@ -8,6 +8,7 @@ import {
   History,
   Home,
   Key,
+  Layers,
   LogOut,
   MessageSquare,
   Settings,
@@ -24,6 +25,7 @@ import {
   SidebarHeader,
   SidebarMenu,
 } from '@/components/ui/sidebar';
+import { BackendStatusChip } from './backend-status-chip';
 import { NavLinks } from './nav-links';
 
 const mainNav = [
@@ -41,6 +43,7 @@ const systemNav = [
 
 const adminNav = [
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/settings/providers', label: 'Providers', icon: Layers },
   { href: '/settings/keys', label: 'API Keys', icon: Key },
   { href: '/settings/usage', label: 'Usage', icon: BarChart3 },
 ];
@@ -112,7 +115,7 @@ export function AppSidebar({ authEnabled }: { authEnabled?: boolean }) {
             <span>Sign out</span>
           </button>
         )}
-        <p className="text-[10px] text-muted-foreground text-center">Powered by Claude</p>
+        <BackendStatusChip />
       </SidebarFooter>
     </Sidebar>
   );

@@ -122,15 +122,12 @@ export class RateLimiter {
 
   addHeaders(response: Response, result: RateLimitResult): Response {
     const headers = this.buildHeaders(result);
-    const newResponse = new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
+    // Set headers in-place to avoid re-wrapping the Response body,
+    // which breaks ReadableStream-based streaming responses in Bun.
     for (const [key, value] of Object.entries(headers)) {
-      newResponse.headers.set(key, value);
+      response.headers.set(key, value);
     }
-    return newResponse;
+    return response;
   }
 
   reset(): void {

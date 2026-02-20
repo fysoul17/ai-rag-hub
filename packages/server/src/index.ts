@@ -27,6 +27,7 @@ import { Router } from './router.ts';
 import { createActivityRoute } from './routes/activity.ts';
 import { createAgentRoutes } from './routes/agents.ts';
 import { createAuthRoutes } from './routes/auth.ts';
+import { createBackendRoutes } from './routes/backends.ts';
 import { createConfigRoutes } from './routes/config.ts';
 import { createCronRoutes } from './routes/crons.ts';
 import { createHealthRoute } from './routes/health.ts';
@@ -35,6 +36,7 @@ import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
 import { createUsageRoutes } from './routes/usage.ts';
 import { SessionStore } from './session-store.ts';
+import { createTerminalWebSocketHandler, type TerminalWSData } from './terminal-ws.ts';
 import { createWebSocketHandler, type WSData } from './websocket.ts';
 
 export { parseEnvConfig } from './config.ts';
@@ -55,6 +57,7 @@ export { type RouteHandler, type RouteParams, Router } from './router.ts';
 export { createActivityRoute } from './routes/activity.ts';
 export { createAgentRoutes } from './routes/agents.ts';
 export { createAuthRoutes } from './routes/auth.ts';
+export { createBackendRoutes } from './routes/backends.ts';
 export { createConfigRoutes } from './routes/config.ts';
 export { createCronRoutes } from './routes/crons.ts';
 export { createHealthRoute } from './routes/health.ts';
@@ -72,7 +75,7 @@ const stubEmbedder = (texts: string[]) => stubProvider.embed(texts);
 
 // --- Combined WS data type for Bun.serve ---
 
-type CombinedWSData = (WSData & { type: 'chat' }) | DebugWSData;
+type CombinedWSData = (WSData & { type: 'chat' }) | DebugWSData | TerminalWSData;
 
 async function main() {
   const startTime = Date.now();
@@ -217,6 +220,7 @@ async function main() {
   // Create WebSocket handlers
   const ws = createWebSocketHandler(conductor, debugBus, sessionStore);
   const debugWs = createDebugWebSocketHandler(debugBus);
+  const terminalWs = createTerminalWebSocketHandler();
   if (debugWsEnabled) {
     logger.info('Debug WebSocket enabled', { path: '/ws/debug', tokenProtected: !!debugWsToken });
   }
@@ -230,6 +234,7 @@ async function main() {
   const cronRoutes = createCronRoutes(cronManager);
   const activityRoute = createActivityRoute(conductor);
   const configRoutes = createConfigRoutes(configManager);
+  const backendRoutes = createBackendRoutes(registry);
   const authRoutes = createAuthRoutes(authStore, authMiddleware);
   const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
   const instanceRoutes = createInstanceRoutes(instanceRegistry);
@@ -258,6 +263,11 @@ async function main() {
 
   router.get('/api/config', configRoutes.get);
   router.put('/api/config', configRoutes.update);
+
+  // Backend routes
+  router.get('/api/backends/status', backendRoutes.status);
+  router.put('/api/backends/api-key', backendRoutes.updateApiKey);
+  router.post('/api/backends/claude/logout', backendRoutes.claudeLogout);
 
   // Auth routes
   router.get('/api/auth/keys', authRoutes.listKeys);
@@ -300,8 +310,11 @@ async function main() {
   }
 
   // Start Bun.serve with combined WS handler
+  // idleTimeout: 0 disables Bun's automatic request timeout (default 10s).
+  // Required for long-lived streaming responses like the OAuth login flow.
   const server = Bun.serve<CombinedWSData>({
     port: config.PORT,
+    idleTimeout: 0,
 
     async fetch(req, server) {
       const url = new URL(req.url);
@@ -319,6 +332,7 @@ async function main() {
         }
 
         // Session support: parse ?sessionId= from URL
+        // If no sessionId, session is created lazily on first message (see websocket.ts)
         const sessionId = url.searchParams.get('sessionId') ?? undefined;
         if (sessionId) {
           // Verify session exists
@@ -330,6 +344,19 @@ async function main() {
 
         const upgraded = server.upgrade(req, {
           data: { id: crypto.randomUUID(), type: 'chat' as const, sessionId },
+        });
+        if (upgraded) return undefined as unknown as Response;
+        return new Response('WebSocket upgrade failed', { status: 400 });
+      }
+
+      // Terminal WebSocket upgrade (for PTY-based CLI login)
+      if (url.pathname === '/ws/terminal') {
+        if (config.AUTH_ENABLED) {
+          const wsAuthResult = authMiddleware.authenticate(req);
+          if (wsAuthResult instanceof Response) return wsAuthResult;
+        }
+        const upgraded = server.upgrade(req, {
+          data: { id: crypto.randomUUID(), type: 'terminal' as const },
         });
         if (upgraded) return undefined as unknown as Response;
         return new Response('WebSocket upgrade failed', { status: 400 });
@@ -358,21 +385,27 @@ async function main() {
 
     websocket: {
       open(socket: ServerWebSocket<CombinedWSData>) {
-        if (socket.data.type === 'debug') {
+        if (socket.data.type === 'terminal') {
+          terminalWs.handler.open(socket as ServerWebSocket<TerminalWSData>);
+        } else if (socket.data.type === 'debug') {
           debugWs.handler.open(socket as ServerWebSocket<DebugWSData>);
         } else {
           ws.handler.open(socket as ServerWebSocket<WSData>);
         }
       },
       async message(socket: ServerWebSocket<CombinedWSData>, raw: string | Buffer) {
-        if (socket.data.type === 'debug') {
+        if (socket.data.type === 'terminal') {
+          terminalWs.handler.message(socket as ServerWebSocket<TerminalWSData>, raw);
+        } else if (socket.data.type === 'debug') {
           debugWs.handler.message(socket as ServerWebSocket<DebugWSData>, raw);
         } else {
           await ws.handler.message(socket as ServerWebSocket<WSData>, raw);
         }
       },
       close(socket: ServerWebSocket<CombinedWSData>) {
-        if (socket.data.type === 'debug') {
+        if (socket.data.type === 'terminal') {
+          terminalWs.handler.close(socket as ServerWebSocket<TerminalWSData>);
+        } else if (socket.data.type === 'debug') {
           debugWs.handler.close(socket as ServerWebSocket<DebugWSData>);
         } else {
           ws.handler.close(socket as ServerWebSocket<WSData>);

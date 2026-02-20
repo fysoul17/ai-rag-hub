@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EnvironmentConfig } from '@autonomy/shared';
+import { AIBackend } from '@autonomy/shared';
+
+const VALID_AI_BACKENDS = new Set(Object.values(AIBackend));
 
 /** Fields that cannot be updated via the API (security-sensitive). */
 const REJECTED_FIELDS = new Set([
@@ -60,6 +63,12 @@ export class ConfigManager {
       }
       if (!UPDATABLE_FIELDS.has(key)) {
         continue; // skip unknown fields silently
+      }
+      // Validate enum fields
+      if (key === 'AI_BACKEND' && (typeof value !== 'string' || !VALID_AI_BACKENDS.has(value))) {
+        throw new ConfigUpdateError(
+          `Invalid AI_BACKEND: "${String(value)}". Valid: ${[...VALID_AI_BACKENDS].join(', ')}`,
+        );
       }
       (applied as Record<string, unknown>)[key] = value;
     }

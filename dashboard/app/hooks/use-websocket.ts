@@ -33,10 +33,16 @@ export interface ChatMessage {
 interface UseWebSocketOptions {
   url: string;
   onAgentStatus?: (agents: AgentRuntimeInfo[], conductorName?: string) => void;
+  onSessionInit?: (sessionId: string) => void;
   initialMessages?: ChatMessage[];
 }
 
-export function useWebSocket({ url, onAgentStatus, initialMessages }: UseWebSocketOptions) {
+export function useWebSocket({
+  url,
+  onAgentStatus,
+  onSessionInit,
+  initialMessages,
+}: UseWebSocketOptions) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
   const wsRef = useRef<WebSocket | null>(null);
@@ -49,6 +55,8 @@ export function useWebSocket({ url, onAgentStatus, initialMessages }: UseWebSock
   const processingIdRef = useRef<string | null>(null);
   const onAgentStatusRef = useRef(onAgentStatus);
   onAgentStatusRef.current = onAgentStatus;
+  const onSessionInitRef = useRef(onSessionInit);
+  onSessionInitRef.current = onSessionInit;
 
   function handleChunk(content: string, agentId: string) {
     if (!accumulatorRef.current) {
@@ -222,6 +230,7 @@ export function useWebSocket({ url, onAgentStatus, initialMessages }: UseWebSock
             onAgentStatusRef.current?.(parsed.agents, parsed.conductorName);
             break;
           case 'session_init':
+            onSessionInitRef.current?.(parsed.sessionId);
             break;
           case 'pong':
             break;

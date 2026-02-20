@@ -115,7 +115,8 @@ describe('Conductor', () => {
 
     test('stores conversation in memory after handling', async () => {
       await conductor.handleMessage(makeMessage({ content: 'Hello world' }));
-      expect(memory.storeCalls.length).toBe(1);
+      // Stores both user message and assistant response
+      expect(memory.storeCalls.length).toBe(2);
       expect(memory.storeCalls[0].content).toBe('Hello world');
     });
 
