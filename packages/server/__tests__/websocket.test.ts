@@ -113,7 +113,8 @@ describe('WebSocket handler', () => {
     );
 
     expect(ws.lastMessage().type).toBe(WSServerMessageType.ERROR);
-    expect(ws.lastMessage().message).toBe('Mock conductor error');
+    // Stream errors are sanitized — raw backend errors are logged server-side only
+    expect(ws.lastMessage().message).toBe('An error occurred while generating the response.');
   });
 
   test('passes targetAgent from client message', async () => {

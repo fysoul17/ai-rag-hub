@@ -167,24 +167,79 @@ function sendConductorStatus(ws: ServerWebSocket<WSData>, event: ConductorEvent)
   ws.send(JSON.stringify(status));
 }
 
-async function handleConductorMessage(
-  ws: ServerWebSocket<WSData>,
-  conductor: Conductor,
-  parsed: WSClientMessage,
-  debugBus?: DebugBus,
-  sessionStore?: SessionStore,
-): Promise<void> {
-  // Lazy session creation: if no sessionId yet, create one on first message
+function ensureSession(ws: ServerWebSocket<WSData>, sessionStore?: SessionStore): void {
   if (!ws.data.sessionId && sessionStore) {
     const session = sessionStore.create({ title: 'New Chat' });
     ws.data.sessionId = session.id;
-    // Notify client of the new session ID
     const sessionInit: WSServerSessionInit = {
       type: WSServerMessageType.SESSION_INIT,
       sessionId: session.id,
     };
     ws.send(JSON.stringify(sessionInit));
   }
+}
+
+function persistUserMessage(sessionStore: SessionStore, sessionId: string, content: string): void {
+  try {
+    sessionStore.addMessage(sessionId, MessageRole.USER, content);
+    const session = sessionStore.getById(sessionId);
+    if (session && session.title === 'New Chat' && session.messageCount <= 1 && content) {
+      const title = content.length > 60 ? `${content.slice(0, 57)}...` : content;
+      sessionStore.update(sessionId, { title });
+    }
+  } catch (err) {
+    wsLogger.warn('Failed to persist user message', {
+      sessionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+function persistAssistantMessage(
+  sessionStore: SessionStore,
+  sessionId: string,
+  content: string,
+  targetAgent?: string,
+): void {
+  try {
+    sessionStore.addMessage(sessionId, MessageRole.ASSISTANT, content, targetAgent);
+  } catch (err) {
+    wsLogger.warn('Failed to persist assistant message', {
+      sessionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+function emitResponseDebug(
+  debugBus: DebugBus | undefined,
+  agentId: string,
+  targetAgent: string | undefined,
+  contentLength: number,
+): void {
+  const isEmpty = contentLength === 0;
+  debugBus?.emit(
+    makeDebugEvent({
+      category: DebugEventCategory.CONDUCTOR,
+      level: isEmpty ? DebugEventLevel.WARN : DebugEventLevel.INFO,
+      source: isEmpty ? 'conductor.empty_response' : 'conductor.response',
+      message: isEmpty
+        ? `Empty response from ${agentId} — possible backend failure`
+        : `Response sent (${contentLength} chars) via ${agentId}`,
+      agentId: targetAgent,
+    }),
+  );
+}
+
+async function handleConductorMessage(
+  ws: ServerWebSocket<WSData>,
+  conductor: Conductor,
+  parsed: WSClientMessage,
+  debugBus?: DebugBus,
+  sessionStore?: SessionStore,
+  streamTimeoutMs?: number,
+): Promise<void> {
+  ensureSession(ws, sessionStore);
 
   const incoming: IncomingMessage = {
     content: parsed.content ?? '',
@@ -204,78 +259,28 @@ async function handleConductorMessage(
     }),
   );
 
-  // Persist user message
   const sessionId = ws.data.sessionId;
   if (sessionStore && sessionId) {
-    try {
-      const content = parsed.content ?? '';
-      sessionStore.addMessage(sessionId, MessageRole.USER, content);
-      // Auto-title session from first message (if still "New Chat")
-      const session = sessionStore.getById(sessionId);
-      if (session && session.title === 'New Chat' && session.messageCount <= 1 && content) {
-        const title = content.length > 60 ? `${content.slice(0, 57)}...` : content;
-        sessionStore.update(sessionId, { title });
-      }
-    } catch (err) {
-      wsLogger.warn('Failed to persist user message', {
-        sessionId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    persistUserMessage(sessionStore, sessionId, parsed.content ?? '');
   }
 
   try {
-    const onEvent = (event: ConductorEvent) => {
-      sendConductorStatus(ws, event);
-      debugBus?.emit(conductorEventToDebug(event));
-    };
-
     const agentId = parsed.targetAgent ?? 'conductor';
-    let accumulatedContent = '';
-
-    for await (const event of conductor.handleMessageStreaming(incoming, onEvent)) {
-      if (event.type === 'chunk') {
-        accumulatedContent += event.content ?? '';
-        const chunk: WSServerChunk = {
-          type: WSServerMessageType.CHUNK,
-          content: event.content ?? '',
-          agentId,
-        };
-        ws.send(JSON.stringify(chunk));
-      } else if (event.type === 'complete') {
-        const complete: WSServerComplete = { type: WSServerMessageType.COMPLETE };
-        ws.send(JSON.stringify(complete));
-      } else if (event.type === 'error') {
-        sendWSError(ws, event.error ?? 'Stream error');
-      }
-    }
-
-    // Persist assistant message if session tracking is active
-    if (sessionStore && sessionId && accumulatedContent) {
-      try {
-        sessionStore.addMessage(
-          sessionId,
-          MessageRole.ASSISTANT,
-          accumulatedContent,
-          parsed.targetAgent,
-        );
-      } catch (err) {
-        wsLogger.warn('Failed to persist assistant message', {
-          sessionId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    debugBus?.emit(
-      makeDebugEvent({
-        category: DebugEventCategory.CONDUCTOR,
-        level: DebugEventLevel.INFO,
-        source: 'conductor.response',
-        message: `Response sent (${accumulatedContent.length} chars) via ${agentId}`,
-        agentId: parsed.targetAgent,
-      }),
+    const result = await streamConductorResponse(
+      ws,
+      conductor,
+      incoming,
+      agentId,
+      parsed.targetAgent,
+      debugBus,
+      streamTimeoutMs,
     );
+
+    if (sessionStore && sessionId && result.content) {
+      persistAssistantMessage(sessionStore, sessionId, result.content, parsed.targetAgent);
+    }
+
+    emitResponseDebug(debugBus, agentId, parsed.targetAgent, result.content.length);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     wsLogger.error('Error handling conductor message', { error: msg });
@@ -291,12 +296,96 @@ async function handleConductorMessage(
   }
 }
 
+async function streamConductorResponse(
+  ws: ServerWebSocket<WSData>,
+  conductor: Conductor,
+  incoming: IncomingMessage,
+  agentId: string,
+  targetAgent: string | undefined,
+  debugBus?: DebugBus,
+  streamTimeoutMs?: number,
+): Promise<{ content: string }> {
+  const onEvent = (event: ConductorEvent) => {
+    sendConductorStatus(ws, event);
+    debugBus?.emit(conductorEventToDebug(event));
+  };
+
+  let accumulatedContent = '';
+  let completeSent = false;
+  let errorSent = false;
+
+  const timeout = streamTimeoutMs ?? 300_000;
+  const timeoutId = setTimeout(() => {
+    if (!completeSent && !errorSent) {
+      sendWSError(ws, `Response timed out after ${Math.round(timeout / 1000)}s`);
+      errorSent = true;
+      debugBus?.emit(
+        makeDebugEvent({
+          category: DebugEventCategory.CONDUCTOR,
+          level: DebugEventLevel.WARN,
+          source: 'conductor.stream_timeout',
+          message: `Stream timed out after ${timeout}ms for ${agentId}`,
+          agentId: targetAgent,
+        }),
+      );
+    }
+  }, timeout);
+
+  try {
+    for await (const event of conductor.handleMessageStreaming(incoming, onEvent)) {
+      // Stop forwarding to client if timeout already fired
+      if (errorSent || completeSent) break;
+
+      if (event.type === 'chunk') {
+        accumulatedContent += event.content ?? '';
+        const chunk: WSServerChunk = {
+          type: WSServerMessageType.CHUNK,
+          content: event.content ?? '',
+          agentId,
+        };
+        ws.send(JSON.stringify(chunk));
+      } else if (event.type === 'complete') {
+        completeSent = true;
+        const complete: WSServerComplete = { type: WSServerMessageType.COMPLETE };
+        ws.send(JSON.stringify(complete));
+      } else if (event.type === 'error') {
+        errorSent = true;
+        // Log full error server-side + debug console; send sanitized message to client
+        wsLogger.warn('Stream error from backend', { agentId, error: event.error });
+        debugBus?.emit(
+          makeDebugEvent({
+            category: DebugEventCategory.CONDUCTOR,
+            level: DebugEventLevel.ERROR,
+            source: 'conductor.stream_error',
+            message: `Stream error from ${agentId}: ${event.error ?? 'Unknown error'}`,
+            agentId: targetAgent,
+          }),
+        );
+        sendWSError(ws, 'An error occurred while generating the response.');
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId);
+
+    if (!completeSent && !errorSent) {
+      if (accumulatedContent.length > 0) {
+        ws.send(JSON.stringify({ type: WSServerMessageType.COMPLETE }));
+      } else {
+        sendWSError(ws, 'No response was generated. The AI backend may be unavailable.');
+      }
+    }
+  }
+
+  return { content: accumulatedContent };
+}
+
 function handleParsedMessage(
   ws: ServerWebSocket<WSData>,
   conductor: Conductor,
   parsed: WSClientMessage,
   debugBus?: DebugBus,
   sessionStore?: SessionStore,
+  streamTimeoutMs?: number,
 ): Promise<void> | void {
   if (parsed.type === WSClientMessageType.PING) {
     const pong: WSServerPong = { type: WSServerMessageType.PONG };
@@ -305,7 +394,7 @@ function handleParsedMessage(
   }
 
   if (parsed.type === WSClientMessageType.MESSAGE) {
-    return handleConductorMessage(ws, conductor, parsed, debugBus, sessionStore);
+    return handleConductorMessage(ws, conductor, parsed, debugBus, sessionStore, streamTimeoutMs);
   }
 
   sendWSError(ws, 'Unknown message type');
@@ -315,6 +404,7 @@ export function createWebSocketHandler(
   conductor: Conductor,
   debugBus?: DebugBus,
   sessionStore?: SessionStore,
+  streamTimeoutMs?: number,
 ) {
   const clients = new Set<ServerWebSocket<WSData>>();
   let statusInterval: ReturnType<typeof setInterval> | null = null;
@@ -422,7 +512,7 @@ export function createWebSocketHandler(
         return;
       }
 
-      await handleParsedMessage(ws, conductor, parsed, debugBus, sessionStore);
+      await handleParsedMessage(ws, conductor, parsed, debugBus, sessionStore, streamTimeoutMs);
     },
 
     close(ws: ServerWebSocket<WSData>): void {

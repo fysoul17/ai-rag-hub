@@ -9,6 +9,7 @@ import {
   AgentOwner,
   type AgentRuntimeInfo,
   type ConductorDecision,
+  getErrorDetail,
   HookName,
   type HookRegistryInterface,
   Logger,
@@ -121,7 +122,7 @@ export class Conductor {
         });
         this.activityLog.record(ActivityType.MESSAGE, 'Conductor AI process initialized');
       } catch (error) {
-        const detail = error instanceof Error ? error.message : 'Unknown error';
+        const detail = getErrorDetail(error);
         conductorLogger.warn('Failed to initialize AI backend', { error: detail });
         this.activityLog.record(ActivityType.ERROR, 'AI backend initialization failed');
       }
@@ -272,8 +273,9 @@ export class Conductor {
     // Store conversation in memory (non-fatal)
     try {
       await this.storeConversation(processedMessage, decisions, accumulatedContent);
-    } catch {
-      // Memory store failures are non-fatal
+    } catch (error) {
+      const detail = getErrorDetail(error);
+      conductorLogger.warn('Memory store failed', { error: detail });
     }
   }
 
@@ -414,10 +416,21 @@ export class Conductor {
 
     const id = nanoid();
     const definition = buildAgentDefinition(id, params);
-    const process = await this.pool.create(definition);
-    this.activityLog.record(ActivityType.AGENT_CREATED, `Created agent "${params.name}"`, id);
 
-    return process.toRuntimeInfo();
+    try {
+      const process = await this.pool.create(definition);
+      this.activityLog.record(ActivityType.AGENT_CREATED, `Created agent "${params.name}"`, id);
+      conductorLogger.info('Agent created', { agentId: id, name: params.name });
+      return process.toRuntimeInfo();
+    } catch (error) {
+      const detail = getErrorDetail(error);
+      this.activityLog.record(
+        ActivityType.ERROR,
+        `Failed to create agent "${params.name}": ${detail}`,
+      );
+      conductorLogger.error('Agent creation failed', { name: params.name, error: detail });
+      throw error;
+    }
   }
 
   async deleteAgent(agentId: AgentId): Promise<void> {
@@ -462,15 +475,23 @@ export class Conductor {
     if (this.backendProcess) {
       try {
         await this.backendProcess.stop();
-      } catch {
-        // Ignore stop errors during shutdown
+      } catch (error) {
+        const detail = getErrorDetail(error);
+        conductorLogger.debug('Error stopping backend during shutdown', { error: detail });
       }
       this.backendProcess = undefined;
     }
 
     // Stop all per-session backend processes in parallel
     await Promise.allSettled(
-      [...this.sessionProcesses.values()].map((proc) => proc.stop().catch(() => {})),
+      [...this.sessionProcesses.values()].map((proc) =>
+        proc.stop().catch((error) => {
+          const detail = getErrorDetail(error);
+          conductorLogger.debug('Error stopping session backend during shutdown', {
+            error: detail,
+          });
+        }),
+      ),
     );
     this.sessionProcesses.clear();
 
@@ -508,21 +529,32 @@ export class Conductor {
         this.sessionProcesses.delete(oldest);
         try {
           await oldProc?.stop();
-        } catch {
-          // Ignore stop errors during eviction
+        } catch (error) {
+          const detail = getErrorDetail(error);
+          conductorLogger.debug('Error stopping evicted session', {
+            sessionId: oldest,
+            error: detail,
+          });
         }
       }
     }
 
     // Spawn a new process for this session
     const systemPrompt = this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
-    const proc = await this.backend.spawn({
-      agentId: 'conductor',
-      systemPrompt,
-      sessionId,
-    });
-    this.sessionProcesses.set(sessionId, proc);
-    return proc;
+    try {
+      const proc = await this.backend.spawn({
+        agentId: 'conductor',
+        systemPrompt,
+        sessionId,
+      });
+      this.sessionProcesses.set(sessionId, proc);
+      conductorLogger.info('Session backend spawned', { sessionId });
+      return proc;
+    } catch (error) {
+      const detail = getErrorDetail(error);
+      conductorLogger.error('Failed to spawn session backend', { sessionId, error: detail });
+      return undefined;
+    }
   }
 
   private buildMemoryAugmentedPrompt(
@@ -581,7 +613,9 @@ export class Conductor {
         limit: 5,
         ...(message.sessionId ? { agentId: message.senderId } : {}),
       });
-    } catch {
+    } catch (error) {
+      const detail = getErrorDetail(error);
+      conductorLogger.warn('Memory search failed', { error: detail });
       return null;
     }
   }
@@ -632,7 +666,7 @@ export class Conductor {
       this.activityLog.record(ActivityType.MESSAGE, 'Conductor responded directly to user');
       return response;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'Unknown error';
+      const detail = getErrorDetail(error);
       this.activityLog.record(ActivityType.ERROR, `Response generation failed: ${detail}`);
       decisions.push({
         timestamp: new Date().toISOString(),
@@ -723,8 +757,9 @@ export class Conductor {
         action: 'store_memory',
         reason: 'Stored conversation in memory',
       });
-    } catch {
-      // Memory store failures are non-fatal
+    } catch (error) {
+      const detail = getErrorDetail(error);
+      conductorLogger.warn('Memory store failed', { error: detail });
     }
   }
 

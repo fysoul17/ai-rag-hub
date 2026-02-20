@@ -1,5 +1,5 @@
 import type { AgentDefinition, AgentId, AgentRuntimeInfo, StreamEvent } from '@autonomy/shared';
-import { AgentStatus } from '@autonomy/shared';
+import { AgentStatus, getErrorDetail, Logger } from '@autonomy/shared';
 import type { BackendProcess, CLIBackend } from './backends/types.ts';
 import { AgentStateError, BackendError } from './errors.ts';
 
@@ -26,12 +26,16 @@ export class AgentProcess {
   private processing = false;
   /** Session UUID, generated at construction for persistent agents. */
   private _sessionId: string | undefined;
+  private logger: Logger;
 
   constructor(definition: AgentDefinition, backend: CLIBackend, options?: AgentProcessOptions) {
     this.id = definition.id;
     this.definition = definition;
     this.backend = backend;
     this.idleTimeoutMs = options?.idleTimeoutMs ?? 0;
+    this.logger = new Logger({
+      context: { source: 'agent-process', agentId: definition.id, agentName: definition.name },
+    });
     // Auto-generate sessionId for persistent agents that don't have one
     this._sessionId =
       definition.sessionId ?? (definition.persistent ? crypto.randomUUID() : undefined);
@@ -64,8 +68,10 @@ export class AgentProcess {
       });
       this._status = AgentStatus.IDLE;
       this.resetIdleTimer();
+      this.logger.info('Agent started');
     } catch (error) {
       this._status = AgentStatus.ERROR;
+      this.logger.error('Agent start failed', { error: getErrorDetail(error) });
       throw error;
     }
   }
@@ -115,8 +121,9 @@ export class AgentProcess {
       this.resetIdleTimer();
     } catch (error) {
       this._status = AgentStatus.ERROR;
-      const msg = error instanceof Error ? error.message : String(error);
-      yield { type: 'error', error: msg };
+      const detail = getErrorDetail(error);
+      this.logger.error('Streaming error', { error: detail });
+      yield { type: 'error', error: detail };
     }
   }
 
@@ -126,6 +133,7 @@ export class AgentProcess {
       await this.backendProcess.stop();
     }
     this._status = AgentStatus.STOPPED;
+    this.logger.info('Agent stopped');
     // Reject queued messages
     for (const queued of this.messageQueue) {
       queued.reject(new AgentStateError(this.id, AgentStatus.STOPPED, 'send message to'));
@@ -187,6 +195,9 @@ export class AgentProcess {
     if (this.idleTimeoutMs > 0) {
       this.idleTimer = setTimeout(() => {
         if (this._status === AgentStatus.IDLE) {
+          this.logger.info('Agent stopped due to idle timeout', {
+            idleTimeoutMs: this.idleTimeoutMs,
+          });
           this.stop();
         }
       }, this.idleTimeoutMs);

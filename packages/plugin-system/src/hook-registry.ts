@@ -11,6 +11,13 @@ import type { HookHandler, HookRegistration, HookRegistryInterface } from './typ
 
 export class HookRegistry implements HookRegistryInterface {
   private handlers: HookRegistration[] = [];
+  private onError?: (hookType: string, pluginId: string | undefined, error: Error) => void;
+
+  constructor(options?: {
+    onError?: (hookType: string, pluginId: string | undefined, error: Error) => void;
+  }) {
+    this.onError = options?.onError;
+  }
 
   register<T = unknown>(
     hookType: string,
@@ -43,8 +50,12 @@ export class HookRegistry implements HookRegistryInterface {
     for (const reg of sorted) {
       try {
         await reg.handler(data);
-      } catch {
-        // Fire-and-forget: swallow handler errors
+      } catch (error) {
+        this.onError?.(
+          hookType,
+          reg.pluginId,
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
   }
@@ -59,8 +70,13 @@ export class HookRegistry implements HookRegistryInterface {
         if (result !== undefined) {
           current = result as T;
         }
-      } catch {
+      } catch (error) {
         // Waterfall: skip erroring handler, pass data through unchanged
+        this.onError?.(
+          hookType,
+          reg.pluginId,
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
 

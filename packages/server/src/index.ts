@@ -35,9 +35,9 @@ import { createInstanceRoutes } from './routes/instances.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
 import { createUsageRoutes } from './routes/usage.ts';
+import { runSeeds } from './seeds/index.ts';
 import { SessionStore } from './session-store.ts';
 import { createTerminalWebSocketHandler, type TerminalWSData } from './terminal-ws.ts';
-import { runSeeds } from './seeds/index.ts';
 import { createWebSocketHandler, type WSData } from './websocket.ts';
 
 export { parseEnvConfig } from './config.ts';
@@ -144,7 +144,19 @@ async function main() {
   );
 
   // Initialize Plugin System
-  const hookRegistry = new HookRegistry();
+  const hookRegistry = new HookRegistry({
+    onError: (hookType, pluginId, error) => {
+      logger.warn('Plugin hook error', { hookType, pluginId, error: error.message });
+      debugBus.emit(
+        makeDebugEvent({
+          category: DebugEventCategory.SYSTEM,
+          level: DebugEventLevel.WARN,
+          source: 'plugin.hook_error',
+          message: `Hook "${hookType}" error in plugin "${pluginId ?? 'unknown'}": ${error.message}`,
+        }),
+      );
+    },
+  });
   const pluginManager = new PluginManager(hookRegistry);
   logger.info('Plugin system initialized');
   debugBus.emit(
@@ -223,7 +235,7 @@ async function main() {
   });
 
   // Create WebSocket handlers
-  const ws = createWebSocketHandler(conductor, debugBus, sessionStore);
+  const ws = createWebSocketHandler(conductor, debugBus, sessionStore, config.STREAM_TIMEOUT_MS);
   const debugWs = createDebugWebSocketHandler(debugBus);
   const terminalWs = createTerminalWebSocketHandler();
   if (debugWsEnabled) {

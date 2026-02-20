@@ -5,7 +5,7 @@ import type {
   HookRegistryInterface,
   StreamEvent,
 } from '@autonomy/shared';
-import { DEFAULTS, HookName } from '@autonomy/shared';
+import { DEFAULTS, getErrorDetail, HookName, Logger } from '@autonomy/shared';
 import { AgentProcess } from './agent-process.ts';
 import type { BackendRegistry } from './backends/registry.ts';
 import type { CLIBackend } from './backends/types.ts';
@@ -23,6 +23,7 @@ export class AgentPool {
   private maxAgents: number;
   private idleTimeoutMs: number;
   private hookRegistry?: HookRegistryInterface;
+  private logger = new Logger({ context: { source: 'agent-pool' } });
 
   constructor(backend: CLIBackend | BackendRegistry, options?: AgentPoolOptions) {
     this.backend = backend;
@@ -59,6 +60,7 @@ export class AgentPool {
     });
     await agent.start();
     this.agents.set(processedDef.id, agent);
+    this.logger.info('Agent added to pool', { agentId: processedDef.id, name: processedDef.name });
 
     // Hook: onAfterAgentCreate — observation only
     if (this.hookRegistry) {
@@ -104,9 +106,13 @@ export class AgentPool {
       try {
         await existing.start();
         this.agents.set(id, existing);
-      } catch {
+      } catch (restartErr) {
         // Old agent also failed to restart — remove from pool
         this.agents.delete(id);
+        this.logger.error('Agent update failed and old agent could not restart', {
+          agentId: id,
+          error: getErrorDetail(restartErr),
+        });
       }
       throw err;
     }
@@ -131,6 +137,7 @@ export class AgentPool {
 
     await agent.stop();
     this.agents.delete(id);
+    this.logger.info('Agent removed from pool', { agentId: id });
   }
 
   async sendMessage(id: AgentId, message: string): Promise<string> {

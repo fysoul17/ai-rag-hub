@@ -2,10 +2,36 @@ import {
   AIBackend,
   BACKEND_CAPABILITIES,
   type BackendStatus,
+  Logger,
   type StreamEvent,
 } from '@autonomy/shared';
 import { BackendError } from '../errors.ts';
 import type { BackendProcess, BackendSpawnConfig, CLIBackend } from './types.ts';
+
+const claudeLogger = new Logger({ context: { source: 'claude-backend' } });
+
+/** Max bytes to read from stderr to prevent unbounded memory usage. */
+const MAX_STDERR_BYTES = 4096;
+
+/** Read stderr with a size cap. Returns at most MAX_STDERR_BYTES of text. */
+async function readBoundedStderr(stream: ReadableStream): Promise<string> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (totalBytes < MAX_STDERR_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      totalBytes += value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new TextDecoder()
+    .decode(chunks.length === 1 ? chunks[0] : Buffer.concat(chunks))
+    .slice(0, MAX_STDERR_BYTES);
+}
 
 /** Mask an API key: show only last 4 chars. Returns undefined for short/missing keys. */
 function maskApiKey(key: string | undefined): string | undefined {
@@ -21,8 +47,17 @@ const ALLOWED_ENV_KEYS = [
   'SHELL',
   'TMPDIR',
   'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
   'NODE_ENV',
   'ANTHROPIC_API_KEY',
+  // XDG dirs — needed for CLI to find auth credentials on Linux
+  'XDG_RUNTIME_DIR',
+  'XDG_DATA_HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_CACHE_HOME',
+  // macOS-specific
+  'DISPLAY',
 ];
 
 function buildSafeEnv(): Record<string, string> {
@@ -113,8 +148,12 @@ class ClaudeProcess implements BackendProcess {
 
     const proc = this._process;
     const stdoutStream = proc.stdout as ReadableStream;
+    const stderrStream = proc.stderr as ReadableStream;
     const reader = stdoutStream.getReader();
     const decoder = new TextDecoder();
+
+    // Read stderr in background (bounded to prevent memory issues)
+    const stderrPromise = readBoundedStderr(stderrStream);
 
     // Abort handling: kill the process when signal fires
     const onAbort = () => {
@@ -125,6 +164,8 @@ class ClaudeProcess implements BackendProcess {
       }
     };
     signal?.addEventListener('abort', onAbort, { once: true });
+
+    let hasContent = false;
 
     try {
       while (true) {
@@ -138,6 +179,7 @@ class ClaudeProcess implements BackendProcess {
 
         const text = decoder.decode(value, { stream: true });
         if (text) {
+          hasContent = true;
           yield { type: 'chunk', content: text };
         }
       }
@@ -145,14 +187,32 @@ class ClaudeProcess implements BackendProcess {
       // Flush decoder
       const remaining = decoder.decode();
       if (remaining) {
+        hasContent = true;
         yield { type: 'chunk', content: remaining };
       }
 
       const exitCode = await proc.exited;
+      const stderrText = await stderrPromise;
       this._process = null;
 
       if (exitCode !== 0) {
-        yield { type: 'error', error: `Process exited with code ${exitCode}` };
+        const stderr = stderrText.trim().slice(0, 500);
+        claudeLogger.warn('Backend process failed', { exitCode, stderr });
+        // Include stderr summary in error so it reaches debug console via DebugBus.
+        // The websocket layer sanitizes what the chat client sees.
+        yield {
+          type: 'error',
+          error: stderr
+            ? `Backend exited with code ${exitCode}: ${stderr}`
+            : `Backend process exited with code ${exitCode}`,
+        };
+      } else if (!hasContent && stderrText.trim()) {
+        const stderr = stderrText.trim().slice(0, 500);
+        claudeLogger.warn('Backend produced no output', { stderr });
+        yield {
+          type: 'error',
+          error: `Backend produced no output: ${stderr}`,
+        };
       } else {
         yield { type: 'complete' };
       }

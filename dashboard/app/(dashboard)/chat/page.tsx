@@ -76,6 +76,7 @@ export default async function ChatPage({
     <>
       <Header title="Chat" />
       <ChatInterface
+        key={initialSessionId ?? 'new'}
         initialAgents={agents}
         initialSessionId={initialSessionId}
         initialMessages={initialMessages}
