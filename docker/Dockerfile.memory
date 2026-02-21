@@ -1,18 +1,24 @@
 # Dockerfile.memory — Bun-based memory server sidecar
 # Runs the memory server (HTTP API for memory storage, search, and graph)
 
-FROM oven/bun:1.2
+FROM oven/bun:1.2.16
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
 # Install dependencies
+# All workspace package.json files must be present for bun to resolve the lockfile.
+# When adding a new workspace, update all 3 Dockerfiles (runtime, dashboard, memory).
 COPY package.json bun.lock* ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/memory/package.json ./packages/memory/
 COPY packages/memory-server/package.json ./packages/memory-server/
+COPY packages/agent-manager/package.json ./packages/agent-manager/
+COPY packages/conductor/package.json ./packages/conductor/
+COPY packages/cron-manager/package.json ./packages/cron-manager/
+COPY packages/server/package.json ./packages/server/
+COPY packages/control-plane/package.json ./packages/control-plane/
+COPY packages/plugin-system/package.json ./packages/plugin-system/
+COPY dashboard/package.json ./dashboard/
 
 RUN bun install --frozen-lockfile || bun install
 
@@ -34,6 +40,6 @@ USER bun
 EXPOSE 3002
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
-  CMD curl -f http://localhost:3002/health || exit 1
+  CMD bun -e "fetch('http://localhost:3002/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 CMD ["bun", "packages/memory-server/src/index.ts"]
