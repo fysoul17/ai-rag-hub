@@ -6,6 +6,7 @@ import type { DebugEvent, DebugEventCategory, DebugEventLevel } from './debug.ts
 export const WSClientMessageType = {
   MESSAGE: 'message',
   PING: 'ping',
+  CANCEL: 'cancel',
   DEBUG_SUBSCRIBE: 'debug_subscribe',
 } as const;
 export type WSClientMessageType = (typeof WSClientMessageType)[keyof typeof WSClientMessageType];
@@ -22,7 +23,16 @@ export const WSServerMessageType = {
   DEBUG_HISTORY: 'debug_history',
   SESSION_INIT: 'session_init',
   STREAM_RESUME: 'stream_resume',
+  AGENT_STEP: 'agent_step',
 } as const;
+
+export const AgentStepType = {
+  TOOL_START: 'tool_start',
+  TOOL_INPUT: 'tool_input',
+  TOOL_COMPLETE: 'tool_complete',
+  THINKING: 'thinking',
+} as const;
+export type AgentStepType = (typeof AgentStepType)[keyof typeof AgentStepType];
 export type WSServerMessageType = (typeof WSServerMessageType)[keyof typeof WSServerMessageType];
 
 export interface WSClientMessage {
@@ -112,6 +122,19 @@ export interface WSServerStreamResume {
   streaming: boolean;
 }
 
+export interface WSServerAgentStep {
+  type: typeof WSServerMessageType.AGENT_STEP;
+  stepType: AgentStepType;
+  agentId: AgentId;
+  agentName?: string;
+  toolId?: string;
+  toolName?: string;
+  inputDelta?: string;
+  content?: string;
+  durationMs?: number;
+  timestamp: string;
+}
+
 export type WSServerMessage =
   | WSServerChunk
   | WSServerComplete
@@ -123,4 +146,5 @@ export type WSServerMessage =
   | WSServerDebugEvent
   | WSServerDebugHistory
   | WSServerSessionInit
-  | WSServerStreamResume;
+  | WSServerStreamResume
+  | WSServerAgentStep;

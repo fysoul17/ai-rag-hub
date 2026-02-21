@@ -81,7 +81,7 @@ export default async function ChatPage({
   }
 
   return (
-    <>
+    <div className="absolute inset-0 flex flex-col overflow-hidden">
       <Header title="Chat" />
       <ChatInterface
         key={initialSessionId ?? 'new'}
@@ -90,6 +90,6 @@ export default async function ChatPage({
         initialMessages={initialMessages}
         backendOptions={backendOptions}
       />
-    </>
+    </div>
   );
 }

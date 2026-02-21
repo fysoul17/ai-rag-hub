@@ -18,7 +18,7 @@ export function ProcessingProgressStrip({ phases }: { phases: PipelinePhase[] })
             return (
               <span
                 key={`${p.phase}-${i}`}
-                className={`h-1.5 w-1.5 rounded-full ${pc.dot} ${isLast ? 'animate-pulse' : 'opacity-60'}`}
+                className={`h-1.5 w-1.5 rounded-full ${pc.dot} ${isLast ? 'animate-pulse motion-reduce:animate-none' : 'opacity-60'}`}
               />
             );
           })}

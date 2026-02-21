@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type DebugConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
-const MAX_CLIENT_EVENTS = 2000;
+// Performance: 500 cap keeps DOM node count manageable without virtualization
+const MAX_CLIENT_EVENTS = 500;
 const RUNTIME_WS_URL =
   typeof window !== 'undefined'
     ? (process.env.NEXT_PUBLIC_RUNTIME_WS_URL ?? 'ws://localhost:7820')
@@ -13,12 +14,19 @@ const RUNTIME_WS_URL =
 const DEBUG_WS_TOKEN =
   typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_DEBUG_WS_TOKEN ?? '') : '';
 
-export function useDebugWebSocket() {
+interface UseDebugWebSocketOptions {
+  /** When false, the WebSocket is disconnected and no connection is attempted. Default: true */
+  enabled?: boolean;
+}
+
+export function useDebugWebSocket({ enabled = true }: UseDebugWebSocketOptions = {}) {
   const [status, setStatus] = useState<DebugConnectionStatus>('disconnected');
   const [events, setEvents] = useState<DebugEvent[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const clearEvents = useCallback(() => {
     setEvents([]);
@@ -26,6 +34,7 @@ export function useDebugWebSocket() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reconnect logic uses refs only
   const connect = useCallback(() => {
+    if (!enabledRef.current) return;
     const current = wsRef.current;
     if (current?.readyState === WebSocket.OPEN || current?.readyState === WebSocket.CONNECTING) {
       return;
@@ -67,7 +76,9 @@ export function useDebugWebSocket() {
 
       ws.onclose = () => {
         setStatus('disconnected');
-        scheduleReconnect();
+        if (enabledRef.current) {
+          scheduleReconnect();
+        }
       };
 
       ws.onerror = () => {
@@ -75,7 +86,9 @@ export function useDebugWebSocket() {
       };
     } catch {
       setStatus('disconnected');
-      scheduleReconnect();
+      if (enabledRef.current) {
+        scheduleReconnect();
+      }
     }
   }, []);
 
@@ -85,8 +98,32 @@ export function useDebugWebSocket() {
     reconnectRef.current = setTimeout(connect, delay);
   }
 
+  function disconnect() {
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current);
+      reconnectRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // suppress reconnect on intentional close
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setStatus('disconnected');
+  }
+
+  // Connect/disconnect based on enabled flag
+  // biome-ignore lint/correctness/useExhaustiveDependencies: connect and disconnect only use refs — stable across renders
   useEffect(() => {
-    connect();
+    if (enabled) {
+      retryCountRef.current = 0;
+      connect();
+    } else {
+      disconnect();
+    }
+  }, [enabled]);
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       if (wsRef.current) {
@@ -94,7 +131,7 @@ export function useDebugWebSocket() {
         wsRef.current.close();
       }
     };
-  }, [connect]);
+  }, []);
 
   return { status, events, clearEvents };
 }

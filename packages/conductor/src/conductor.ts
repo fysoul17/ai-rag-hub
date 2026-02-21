@@ -165,9 +165,15 @@ export class Conductor {
   async *handleMessageStreaming(
     message: IncomingMessage,
     onEvent?: OnConductorEvent,
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent> {
     this.ensureInitialized();
     this.checkDelegationDepth(message);
+
+    if (signal?.aborted) {
+      yield { type: 'error', error: 'Aborted' };
+      return;
+    }
 
     const decisions: ConductorDecision[] = [];
 
@@ -214,18 +220,25 @@ export class Conductor {
 
     if (processedMessage.targetAgentId) {
       // Delegate to agent — stream from agent pool
-      onEvent?.({ type: ConductorEventType.DELEGATING, agentId: processedMessage.targetAgentId });
+      const delegateAgent = this.pool.get(processedMessage.targetAgentId);
+      onEvent?.({
+        type: ConductorEventType.DELEGATING,
+        agentId: processedMessage.targetAgentId,
+        agentName: delegateAgent?.definition.name,
+      });
 
-      const augmentedMessage = this.buildMemoryAugmentedPrompt(
-        processedMessage,
-        memoryContext,
-      );
+      const augmentedMessage = this.buildMemoryAugmentedPrompt(processedMessage, memoryContext);
 
       try {
         for await (const event of this.pool.sendMessageStreaming(
           processedMessage.targetAgentId,
           augmentedMessage,
+          signal,
         )) {
+          if (signal?.aborted) {
+            yield { type: 'error', error: 'Aborted' };
+            return;
+          }
           if (event.type === 'chunk' && event.content) {
             accumulatedContent += event.content;
           }
@@ -273,7 +286,11 @@ export class Conductor {
 
       try {
         if (sessionBackend.sendStreaming) {
-          for await (const event of sessionBackend.sendStreaming(prompt)) {
+          for await (const event of sessionBackend.sendStreaming(prompt, signal)) {
+            if (signal?.aborted) {
+              yield { type: 'error', error: 'Aborted' };
+              return;
+            }
             if (event.type === 'chunk' && event.content) {
               accumulatedContent += event.content;
             }
@@ -365,7 +382,12 @@ export class Conductor {
 
       if (processedMessage.targetAgentId) {
         // Delegate to targeted agent
-        onEvent?.({ type: ConductorEventType.DELEGATING, agentId: processedMessage.targetAgentId });
+        const delegateAgentExec = this.pool.get(processedMessage.targetAgentId);
+        onEvent?.({
+          type: ConductorEventType.DELEGATING,
+          agentId: processedMessage.targetAgentId,
+          agentName: delegateAgentExec?.definition.name,
+        });
         responseContent = await this.delegateToAgent(
           processedMessage.targetAgentId,
           processedMessage,
@@ -649,7 +671,10 @@ export class Conductor {
     try {
       const proc = await this.backend.spawn(spawnConfig);
       this.sessionProcesses.set(sessionId, proc);
-      conductorLogger.info('Session backend spawned', { sessionId, configOverrideKeys: configOverrides ? Object.keys(configOverrides) : [] });
+      conductorLogger.info('Session backend spawned', {
+        sessionId,
+        configOverrideKeys: configOverrides ? Object.keys(configOverrides) : [],
+      });
       return proc;
     } catch (error) {
       const detail = getErrorDetail(error);

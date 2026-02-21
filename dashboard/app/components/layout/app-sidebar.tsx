@@ -14,7 +14,6 @@ import {
   Settings,
   Terminal,
   Timer,
-  Tv2,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -35,10 +34,6 @@ const mainNav = [
   { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/sessions', label: 'Sessions', icon: History },
   { href: '/memory', label: 'Memory', icon: Brain },
-];
-
-const shortsNav = [
-  { href: '/shorts', label: 'Shorts Studio', icon: Tv2 },
 ];
 
 const systemNav = [
@@ -80,17 +75,6 @@ export function AppSidebar({ authEnabled }: { authEnabled?: boolean }) {
           <SidebarGroupContent>
             <SidebarMenu>
               <NavLinks items={mainNav} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            Studio
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavLinks items={shortsNav} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -171,6 +171,12 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-glow {
+    animation: none;
+  }
+}
+
 /* Grid background pattern */
 .bg-grid {
   background-image:

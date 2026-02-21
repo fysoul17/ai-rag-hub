@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { PipelinePhase } from '@/hooks/use-websocket';
 import { getPhaseConfig } from './pipeline-constants';
 
@@ -22,7 +22,7 @@ function PipelinePhaseRow({
       {/* Timeline connector */}
       <div className="flex flex-col items-center">
         <div
-          className={`h-2 w-2 rounded-full shrink-0 mt-1 ${config.dot} ${isActive ? 'animate-pulse' : ''}`}
+          className={`h-2 w-2 rounded-full shrink-0 mt-1 ${config.dot} ${isActive ? 'animate-pulse motion-reduce:animate-none' : ''}`}
         />
         {!isLast && <div className="w-px h-full min-h-3 bg-border/30" />}
       </div>
@@ -39,7 +39,7 @@ function PipelinePhaseRow({
             </span>
           )}
           {isActive && (
-            <span className="text-[10px] font-mono text-neon-cyan/60 animate-pulse">
+            <span className="text-[10px] font-mono text-neon-cyan/60 animate-pulse motion-reduce:animate-none">
               running...
             </span>
           )}
@@ -104,6 +104,8 @@ export function LivePipelineCard({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [showDecisions, setShowDecisions] = useState(false);
+  const timelinePanelId = useId();
+  const decisionsPanelId = useId();
 
   const totalDuration = phases.reduce((sum, p) => sum + (p.durationMs ?? 0), 0);
   const lastPhaseWithDecisions = [...phases].reverse().find((p) => p.debug?.decisions);
@@ -116,18 +118,21 @@ export function LivePipelineCard({
           type="button"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
+          aria-controls={timelinePanelId}
           aria-label="Toggle processing details"
           className="flex items-center gap-2 w-full glass rounded-t-md border-b-0 px-3 py-1.5 hover:border-neon-cyan/20 transition-colors group"
         >
           <span className="text-[10px] font-mono font-medium text-neon-cyan/70">PROCESSING</span>
 
-          {/* Phase dots summary */}
-          <div className="flex items-center gap-0.5 ml-1">
+          {/* Phase dots summary — decorative */}
+          <div className="flex items-center gap-0.5 ml-1" aria-hidden="true">
             {phases.map((p, i) => (
               <div
                 key={`dot-${p.phase}-${i}`}
                 className={`h-1 w-1 rounded-full ${getPhaseConfig(p.phase).dot} ${
-                  isProcessing && i === phases.length - 1 ? 'animate-pulse' : ''
+                  isProcessing && i === phases.length - 1
+                    ? 'animate-pulse motion-reduce:animate-none'
+                    : ''
                 }`}
               />
             ))}
@@ -135,22 +140,26 @@ export function LivePipelineCard({
 
           <span className="ml-auto text-[10px] font-mono text-muted-foreground/50">
             {isProcessing ? (
-              <span className="text-neon-cyan/60 animate-pulse">live</span>
+              <span className="text-neon-cyan/60 animate-pulse motion-reduce:animate-none">
+                live
+              </span>
             ) : (
               <span>{totalDuration > 0 ? `${totalDuration}ms` : '...'}</span>
             )}
           </span>
 
           <ChevronDown
-            className={`h-3 w-3 text-muted-foreground/40 transition-transform group-hover:text-muted-foreground ${
+            className={`h-3 w-3 text-muted-foreground/40 transition-transform motion-reduce:transition-none group-hover:text-muted-foreground ${
               expanded ? 'rotate-180' : ''
             }`}
+            aria-hidden="true"
           />
         </button>
 
         {/* Expanded timeline */}
         {expanded && (
           <div
+            id={timelinePanelId}
             className="glass rounded-b-md px-3 py-2 border-t border-border/20"
             aria-live="polite"
           >
@@ -172,16 +181,21 @@ export function LivePipelineCard({
                   type="button"
                   onClick={() => setShowDecisions(!showDecisions)}
                   aria-expanded={showDecisions}
+                  aria-controls={decisionsPanelId}
                   aria-label="Toggle raw decisions"
                   className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                 >
                   <ChevronDown
-                    className={`h-3 w-3 transition-transform ${showDecisions ? 'rotate-180' : ''}`}
+                    className={`h-3 w-3 transition-transform motion-reduce:transition-none ${showDecisions ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
                   />
                   {showDecisions ? 'Hide' : 'Show'} decisions
                 </button>
                 {showDecisions && (
-                  <pre className="mt-1 glass rounded p-2 text-[9px] font-mono text-muted-foreground/70 overflow-x-auto max-h-40">
+                  <pre
+                    id={decisionsPanelId}
+                    className="mt-1 glass rounded p-2 text-[9px] font-mono text-muted-foreground/70 overflow-x-auto max-h-40"
+                  >
                     {JSON.stringify(lastPhaseWithDecisions.debug?.decisions, null, 2)}
                   </pre>
                 )}

@@ -135,7 +135,7 @@ class ClaudeProcess implements BackendProcess {
       return;
     }
 
-    const args = this.buildArgs(message);
+    const args = this.buildStreamingArgs(message);
     const env = buildSafeEnv();
 
     this._process = Bun.spawn(['claude', ...args], {
@@ -165,6 +165,19 @@ class ClaudeProcess implements BackendProcess {
     signal?.addEventListener('abort', onAbort, { once: true });
 
     let hasContent = false;
+    // Set to true when the CLI 'result' event is processed — prevents double-yielding
+    // complete/error from the exit-code fallback below.
+    let streamDone = false;
+
+    // State for Claude Code SDK stream-json format (assistant/user/result events).
+    // text/thinking deltas are tracked by content block index; tool lifecycle by toolId.
+    const textProgress = new Map<number, number>();
+    const thinkingProgress = new Map<number, number>();
+    const activeTools = new Map<string, { name: string; startMs: number }>();
+
+    let lineBuffer = '';
+    // If the first line fails JSON parsing, fall back to raw text mode for the rest of the stream
+    let rawTextMode = false;
 
     try {
       while (true) {
@@ -177,43 +190,118 @@ class ClaudeProcess implements BackendProcess {
         if (done) break;
 
         const text = decoder.decode(value, { stream: true });
-        if (text) {
+        if (!text) continue;
+
+        // Raw text fallback mode — yield as plain chunks (same as before stream-json)
+        if (rawTextMode) {
           hasContent = true;
           yield { type: 'chunk', content: text };
+          continue;
         }
+
+        // NDJSON parsing — split on newlines and process each JSON line
+        lineBuffer += text;
+        const lines = lineBuffer.split('\n');
+        // Last element may be incomplete — keep it in the buffer
+        lineBuffer = lines.pop() ?? '';
+
+        for (let li = 0; li < lines.length; li++) {
+          const trimmed = (lines[li] ?? '').trim();
+          if (!trimmed) continue;
+
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(trimmed) as Record<string, unknown>;
+          } catch {
+            // First non-JSON line switches to raw text mode (e.g., older CLI without stream-json)
+            if (!hasContent) {
+              rawTextMode = true;
+              claudeLogger.debug('stream-json parse failed, falling back to raw text mode');
+              hasContent = true;
+              yield { type: 'chunk', content: trimmed };
+              const remaining = lines.slice(li + 1).join('\n');
+              if (remaining) yield { type: 'chunk', content: remaining };
+              break;
+            }
+            // After content has started, skip unparseable lines
+            continue;
+          }
+
+          const events = this.parseStreamJsonEvent(
+            parsed,
+            textProgress,
+            thinkingProgress,
+            activeTools,
+          );
+          for (const event of events) {
+            if (event.type === 'chunk') hasContent = true;
+            if (event.type === 'complete' || event.type === 'error') streamDone = true;
+            yield event;
+          }
+          if (streamDone) break;
+        }
+        if (streamDone) break;
       }
 
       // Flush decoder
       const remaining = decoder.decode();
-      if (remaining) {
-        hasContent = true;
-        yield { type: 'chunk', content: remaining };
+      if (!streamDone && remaining) {
+        if (rawTextMode) {
+          hasContent = true;
+          yield { type: 'chunk', content: remaining };
+        } else {
+          const trimmed = remaining.trim();
+          if (trimmed) {
+            try {
+              const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+              const events = this.parseStreamJsonEvent(
+                parsed,
+                textProgress,
+                thinkingProgress,
+                activeTools,
+              );
+              for (const event of events) {
+                if (event.type === 'chunk') hasContent = true;
+                if (event.type === 'complete' || event.type === 'error') streamDone = true;
+                yield event;
+              }
+            } catch {
+              if (!hasContent) {
+                hasContent = true;
+                yield { type: 'chunk', content: trimmed };
+              }
+            }
+          }
+        }
       }
 
       const exitCode = await proc.exited;
       const stderrText = await stderrPromise;
       this._process = null;
 
-      if (exitCode !== 0) {
-        const stderr = stderrText.trim().slice(0, 500);
-        claudeLogger.warn('Backend process failed', { exitCode, stderr });
-        // Include stderr summary in error so it reaches debug console via DebugBus.
-        // The websocket layer sanitizes what the chat client sees.
-        yield {
-          type: 'error',
-          error: stderr
-            ? `Backend exited with code ${exitCode}: ${stderr}`
-            : `Backend process exited with code ${exitCode}`,
-        };
-      } else if (!hasContent && stderrText.trim()) {
-        const stderr = stderrText.trim().slice(0, 500);
-        claudeLogger.warn('Backend produced no output', { stderr });
-        yield {
-          type: 'error',
-          error: `Backend produced no output: ${stderr}`,
-        };
-      } else {
-        yield { type: 'complete' };
+      // streamDone means the 'result' event already yielded complete/error — don't double-emit.
+      if (!streamDone) {
+        if (exitCode !== 0) {
+          const stderr = stderrText.trim().slice(0, 500);
+          claudeLogger.warn('Backend process failed', { exitCode, stderr });
+          // Include stderr summary in error so it reaches debug console via DebugBus.
+          // The websocket layer sanitizes what the chat client sees.
+          yield {
+            type: 'error',
+            error: stderr
+              ? `Backend exited with code ${exitCode}: ${stderr}`
+              : `Backend process exited with code ${exitCode}`,
+          };
+        } else if (!hasContent && stderrText.trim()) {
+          const stderr = stderrText.trim().slice(0, 500);
+          claudeLogger.warn('Backend produced no output', { stderr });
+          yield {
+            type: 'error',
+            error: `Backend produced no output: ${stderr}`,
+          };
+        } else {
+          yield { type: 'complete' };
+        }
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -221,6 +309,132 @@ class ClaudeProcess implements BackendProcess {
     } finally {
       signal?.removeEventListener('abort', onAbort);
       reader.releaseLock();
+    }
+  }
+
+  /**
+   * Map a single Claude CLI stream-json event to zero or more StreamEvents.
+   *
+   * The Claude Code CLI `--output-format stream-json --verbose` emits the higher-level
+   * Claude Code SDK message format — NOT the raw Anthropic streaming SSE events.
+   *
+   * Event types emitted by the CLI:
+   *   {type:"system", subtype:"init", ...}              — init, ignored
+   *   {type:"assistant", message:{content:[...]}, ...}  — model response (may arrive multiple
+   *                                                        times with growing content)
+   *   {type:"user", message:{content:[...]}, ...}       — tool results fed back to model
+   *   {type:"result", subtype:"success|error_*", ...}   — final result → complete or error
+   *
+   * Text/thinking content grows across consecutive "assistant" events; we track progress
+   * per block index so only the delta is emitted each time.
+   */
+  private parseStreamJsonEvent(
+    parsed: Record<string, unknown>,
+    textProgress: Map<number, number>,
+    thinkingProgress: Map<number, number>,
+    activeTools: Map<string, { name: string; startMs: number }>,
+  ): StreamEvent[] {
+    const eventType = parsed.type as string | undefined;
+    if (!eventType) return [];
+
+    switch (eventType) {
+      case 'assistant': {
+        const content = (parsed.message as { content?: unknown[] } | undefined)?.content;
+        if (!Array.isArray(content)) return [];
+
+        const events: StreamEvent[] = [];
+        for (let i = 0; i < content.length; i++) {
+          const b = content[i] as Record<string, unknown>;
+          if (!b || typeof b !== 'object') continue;
+
+          if (b.type === 'text' && typeof b.text === 'string') {
+            // Emit only the new portion since last event (content accumulates across events).
+            const prev = textProgress.get(i) ?? 0;
+            const delta = b.text.slice(prev);
+            if (delta) {
+              textProgress.set(i, b.text.length);
+              events.push({ type: 'chunk', content: delta });
+            }
+          } else if (b.type === 'thinking' && typeof b.thinking === 'string') {
+            const prev = thinkingProgress.get(i) ?? 0;
+            const delta = b.thinking.slice(prev);
+            if (delta) {
+              thinkingProgress.set(i, b.thinking.length);
+              events.push({ type: 'thinking', content: delta });
+            }
+          } else if (
+            b.type === 'tool_use' &&
+            typeof b.id === 'string' &&
+            typeof b.name === 'string'
+          ) {
+            // Only emit once — the block appears in full when the CLI has the complete call.
+            if (!activeTools.has(b.id)) {
+              activeTools.set(b.id, { name: b.name, startMs: Date.now() });
+              events.push({ type: 'tool_start', toolId: b.id, toolName: b.name });
+              if (
+                b.input &&
+                typeof b.input === 'object' &&
+                Object.keys(b.input as object).length > 0
+              ) {
+                events.push({
+                  type: 'tool_input',
+                  toolId: b.id,
+                  toolName: b.name,
+                  inputDelta: JSON.stringify(b.input, null, 2),
+                });
+              }
+            }
+          }
+        }
+        return events;
+      }
+
+      case 'user': {
+        // Tool results from the CLI executing tools on behalf of the model.
+        const content = (parsed.message as { content?: unknown[] } | undefined)?.content;
+        const events: StreamEvent[] = [];
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            const b = block as Record<string, unknown>;
+            if (b.type === 'tool_result' && typeof b.tool_use_id === 'string') {
+              const tool = activeTools.get(b.tool_use_id);
+              if (tool) {
+                const durationMs = Date.now() - tool.startMs;
+                activeTools.delete(b.tool_use_id);
+                events.push({
+                  type: 'tool_complete',
+                  toolId: b.tool_use_id,
+                  toolName: tool.name,
+                  durationMs,
+                });
+              }
+            }
+          }
+        }
+        // A new assistant turn will follow — reset per-turn progress counters.
+        textProgress.clear();
+        thinkingProgress.clear();
+        return events;
+      }
+
+      case 'result': {
+        const isError =
+          parsed.is_error === true ||
+          parsed.subtype === 'error_max_turns' ||
+          parsed.subtype === 'error_during_execution';
+        if (isError) {
+          const result =
+            typeof parsed.result === 'string'
+              ? parsed.result.trim().slice(0, 500)
+              : 'Error during execution';
+          return [{ type: 'error', error: result }];
+        }
+        return [{ type: 'complete' }];
+      }
+
+      // 'system' (init) and all other events — no StreamEvent emitted.
+      default:
+        return [];
     }
   }
 
@@ -232,7 +446,17 @@ class ClaudeProcess implements BackendProcess {
     this._alive = false;
   }
 
+  /** Build args for non-streaming (send) calls — plain text output. */
   private buildArgs(message: string): string[] {
+    return this.buildArgsInternal(message, false);
+  }
+
+  /** Build args for streaming calls — includes --output-format stream-json. */
+  private buildStreamingArgs(message: string): string[] {
+    return this.buildArgsInternal(message, true);
+  }
+
+  private buildArgsInternal(message: string, streaming: boolean): string[] {
     const args: string[] = ['-p', message];
 
     if (this.config.systemPrompt) {
@@ -263,6 +487,12 @@ class ClaudeProcess implements BackendProcess {
     // The -p flag runs in single-shot mode which doesn't reliably persist sessions,
     // causing --resume to fail on subsequent calls.
     args.push('--no-session-persistence');
+
+    // Structured NDJSON output for streaming — enables tool_use/thinking event parsing.
+    // --verbose is required by the CLI when combining --print (-p) with --output-format=stream-json.
+    if (streaming) {
+      args.push('--verbose', '--output-format', 'stream-json');
+    }
 
     return args;
   }

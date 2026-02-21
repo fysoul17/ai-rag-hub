@@ -8,6 +8,7 @@ import type {
   SessionMessage,
   WSClientMessage,
   WSServerAgentStatus,
+  WSServerAgentStep,
   WSServerChunk,
   WSServerComplete,
   WSServerConductorStatus,
@@ -80,10 +81,7 @@ function buildDebugPayload(event: ConductorEvent): ConductorDebugPayload | undef
     debug.memoryResults = event.memoryResults;
     hasData = true;
   }
-  if (event.routerType !== undefined) {
-    debug.routerType = event.routerType;
-    hasData = true;
-  }
+  // routerType is not currently emitted by ConductorEvent; field intentionally omitted
   if (event.content) {
     debug.routingReason = event.content;
     hasData = true;
@@ -138,7 +136,7 @@ function conductorEventToDebug(event: ConductorEvent): DebugEvent {
       ...(event.agentName && { agentName: event.agentName }),
       ...(event.memoryResults !== undefined && { memoryResults: event.memoryResults }),
       ...(event.memoryQuery && { memoryQuery: event.memoryQuery }),
-      ...(event.routerType && { routerType: event.routerType }),
+      // routerType not present on ConductorEvent
       ...(event.decisions && { decisions: event.decisions }),
       ...(event.dispatchTarget && { dispatchTarget: event.dispatchTarget }),
     },
@@ -281,7 +279,12 @@ async function streamConductorResponse(
   buffer?: StreamBuffer,
   sessionId?: string,
   sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>,
+  signal?: AbortSignal,
 ): Promise<{ content: string }> {
+  // Resolve agent display name once before the streaming loop so step events can carry it.
+  // Falls back to undefined for 'conductor' (which has no pool entry).
+  const agentDisplayName = conductor.listAgents().find((a) => a.id === agentId)?.name;
+
   // conductor_status events go directly to the requesting ws (not buffered)
   const onEvent = (event: ConductorEvent) => {
     sendConductorStatus(ws, event);
@@ -341,8 +344,9 @@ async function streamConductorResponse(
   }, timeout);
 
   try {
-    for await (const event of conductor.handleMessageStreaming(incoming, onEvent)) {
+    for await (const event of conductor.handleMessageStreaming(incoming, onEvent, signal)) {
       if (state.errorSent || state.completeSent) break;
+      if (signal?.aborted) break;
 
       if (event.type === 'chunk') {
         const content = event.content ?? '';
@@ -358,6 +362,61 @@ async function streamConductorResponse(
         if (buffer) buffer.markComplete();
         const complete: WSServerComplete = { type: WSServerMessageType.COMPLETE };
         broadcastMsg(complete);
+      } else if (
+        event.type === 'tool_start' ||
+        event.type === 'tool_input' ||
+        event.type === 'tool_complete' ||
+        event.type === 'thinking'
+      ) {
+        // Agent-level step events: broadcast to live clients but do NOT accumulate
+        // in the stream buffer (buffer only tracks chunk content for reconnect replay).
+        const step: WSServerAgentStep = {
+          type: WSServerMessageType.AGENT_STEP,
+          stepType: event.type,
+          agentId,
+          agentName: agentDisplayName,
+          toolId: event.toolId,
+          toolName: event.toolName,
+          inputDelta: event.inputDelta,
+          content: event.content,
+          durationMs: event.durationMs,
+          timestamp: new Date().toISOString(),
+        };
+        broadcastMsg(step);
+
+        // Emit to debug bus so tool events appear in the debug console in real-time.
+        if (debugBus) {
+          let dbgMessage: string;
+          let dbgLevel: DebugEventLevel = DebugEventLevel.DEBUG;
+          if (event.type === 'tool_start') {
+            dbgMessage = `→ ${event.toolName ?? 'tool'}`;
+            dbgLevel = DebugEventLevel.INFO;
+          } else if (event.type === 'tool_complete') {
+            dbgMessage = `✓ ${event.toolName ?? 'tool'} (${event.durationMs ?? 0}ms)`;
+            dbgLevel = DebugEventLevel.INFO;
+          } else if (event.type === 'thinking') {
+            dbgMessage = 'thinking…';
+          } else {
+            // tool_input — skip to avoid flooding the debug console with large JSON deltas
+            dbgMessage = '';
+          }
+          if (dbgMessage) {
+            debugBus.emit(
+              makeDebugEvent({
+                category: DebugEventCategory.AGENT,
+                level: dbgLevel,
+                source: `agent.${event.type}`,
+                message: dbgMessage,
+                agentId: targetAgent ?? agentId,
+                durationMs: event.durationMs,
+                data: {
+                  ...(event.toolId && { toolId: event.toolId }),
+                  ...(event.toolName && { toolName: event.toolName }),
+                },
+              }),
+            );
+          }
+        }
       } else if (event.type === 'error') {
         if (state.accumulatedContent.length > 0) {
           // Content was already streamed — complete normally.
@@ -419,6 +478,7 @@ async function handleConductorMessage(
   streamTimeoutMs?: number,
   bufferManager?: SessionStreamBufferManager,
   sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>,
+  sessionAbortControllers?: Map<string, AbortController>,
 ): Promise<void> {
   ensureSession(ws, sessionStore);
 
@@ -495,6 +555,16 @@ async function handleConductorMessage(
     buffer = bufferManager.getOrCreate(sessionId, agentId);
   }
 
+  // Create an AbortController for this stream so it can be cancelled via cancel message
+  let abortController: AbortController | undefined;
+  if (sessionId && sessionAbortControllers) {
+    // Abort any previous stream for this session
+    const prev = sessionAbortControllers.get(sessionId);
+    if (prev) prev.abort();
+    abortController = new AbortController();
+    sessionAbortControllers.set(sessionId, abortController);
+  }
+
   try {
     const result = await streamConductorResponse(
       ws,
@@ -507,6 +577,7 @@ async function handleConductorMessage(
       buffer,
       sessionId,
       sessionClientsMap,
+      abortController?.signal,
     );
 
     if (sessionStore && sessionId && result.content) {
@@ -527,6 +598,14 @@ async function handleConductorMessage(
         message: `Error handling message: ${msg}`,
       }),
     );
+  } finally {
+    // Clean up the abort controller for this session
+    if (sessionId && sessionAbortControllers && abortController) {
+      // Only delete if it's still the same controller (not replaced by a new message)
+      if (sessionAbortControllers.get(sessionId) === abortController) {
+        sessionAbortControllers.delete(sessionId);
+      }
+    }
   }
 }
 
@@ -621,11 +700,17 @@ function handleSlashCommand(
   // validation or persistence, even if all current options have enumerable values arrays.
   const MAX_OPTION_VALUE_LENGTH = 256;
   if (value.length > MAX_OPTION_VALUE_LENGTH) {
-    sendSystemMessage(ws, `Value for **${option.name}** is too long (max ${MAX_OPTION_VALUE_LENGTH} characters).`);
+    sendSystemMessage(
+      ws,
+      `Value for **${option.name}** is too long (max ${MAX_OPTION_VALUE_LENGTH} characters).`,
+    );
     return true;
   }
   if (/[\n\r\t\0]/.test(value)) {
-    sendSystemMessage(ws, `Invalid value for **${option.name}**: control characters are not allowed.`);
+    sendSystemMessage(
+      ws,
+      `Invalid value for **${option.name}**: control characters are not allowed.`,
+    );
     return true;
   }
 
@@ -666,6 +751,7 @@ function handleParsedMessage(
   backendRegistry?: BackendRegistry,
   bufferManager?: SessionStreamBufferManager,
   sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>,
+  sessionAbortControllers?: Map<string, AbortController>,
 ): Promise<void> | void {
   if (parsed.type === WSClientMessageType.PING) {
     const pong: WSServerPong = { type: WSServerMessageType.PONG };
@@ -673,6 +759,35 @@ function handleParsedMessage(
       ws.send(JSON.stringify(pong));
     } catch {
       // Client may have disconnected
+    }
+    return;
+  }
+
+  if (parsed.type === WSClientMessageType.CANCEL) {
+    const sessionId = ws.data.sessionId;
+    if (sessionId && sessionAbortControllers) {
+      const controller = sessionAbortControllers.get(sessionId);
+      if (controller) {
+        controller.abort();
+        sessionAbortControllers.delete(sessionId);
+        wsLogger.info('Stream cancelled by client', { sessionId });
+        debugBus?.emit(
+          makeDebugEvent({
+            category: DebugEventCategory.WEBSOCKET,
+            level: DebugEventLevel.INFO,
+            source: 'ws.cancel',
+            message: 'Stream cancelled by client',
+            data: { sessionId },
+          }),
+        );
+      }
+      // Mark the stream buffer as error so reconnecting clients don't replay
+      if (bufferManager) {
+        const buffer = bufferManager.get(sessionId);
+        if (buffer && buffer.status === 'streaming') {
+          buffer.markError();
+        }
+      }
     }
     return;
   }
@@ -696,6 +811,7 @@ function handleParsedMessage(
       streamTimeoutMs,
       bufferManager,
       sessionClientsMap,
+      sessionAbortControllers,
     );
   }
 
@@ -717,6 +833,9 @@ export function createWebSocketHandler(
 
   /** Maps sessionId → set of active WebSocket connections for that session. */
   const sessionClientsMap = new Map<string, Set<ServerWebSocket<WSData>>>();
+
+  /** Per-session AbortController for cancelling active streams. */
+  const sessionAbortControllers = new Map<string, AbortController>();
 
   function broadcast(message: object): void {
     const data = JSON.stringify(message);
@@ -861,6 +980,7 @@ export function createWebSocketHandler(
         backendRegistry,
         bufferManager,
         sessionClientsMap,
+        sessionAbortControllers,
       );
     },
 
@@ -904,6 +1024,11 @@ export function createWebSocketHandler(
     shutdown: () => {
       stopStatusBroadcast();
       bufferManager.shutdown();
+      // Abort all active streams
+      for (const controller of sessionAbortControllers.values()) {
+        controller.abort();
+      }
+      sessionAbortControllers.clear();
       for (const ws of clients) {
         try {
           ws.close();

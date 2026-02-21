@@ -1,16 +1,18 @@
 'use client';
 
 import type { AgentRuntimeInfo, BackendConfigOption } from '@autonomy/shared';
-import { Layers, Plus } from 'lucide-react';
+import { Layers, Plus, Terminal } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSlashCommands } from '@/hooks/use-backend-options';
+import { useDebugWebSocket } from '@/hooks/use-debug-websocket';
 import { useProcessingTimer } from '@/hooks/use-processing-timer';
 import { useShowSteps } from '@/hooks/use-show-steps';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { AgentSelector } from './agent-selector';
 import { ChatInput } from './chat-input';
 import { ChatMessageBubble } from './chat-message';
+import { DebugConsole } from './debug-console';
 import { ModelSelector } from './model-selector';
 
 const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL ?? 'http://localhost:7820';
@@ -44,6 +46,13 @@ export function ChatInterface({
   const [configOverrides, setConfigOverrides] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const { showSteps, toggleSteps } = useShowSteps();
+  const [showDebug, setShowDebug] = useState(false);
+
+  const {
+    status: debugStatus,
+    events: debugEvents,
+    clearEvents: clearDebugEvents,
+  } = useDebugWebSocket({ enabled: showDebug });
 
   const slashCommands = useSlashCommands(backendOptions);
 
@@ -119,6 +128,12 @@ export function ChatInterface({
     }
   }
 
+  // Scroll to bottom on initial mount (session with history)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only
+  useEffect(() => {
+    scrollToBottom();
+  }, []);
+
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
@@ -126,8 +141,11 @@ export function ChatInterface({
   }, []);
 
   const lastMessage = messages[messages.length - 1];
-  const scrollTrigger = `${messages.length}-${lastMessage?.content?.length ?? 0}`;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on message count and content change
+  // Include activityFeed.totalSteps so auto-scroll fires when tool events expand the feed height.
+  // Without this, new tool calls grow the processing message below the viewport and are never shown.
+  const activitySteps = lastMessage?.activityFeed?.totalSteps ?? 0;
+  const scrollTrigger = `${messages.length}-${lastMessage?.content?.length ?? 0}-${activitySteps}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on message count, content change, and activity feed steps
   useEffect(() => {
     if (userSentRef.current) {
       scrollToBottom();
@@ -155,9 +173,9 @@ export function ChatInterface({
   );
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] flex-col">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Agent selector + model selector + new chat */}
-      <div className="flex items-center border-b border-border">
+      <div className="flex shrink-0 items-center border-b border-border">
         <div className="flex-1 overflow-hidden">
           <AgentSelector
             agents={agents}
@@ -191,9 +209,8 @@ export function ChatInterface({
         ref={scrollRef}
         onScroll={handleScroll}
         role="log"
-        aria-live="polite"
         aria-busy={isProcessing}
-        className="flex-1 overflow-y-auto p-4"
+        className="min-h-0 flex-1 overflow-y-auto p-4"
       >
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
@@ -203,7 +220,7 @@ export function ChatInterface({
                   ? `Chat with ${agents.find((a) => a.id === targetAgent)?.name ?? 'agent'}`
                   : `Chat with ${conductorName}`}
               </p>
-              <p className="text-sm text-muted-foreground/60">Send a message to get started.</p>
+              <p className="text-sm text-muted-foreground">Send a message to get started.</p>
             </div>
           </div>
         ) : (
@@ -221,19 +238,32 @@ export function ChatInterface({
         )}
       </div>
 
-      {/* Connection status + steps toggle */}
-      <div className="flex items-center gap-2 border-t border-border/50 px-4 py-1">
-        <span
-          aria-hidden="true"
-          className={`h-2 w-2 rounded-full animate-pulse-glow ${
-            status === 'connected'
-              ? 'bg-neon-cyan'
-              : status === 'connecting'
-                ? 'bg-neon-amber'
-                : 'bg-neon-red'
-          }`}
+      {/* Debug console panel */}
+      {showDebug && (
+        <DebugConsole
+          events={debugEvents}
+          connectionStatus={debugStatus}
+          onClear={clearDebugEvents}
+          onClose={() => setShowDebug(false)}
         />
-        <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
+      )}
+
+      {/* Connection status + steps toggle */}
+      <div className="flex shrink-0 items-center gap-2 border-t border-border/50 px-4 py-1">
+        {/* <output> announces connection changes to screen readers */}
+        <output className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full animate-pulse-glow ${
+              status === 'connected'
+                ? 'bg-neon-cyan'
+                : status === 'connecting'
+                  ? 'bg-neon-amber'
+                  : 'bg-neon-red'
+            }`}
+          />
+          <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
+        </output>
         {sessionId && (
           <output
             className="text-[10px] text-muted-foreground/50 font-mono"
@@ -256,6 +286,22 @@ export function ChatInterface({
         >
           <Layers className="h-3 w-3" />
           <span>Steps</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowDebug((v) => !v)}
+          aria-label={showDebug ? 'Hide debug console' : 'Show debug console'}
+          className={`flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-mono transition-colors ${
+            showDebug
+              ? 'bg-neon-amber/10 text-neon-amber border border-neon-amber/20'
+              : 'text-muted-foreground/50 hover:text-muted-foreground'
+          }`}
+        >
+          <Terminal className="h-3 w-3" />
+          <span>Debug</span>
+          {debugEvents.length > 0 && (
+            <span className="text-muted-foreground/40">{debugEvents.length}</span>
+          )}
         </button>
       </div>
 

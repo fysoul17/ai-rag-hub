@@ -10,7 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar authEnabled={authEnabled} />
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="relative flex-1 overflow-auto">{children}</main>
       </SidebarProvider>
     </TooltipProvider>
   );

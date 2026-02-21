@@ -2,6 +2,7 @@ import { Bot, Cpu, User } from 'lucide-react';
 import { memo } from 'react';
 import type { TimeWarning } from '@/hooks/use-processing-timer';
 import type { ChatMessage } from '@/hooks/use-websocket';
+import { LiveActivityFeed } from './live-activity-feed';
 import { MarkdownRenderer } from './markdown-renderer';
 import { getPhaseConfig } from './pipeline-constants';
 import { PipelineSummaryBar } from './pipeline-summary-bar';
@@ -16,9 +17,9 @@ interface ChatMessageBubbleProps {
 }
 
 function AvatarIcon({ isUser, isConductor }: { isUser: boolean; isConductor: boolean }) {
-  if (isUser) return <User className="h-4 w-4 text-primary" />;
-  if (isConductor) return <Cpu className="h-4 w-4 text-neon-cyan" />;
-  return <Bot className="h-4 w-4 text-neon-purple" />;
+  if (isUser) return <User className="h-4 w-4 text-primary" aria-hidden="true" />;
+  if (isConductor) return <Cpu className="h-4 w-4 text-neon-cyan" aria-hidden="true" />;
+  return <Bot className="h-4 w-4 text-neon-purple" aria-hidden="true" />;
 }
 
 function getMessageStyles(isUser: boolean, isConductor: boolean) {
@@ -44,18 +45,38 @@ function getMessageStyles(isUser: boolean, isConductor: boolean) {
 }
 
 function SystemMessage({ message, showSteps, elapsedMs, warning }: ChatMessageBubbleProps) {
-  // While processing: show compact progress strip if steps visible, otherwise phase-aware indicator
+  const hasActivity = message.activityFeed && message.activityFeed.totalSteps > 0;
+  const hasPipeline = message.pipeline && message.pipeline.length > 0;
+
+  // While processing: show live activity feed if we have steps data, otherwise fallback
   if (message.isProcessing) {
-    if (showSteps && message.pipeline && message.pipeline.length > 0) {
-      return <ProcessingProgressStrip phases={message.pipeline} />;
+    if (showSteps && (hasActivity || hasPipeline)) {
+      return (
+        <LiveActivityFeed
+          phases={message.pipeline ?? []}
+          feed={
+            message.activityFeed ?? {
+              agents: [],
+              totalSteps: 0,
+              totalDurationMs: 0,
+              isActive: true,
+            }
+          }
+          isLive={true}
+        />
+      );
+    }
+    if (showSteps && hasPipeline) {
+      return <ProcessingProgressStrip phases={message.pipeline ?? []} />;
     }
     const lastPhase = message.pipeline?.[message.pipeline.length - 1];
     const phaseText = lastPhase ? getPhaseConfig(lastPhase.phase).friendlyLabel : undefined;
     return <ProcessingIndicator phaseText={phaseText} elapsedMs={elapsedMs} warning={warning} />;
   }
 
-  // Completed system message with pipeline: nothing to show (summary bar is on assistant message)
-  if (message.pipeline && message.pipeline.length > 0) {
+  // Completed system message with pipeline or activity: nothing to show
+  // (the pipeline/activity data is transferred to the assistant message on complete)
+  if (hasPipeline || hasActivity) {
     return null;
   }
 
@@ -107,13 +128,26 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             <MarkdownRenderer content={message.content} />
           )}
           {message.streaming && (
-            <span className="inline-block h-4 w-1 animate-pulse bg-primary ml-0.5" />
+            <span
+              aria-hidden="true"
+              className="inline-block h-4 w-1 animate-pulse motion-reduce:animate-none bg-primary ml-0.5"
+            />
           )}
         </div>
-        {/* Pipeline summary bar — visible when steps are enabled (default: true) */}
-        {showSteps && !isUser && message.pipeline && message.pipeline.length > 0 && (
-          <PipelineSummaryBar phases={message.pipeline} />
+        {/* Activity feed (collapsed pill) — when agent steps exist, replaces pipeline-only bar */}
+        {showSteps && !isUser && message.activityFeed && message.activityFeed.totalSteps > 0 && (
+          <LiveActivityFeed
+            phases={message.pipeline ?? []}
+            feed={message.activityFeed}
+            isLive={false}
+          />
         )}
+        {/* Pipeline summary bar — fallback when only conductor phases exist (no agent steps) */}
+        {showSteps &&
+          !isUser &&
+          !message.activityFeed &&
+          message.pipeline &&
+          message.pipeline.length > 0 && <PipelineSummaryBar phases={message.pipeline} />}
       </div>
     </div>
   );

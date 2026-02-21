@@ -1,13 +1,14 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { PipelinePhase } from '@/hooks/use-websocket';
 import { getPhaseConfig } from './pipeline-constants';
 import { PipelineTimeline } from './pipeline-timeline';
 
 export function PipelineSummaryBar({ phases }: { phases: PipelinePhase[] }) {
   const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
 
   // Calculate total duration from phases that have it
   const totalDuration = phases.reduce((sum, p) => sum + (p.durationMs ?? 0), 0);
@@ -21,11 +22,12 @@ export function PipelineSummaryBar({ phases }: { phases: PipelinePhase[] }) {
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
+        aria-controls={panelId}
         aria-label="Toggle processing details"
         className="flex items-center gap-2 glass rounded-md px-2 py-1 w-full hover:border-neon-cyan/20 transition-colors group"
       >
-        {/* Phase dots */}
-        <div className="flex items-center gap-1">
+        {/* Phase dots — decorative */}
+        <div className="flex items-center gap-1" aria-hidden="true">
           {uniquePhases.map((phase) => (
             <div key={phase} className={`h-1.5 w-1.5 rounded-full ${getPhaseConfig(phase).dot}`} />
           ))}
@@ -42,17 +44,22 @@ export function PipelineSummaryBar({ phases }: { phases: PipelinePhase[] }) {
 
         {/* Expand chevron */}
         <ChevronDown
-          className={`h-3 w-3 ml-auto text-muted-foreground/40 transition-transform group-hover:text-muted-foreground ${
+          className={`h-3 w-3 ml-auto text-muted-foreground/40 transition-transform motion-reduce:transition-none group-hover:text-muted-foreground ${
             expanded ? 'rotate-180' : ''
           }`}
+          aria-hidden="true"
         />
       </button>
 
       {/* Expanded timeline */}
       {expanded && (
-        <div className="glass rounded-md mt-1 px-2 py-1">
+        <section
+          id={panelId}
+          aria-label="Processing steps"
+          className="glass rounded-md mt-1 px-2 py-1"
+        >
           <PipelineTimeline phases={phases} />
-        </div>
+        </section>
       )}
     </div>
   );
