@@ -539,13 +539,14 @@ export class Conductor {
       }
     }
 
-    // Spawn a new process for this session
+    // Spawn a new stateless process for this session.
+    // Session isolation happens at the conductor level (per-session process map),
+    // not at the CLI level. Each CLI call is independent.
     const systemPrompt = this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
     try {
       const proc = await this.backend.spawn({
         agentId: 'conductor',
         systemPrompt,
-        sessionId,
       });
       this.sessionProcesses.set(sessionId, proc);
       conductorLogger.info('Session backend spawned', { sessionId });

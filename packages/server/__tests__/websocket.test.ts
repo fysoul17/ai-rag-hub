@@ -198,6 +198,27 @@ describe('WebSocket handler', () => {
     wsHandler.shutdown();
   });
 
+  test('completes normally when error follows streamed content', async () => {
+    const ws = new MockWebSocket();
+    wsHandler.handler.open(asWS(ws));
+    conductor.errorAfterContent = 'Process exited with status 2';
+
+    await wsHandler.handler.message(
+      asWS(ws),
+      JSON.stringify({ type: WSClientMessageType.MESSAGE, content: 'Hi' }),
+    );
+
+    const messages = ws.allMessages();
+    // Should get CHUNK then COMPLETE — no ERROR
+    expect(messages.length).toBe(2);
+    expect(messages[0].type).toBe(WSServerMessageType.CHUNK);
+    expect(messages[0].content).toBe('Mock conductor response');
+    expect(messages[1].type).toBe(WSServerMessageType.COMPLETE);
+    // Verify no ERROR message was sent
+    const errorMessages = messages.filter((m) => m.type === WSServerMessageType.ERROR);
+    expect(errorMessages.length).toBe(0);
+  });
+
   test('handles message with empty content', async () => {
     const ws = new MockWebSocket();
     wsHandler.handler.open(asWS(ws));

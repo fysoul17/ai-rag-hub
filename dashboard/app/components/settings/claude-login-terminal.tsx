@@ -272,9 +272,9 @@ export function ClaudeLoginTerminal({ isAuthenticated, onComplete }: ClaudeLogin
       )}
 
       {/* Hint */}
-      {state === 'running' && (
+      {state === 'running' && authUrl && (
         <p className="text-[10px] text-muted-foreground">
-          Click the link above to authenticate, then paste the code into the terminal (Cmd+V / Ctrl+V).
+          A browser window should open automatically. If not, click the link above.
         </p>
       )}
 

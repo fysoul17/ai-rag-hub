@@ -34,6 +34,7 @@ class MockBackend {
       name: this.name as AIBackend,
       available: true,
       configured: true,
+      authenticated: true,
       authMode: hasApiKey ? 'api_key' : 'cli_login',
       apiKeyMasked: hasApiKey ? `sk-...${apiKey!.slice(-4)}` : undefined,
       capabilities: this.capabilities,
@@ -76,6 +77,7 @@ class MockBackendNoLogout {
       name: this.name as AIBackend,
       available: true,
       configured: true,
+      authenticated: true,
       authMode: 'cli_login',
       capabilities: this.capabilities,
     };

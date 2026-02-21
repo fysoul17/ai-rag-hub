@@ -296,6 +296,61 @@ async function handleConductorMessage(
   }
 }
 
+interface StreamState {
+  accumulatedContent: string;
+  completeSent: boolean;
+  errorSent: boolean;
+}
+
+function handleStreamChunk(
+  ws: ServerWebSocket<WSData>,
+  state: StreamState,
+  content: string,
+  agentId: string,
+): void {
+  state.accumulatedContent += content;
+  const chunk: WSServerChunk = {
+    type: WSServerMessageType.CHUNK,
+    content,
+    agentId,
+  };
+  ws.send(JSON.stringify(chunk));
+}
+
+function handleStreamError(
+  ws: ServerWebSocket<WSData>,
+  state: StreamState,
+  agentId: string,
+  targetAgent: string | undefined,
+  error: string | undefined,
+  debugBus?: DebugBus,
+): void {
+  if (state.accumulatedContent.length > 0) {
+    // Content was already streamed (e.g., rate-limit message) — complete normally.
+    // The streamed content IS the response. Log the backend error for debugging.
+    state.completeSent = true;
+    wsLogger.warn('Stream error after content delivery — completing normally', {
+      agentId,
+      error,
+    });
+    ws.send(JSON.stringify({ type: WSServerMessageType.COMPLETE }));
+    return;
+  }
+
+  state.errorSent = true;
+  wsLogger.warn('Stream error from backend', { agentId, error });
+  debugBus?.emit(
+    makeDebugEvent({
+      category: DebugEventCategory.CONDUCTOR,
+      level: DebugEventLevel.ERROR,
+      source: 'conductor.stream_error',
+      message: `Stream error from ${agentId}: ${error ?? 'Unknown error'}`,
+      agentId: targetAgent,
+    }),
+  );
+  sendWSError(ws, 'An error occurred while generating the response.');
+}
+
 async function streamConductorResponse(
   ws: ServerWebSocket<WSData>,
   conductor: Conductor,
@@ -310,15 +365,13 @@ async function streamConductorResponse(
     debugBus?.emit(conductorEventToDebug(event));
   };
 
-  let accumulatedContent = '';
-  let completeSent = false;
-  let errorSent = false;
+  const state: StreamState = { accumulatedContent: '', completeSent: false, errorSent: false };
 
   const timeout = streamTimeoutMs ?? 300_000;
   const timeoutId = setTimeout(() => {
-    if (!completeSent && !errorSent) {
+    if (!state.completeSent && !state.errorSent) {
       sendWSError(ws, `Response timed out after ${Math.round(timeout / 1000)}s`);
-      errorSent = true;
+      state.errorSent = true;
       debugBus?.emit(
         makeDebugEvent({
           category: DebugEventCategory.CONDUCTOR,
@@ -333,42 +386,23 @@ async function streamConductorResponse(
 
   try {
     for await (const event of conductor.handleMessageStreaming(incoming, onEvent)) {
-      // Stop forwarding to client if timeout already fired
-      if (errorSent || completeSent) break;
+      if (state.errorSent || state.completeSent) break;
 
       if (event.type === 'chunk') {
-        accumulatedContent += event.content ?? '';
-        const chunk: WSServerChunk = {
-          type: WSServerMessageType.CHUNK,
-          content: event.content ?? '',
-          agentId,
-        };
-        ws.send(JSON.stringify(chunk));
+        handleStreamChunk(ws, state, event.content ?? '', agentId);
       } else if (event.type === 'complete') {
-        completeSent = true;
+        state.completeSent = true;
         const complete: WSServerComplete = { type: WSServerMessageType.COMPLETE };
         ws.send(JSON.stringify(complete));
       } else if (event.type === 'error') {
-        errorSent = true;
-        // Log full error server-side + debug console; send sanitized message to client
-        wsLogger.warn('Stream error from backend', { agentId, error: event.error });
-        debugBus?.emit(
-          makeDebugEvent({
-            category: DebugEventCategory.CONDUCTOR,
-            level: DebugEventLevel.ERROR,
-            source: 'conductor.stream_error',
-            message: `Stream error from ${agentId}: ${event.error ?? 'Unknown error'}`,
-            agentId: targetAgent,
-          }),
-        );
-        sendWSError(ws, 'An error occurred while generating the response.');
+        handleStreamError(ws, state, agentId, targetAgent, event.error, debugBus);
       }
     }
   } finally {
     clearTimeout(timeoutId);
 
-    if (!completeSent && !errorSent) {
-      if (accumulatedContent.length > 0) {
+    if (!state.completeSent && !state.errorSent) {
+      if (state.accumulatedContent.length > 0) {
         ws.send(JSON.stringify({ type: WSServerMessageType.COMPLETE }));
       } else {
         sendWSError(ws, 'No response was generated. The AI backend may be unavailable.');
@@ -376,7 +410,7 @@ async function streamConductorResponse(
     }
   }
 
-  return { content: accumulatedContent };
+  return { content: state.accumulatedContent };
 }
 
 function handleParsedMessage(

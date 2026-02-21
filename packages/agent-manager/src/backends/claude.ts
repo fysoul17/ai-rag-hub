@@ -81,8 +81,6 @@ class ClaudeProcess implements BackendProcess {
   private _alive = true;
   private _process: ReturnType<typeof Bun.spawn> | null = null;
   private config: BackendSpawnConfig;
-  /** Tracks whether this session has been established (first send completed). */
-  private sessionCreated = false;
 
   constructor(config: BackendSpawnConfig) {
     this.config = config;
@@ -247,19 +245,11 @@ class ClaudeProcess implements BackendProcess {
       args.push('--dangerously-skip-permissions');
     }
 
-    // Session persistence flags
-    if (this.config.sessionPersistence === false) {
-      args.push('--no-session-persistence');
-    } else if (this.config.sessionId) {
-      if (this.sessionCreated) {
-        // Subsequent sends resume the existing session
-        args.push('--resume', this.config.sessionId);
-      } else {
-        // First send creates the session
-        args.push('--session-id', this.config.sessionId);
-        this.sessionCreated = true;
-      }
-    }
+    // Stateless mode: each CLI call is independent (no --session-id/--resume).
+    // Multi-turn context is handled by the conductor's memory system, not CLI sessions.
+    // The -p flag runs in single-shot mode which doesn't reliably persist sessions,
+    // causing --resume to fail on subsequent calls.
+    args.push('--no-session-persistence');
 
     return args;
   }
@@ -288,32 +278,76 @@ export class ClaudeBackend implements CLIBackend {
     }
   }
 
+  /**
+   * Check actual CLI login state by running `claude auth status --json`.
+   * Returns true only when the JSON response contains `{"loggedIn": true}`.
+   * Safe to call only when the CLI binary is known to be on PATH.
+   */
+  private async checkCliAuth(): Promise<boolean> {
+    const env = buildSafeEnv();
+    try {
+      const proc = Bun.spawn(['claude', 'auth', 'status', '--json'], {
+        cwd: process.cwd(),
+        env,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+
+      // Race against a 5-second timeout to avoid blocking status checks.
+      // Keep a handle so we can cancel the timer if the process exits first.
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      const exitCode = await Promise.race([
+        proc.exited,
+        new Promise<number>((resolve) => {
+          timeoutHandle = setTimeout(() => {
+            try {
+              proc.kill();
+            } catch {
+              // ignore kill errors
+            }
+            resolve(1);
+          }, 5000);
+        }),
+      ]);
+      clearTimeout(timeoutHandle);
+
+      if (exitCode !== 0) return false;
+
+      const stdout = await new Response(proc.stdout as ReadableStream).text();
+      const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
+      return parsed.loggedIn === true;
+    } catch {
+      return false;
+    }
+  }
+
   async getStatus(): Promise<BackendStatus> {
     // Check if claude CLI is on PATH
     const cliPath = typeof Bun !== 'undefined' ? Bun.which('claude') : null;
     const available = cliPath !== null;
 
-    // Detect auth mode: API key takes precedence, then CLI login (CLAUDE_* env vars)
+    // API key takes precedence — no CLI auth check needed
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const hasApiKey = !!apiKey;
-    const hasCliAuth = Object.keys(process.env).some(
-      (k) => k.startsWith('CLAUDE_') && k !== 'CLAUDE_CODE_VERSION',
-    );
+
+    // Check actual CLI authentication only when CLI is available and no API key is set
+    const cliAuthenticated = available && !hasApiKey ? await this.checkCliAuth() : false;
 
     let authMode: BackendStatus['authMode'] = 'none';
     if (hasApiKey) {
       authMode = 'api_key';
-    } else if (hasCliAuth || available) {
-      // If the CLI is installed, it may have its own subscription login
+    } else if (cliAuthenticated) {
       authMode = 'cli_login';
     }
 
-    const configured = hasApiKey || hasCliAuth || available;
+    const authenticated = hasApiKey || cliAuthenticated;
+    const configured = authenticated;
 
     return {
       name: this.name,
       available,
       configured,
+      authenticated,
       apiKeyMasked: maskApiKey(apiKey),
       authMode,
       capabilities: this.capabilities,

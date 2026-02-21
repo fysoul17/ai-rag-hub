@@ -70,6 +70,7 @@ export class DefaultBackendRegistry implements BackendRegistry {
           name: backend.name,
           available: false,
           configured: false,
+          authenticated: false,
           authMode: 'none' as const,
           capabilities: backend.capabilities,
           error: 'Status check not implemented',

@@ -22,8 +22,10 @@ export interface BackendStatus {
   name: AIBackend;
   /** Whether the CLI binary is available on PATH. */
   available: boolean;
-  /** Whether authentication is configured (API key or CLI login). */
+  /** Whether authentication is configured (API key or verified CLI login). */
   configured: boolean;
+  /** Whether the user is verified as authenticated (via `claude auth status --json` or API key). */
+  authenticated: boolean;
   /** Masked API key hint (e.g. "sk-ant-...7x4Q"), if applicable. */
   apiKeyMasked?: string;
   /** Auth mode detected: 'api_key', 'cli_login', or 'none'. */
@@ -53,4 +55,3 @@ export interface DelegateTaskResult {
   success: boolean;
   error?: string;
 }
-

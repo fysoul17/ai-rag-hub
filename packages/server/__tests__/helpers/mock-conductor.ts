@@ -15,6 +15,7 @@ export class MockConductor {
 
   responseContent = 'Mock conductor response';
   shouldThrow = false;
+  errorAfterContent?: string;
 
   async initialize(): Promise<void> {
     this.initialized = true;
@@ -30,12 +31,15 @@ export class MockConductor {
     };
   }
 
-  async *handleMessageStreaming(
-    message: IncomingMessage,
-  ): AsyncGenerator<StreamEvent> {
+  async *handleMessageStreaming(message: IncomingMessage): AsyncGenerator<StreamEvent> {
     this.handleMessageCalls.push(message);
     if (this.shouldThrow) {
       yield { type: 'error', error: 'Mock conductor error' };
+      return;
+    }
+    if (this.errorAfterContent) {
+      yield { type: 'chunk', content: this.responseContent };
+      yield { type: 'error', error: this.errorAfterContent };
       return;
     }
     yield { type: 'chunk', content: this.responseContent };

@@ -1,11 +1,11 @@
 'use client';
 
 import type { BackendStatus } from '@autonomy/shared';
-import { ChevronDown, ChevronUp, Key } from 'lucide-react';
+import { ChevronDown, ChevronUp, Key, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { updateBackendApiKey } from '@/lib/api';
+import { logoutClaudeBackend, updateBackendApiKey } from '@/lib/api';
 import { ClaudeLoginTerminal } from './claude-login-terminal';
 
 interface AuthActionsProps {
@@ -159,17 +159,52 @@ function ApiKeyModeActions({ onAuthChange }: { onAuthChange: () => void }) {
   );
 }
 
-function CliLoginModeActions({ onAuthChange }: { onAuthChange: () => void }) {
-  const { showForm, setShowForm, apiKeyValue, setApiKeyValue, saving, error, handleSave } =
-    useApiKeyActions(onAuthChange);
+/** Shown when CLI is installed and the user IS authenticated. Provides logout + switch account. */
+function CliAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void }) {
+  const {
+    showForm,
+    setShowForm,
+    apiKeyValue,
+    setApiKeyValue,
+    saving,
+    error: keyError,
+    handleSave,
+  } = useApiKeyActions(onAuthChange);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    setLogoutError(null);
+    try {
+      await logoutClaudeBackend();
+      onAuthChange();
+    } catch (err) {
+      setLogoutError(err instanceof Error ? err.message : 'Logout failed');
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  const displayError = logoutError ?? keyError;
 
   return (
     <div className="space-y-2 border-t border-border/50 pt-3">
-      {error && (
+      {displayError && (
         <div className="text-xs text-red-400" role="alert">
-          {error}
+          {displayError}
         </div>
       )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full text-xs text-red-400 hover:text-red-300"
+        disabled={loggingOut}
+        onClick={handleLogout}
+      >
+        <LogOut className="mr-1 h-3 w-3" />
+        {loggingOut ? 'Logging out...' : 'Logout'}
+      </Button>
       <ClaudeLoginTerminal isAuthenticated onComplete={onAuthChange} />
       <button
         type="button"
@@ -192,8 +227,46 @@ function CliLoginModeActions({ onAuthChange }: { onAuthChange: () => void }) {
   );
 }
 
-function NoAuthModeActions({ onAuthChange }: { onAuthChange: () => void }) {
-  const { apiKeyValue, setApiKeyValue, saving, error, handleSave } = useApiKeyActions(onAuthChange);
+/** Shown when CLI binary is not found. Offers API key as the only option. */
+function NoCliAvailableActions({ onAuthChange }: { onAuthChange: () => void }) {
+  const { showForm, setShowForm, apiKeyValue, setApiKeyValue, saving, error, handleSave } =
+    useApiKeyActions(onAuthChange);
+
+  return (
+    <div className="space-y-2 border-t border-border/50 pt-3">
+      {error && (
+        <div className="text-xs text-red-400" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="text-xs text-muted-foreground">
+        Claude Code CLI not found. Set an API key to use this provider.
+      </div>
+      <button
+        type="button"
+        className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground/70 transition-colors"
+        aria-expanded={showForm}
+        onClick={() => setShowForm(!showForm)}
+      >
+        <span>Set API key</span>
+        {showForm ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+      {showForm && (
+        <ApiKeyInput
+          value={apiKeyValue}
+          onChange={setApiKeyValue}
+          onSave={handleSave}
+          saving={saving}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Shown when CLI is installed but user is NOT authenticated. Prompts login. */
+function CliNotAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void }) {
+  const { showForm, setShowForm, apiKeyValue, setApiKeyValue, saving, error, handleSave } =
+    useApiKeyActions(onAuthChange);
 
   return (
     <div className="space-y-2 border-t border-border/50 pt-3">
@@ -203,13 +276,23 @@ function NoAuthModeActions({ onAuthChange }: { onAuthChange: () => void }) {
         </div>
       )}
       <ClaudeLoginTerminal onComplete={onAuthChange} />
-      <div className="text-xs text-muted-foreground">Or set an API key:</div>
-      <ApiKeyInput
-        value={apiKeyValue}
-        onChange={setApiKeyValue}
-        onSave={handleSave}
-        saving={saving}
-      />
+      <button
+        type="button"
+        className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground/70 transition-colors"
+        aria-expanded={showForm}
+        onClick={() => setShowForm(!showForm)}
+      >
+        <span>Or use API key instead</span>
+        {showForm ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+      {showForm && (
+        <ApiKeyInput
+          value={apiKeyValue}
+          onChange={setApiKeyValue}
+          onSave={handleSave}
+          saving={saving}
+        />
+      )}
     </div>
   );
 }
@@ -219,7 +302,13 @@ export function AuthActions({ backend, onAuthChange }: AuthActionsProps) {
     return <ApiKeyModeActions onAuthChange={onAuthChange} />;
   }
   if (backend.authMode === 'cli_login') {
-    return <CliLoginModeActions onAuthChange={onAuthChange} />;
+    // CLI installed and actually authenticated — show logout + switch account
+    return <CliAuthenticatedActions onAuthChange={onAuthChange} />;
   }
-  return <NoAuthModeActions onAuthChange={onAuthChange} />;
+  if (!backend.available) {
+    // CLI binary not found on PATH — can't use CLI login, offer API key instead
+    return <NoCliAvailableActions onAuthChange={onAuthChange} />;
+  }
+  // CLI available but not authenticated — show login terminal
+  return <CliNotAuthenticatedActions onAuthChange={onAuthChange} />;
 }

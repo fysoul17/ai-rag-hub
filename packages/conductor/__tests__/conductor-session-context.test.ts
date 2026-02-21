@@ -114,9 +114,9 @@ describe('Per-session backend processes', () => {
       makeMessage({ content: 'Hello', sessionId: 'sess-123' }),
     );
 
-    // A second process should be spawned with the sessionId
+    // A second process should be spawned (stateless — no sessionId in spawn config)
     expect(mockBackend.getSpawnConfigs().length).toBe(2);
-    expect(mockBackend.getSpawnConfigs()[1].sessionId).toBe('sess-123');
+    expect(mockBackend.getSpawnConfigs()[1].sessionId).toBeUndefined();
   });
 
   test('subsequent messages with same sessionId reuse the same process', async () => {
@@ -154,10 +154,10 @@ describe('Per-session backend processes', () => {
       makeMessage({ content: 'B', sessionId: 'sess-b' }),
     );
 
-    // 3 spawns: 1 default + 1 for sess-a + 1 for sess-b
+    // 3 spawns: 1 default + 1 for sess-a + 1 for sess-b (stateless — no sessionId in spawn config)
     expect(mockBackend.getSpawnConfigs().length).toBe(3);
-    expect(mockBackend.getSpawnConfigs()[1].sessionId).toBe('sess-a');
-    expect(mockBackend.getSpawnConfigs()[2].sessionId).toBe('sess-b');
+    expect(mockBackend.getSpawnConfigs()[1].sessionId).toBeUndefined();
+    expect(mockBackend.getSpawnConfigs()[2].sessionId).toBeUndefined();
   });
 
   test('message without sessionId uses default backend process', async () => {

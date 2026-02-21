@@ -22,6 +22,7 @@ class StatusMockBackend {
         name: name as AIBackend,
         available: true,
         configured: true,
+        authenticated: true,
         authMode: 'api_key',
         capabilities: this.capabilities,
         ...statusOverride,
@@ -39,6 +40,7 @@ class StatusMockBackend {
       name: this.name as AIBackend,
       available: true,
       configured: true,
+      authenticated: true,
       authMode: 'api_key',
       capabilities: this.capabilities,
     };
