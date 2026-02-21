@@ -146,15 +146,41 @@ bun install
 bun run dev
 
 # Or start individually
-bun run dev:runtime    # Runtime server on :3000
-bun run dev:dashboard  # Dashboard on :3001
+bun run dev:runtime    # Runtime server on :3001
+bun run dev:dashboard  # Dashboard on :3000
 ```
 
 ### Docker
 
 ```bash
-docker-compose up
+# Minimal — runtime (:3001) + dashboard (:3000)
+docker compose -f docker/docker-compose.yaml up
+
+# Rebuild images after code changes
+docker compose -f docker/docker-compose.yaml up --build
+
+# Full stack — adds memory server (:7822) + Neo4j (:7474/:7687)
+docker compose -f docker/docker-compose.yaml --profile full up
+
+# Detached mode (background)
+docker compose -f docker/docker-compose.yaml up -d
+
+# Stop everything
+docker compose -f docker/docker-compose.yaml down
 ```
+
+**Environment variables** (optional, set in `.env` or pass inline):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `goose`) |
+| `MAX_AGENTS` | `10` | Maximum concurrent agents |
+| `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
+| `DASHBOARD_USER` | *(empty)* | Set with `DASHBOARD_PASSWORD` to enable dashboard auth |
+| `DASHBOARD_PASSWORD` | *(empty)* | Dashboard login password |
+| `EMBEDDING_PROVIDER` | `stub` | Embedding provider for memory (full profile) |
+| `EMBEDDING_API_KEY` | *(empty)* | API key for embedding provider (full profile) |
+| `NEO4J_PASSWORD` | `password` | Neo4j password (full profile, local container) |
 
 ### Run Tests
 
