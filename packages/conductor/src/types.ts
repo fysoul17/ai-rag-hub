@@ -1,4 +1,4 @@
-import type { AgentId, ConductorDecision, HookRegistryInterface } from '@autonomy/shared';
+import type { AgentId, ConductorDecision, HookRegistryInterface, SessionMessage } from '@autonomy/shared';
 
 export interface IncomingMessage {
   content: string;
@@ -7,6 +7,8 @@ export interface IncomingMessage {
   sessionId?: string;
   targetAgentId?: AgentId;
   metadata?: Record<string, unknown>;
+  /** Ordered conversation history (oldest first) for the current session, excluding the current message. */
+  conversationHistory?: SessionMessage[];
 }
 
 export interface ConductorResponse {
@@ -30,6 +32,7 @@ export interface ConductorOptions {
 export const ConductorEventType = {
   QUEUED: 'queued',
   MEMORY_SEARCH: 'memory_search',
+  CONTEXT_INJECT: 'context_inject',
   DELEGATING: 'delegating',
   DELEGATION_COMPLETE: 'delegation_complete',
   RESPONDING: 'responding',
@@ -49,6 +52,10 @@ export interface ConductorEvent {
   memoryEntryPreviews?: string[];
   decisions?: ConductorDecision[];
   dispatchTarget?: string;
+  /** Number of conversation history messages injected into the prompt. */
+  historyTurnCount?: number;
+  /** Total character count of injected history. */
+  historyChars?: number;
 }
 
 export type OnConductorEvent = (event: ConductorEvent) => void;

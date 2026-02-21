@@ -3,6 +3,7 @@ import type {
   AgentRuntimeInfo,
   ApiKey,
   ApiResponse,
+  BackendConfigOption,
   BackendStatusResponse,
   CreateAgentRequest,
   CronEntry,
@@ -149,6 +150,13 @@ export async function getRuntimeConfig(): Promise<EnvironmentConfig> {
 
 export async function getBackendStatus(): Promise<BackendStatusResponse> {
   return fetchApi<BackendStatusResponse>('/api/backends/status');
+}
+
+export async function getBackendOptions(): Promise<{
+  backend: string;
+  options: BackendConfigOption[];
+}> {
+  return fetchApi<{ backend: string; options: BackendConfigOption[] }>('/api/backends/options');
 }
 
 export async function getApiKeys(): Promise<ApiKey[]> {

@@ -12,6 +12,12 @@ export const PHASE_CONFIG: Record<string, PhaseConfig> = {
     label: 'Memory Search',
     friendlyLabel: 'Searching memory...',
   },
+  context_inject: {
+    dot: 'bg-neon-purple',
+    text: 'text-neon-purple',
+    label: 'Context',
+    friendlyLabel: 'Loading history...',
+  },
   analyzing: {
     dot: 'bg-neon-purple',
     text: 'text-neon-purple',

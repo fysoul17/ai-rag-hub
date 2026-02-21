@@ -21,6 +21,7 @@ export const WSServerMessageType = {
   DEBUG_EVENT: 'debug_event',
   DEBUG_HISTORY: 'debug_history',
   SESSION_INIT: 'session_init',
+  STREAM_RESUME: 'stream_resume',
 } as const;
 export type WSServerMessageType = (typeof WSServerMessageType)[keyof typeof WSServerMessageType];
 
@@ -79,6 +80,7 @@ export interface WSServerConductorStatus {
     | 'creating_agent'
     | 'delegating'
     | 'memory_search'
+    | 'context_inject'
     | 'routing_complete'
     | 'memory_store'
     | 'delegation_complete'
@@ -103,6 +105,13 @@ export interface WSServerSessionInit {
   sessionId: string;
 }
 
+export interface WSServerStreamResume {
+  type: typeof WSServerMessageType.STREAM_RESUME;
+  content: string;
+  agentId: AgentId;
+  streaming: boolean;
+}
+
 export type WSServerMessage =
   | WSServerChunk
   | WSServerComplete
@@ -113,4 +122,5 @@ export type WSServerMessage =
   | WSServerConductorStatus
   | WSServerDebugEvent
   | WSServerDebugHistory
-  | WSServerSessionInit;
+  | WSServerSessionInit
+  | WSServerStreamResume;

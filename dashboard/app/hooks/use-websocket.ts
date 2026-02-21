@@ -232,6 +232,57 @@ export function useWebSocket({
           case 'session_init':
             onSessionInitRef.current?.(parsed.sessionId);
             break;
+          case 'stream_resume': {
+            // Server is replaying buffered content from a stream that started before reconnect
+            if (parsed.streaming) {
+              setIsProcessing(true);
+              if (parsed.content) {
+                // We already have partial content — show as streaming message
+                const id = `msg-${Date.now()}`;
+                accumulatorRef.current = { content: parsed.content, agentId: parsed.agentId, id };
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id,
+                    role: 'assistant',
+                    content: parsed.content,
+                    agentId: parsed.agentId,
+                    timestamp: Date.now(),
+                    streaming: true,
+                  },
+                ]);
+              } else {
+                // No content yet — show processing indicator so the user sees feedback;
+                // handleChunk will replace it when the first real chunk arrives
+                const id = `processing-${Date.now()}`;
+                processingIdRef.current = id;
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id,
+                    role: 'system',
+                    content: 'Responding...',
+                    timestamp: Date.now(),
+                    isProcessing: true,
+                  },
+                ]);
+              }
+            } else {
+              // Already complete — add as a finished message
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg-${Date.now()}`,
+                  role: 'assistant',
+                  content: parsed.content,
+                  agentId: parsed.agentId,
+                  timestamp: Date.now(),
+                  streaming: false,
+                },
+              ]);
+            }
+            break;
+          }
           case 'pong':
             break;
         }
@@ -269,25 +320,30 @@ export function useWebSocket({
     reconnectRef.current = setTimeout(connect, delay);
   }
 
-  const sendMessage = useCallback((content: string, targetAgent?: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+  const sendMessage = useCallback(
+    (content: string, targetAgent?: string, options?: { silent?: boolean }) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsProcessing(true);
+      if (!options?.silent) {
+        const userMsg: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setIsProcessing(true);
+      }
 
-    const wsMsg: WSClientMessage = {
-      type: 'message',
-      content,
-      targetAgent,
-    };
-    wsRef.current.send(JSON.stringify(wsMsg));
-  }, []);
+      const wsMsg: WSClientMessage = {
+        type: 'message',
+        content,
+        targetAgent,
+      };
+      wsRef.current.send(JSON.stringify(wsMsg));
+    },
+    [],
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup only uses refs — stable across renders
   useEffect(() => {

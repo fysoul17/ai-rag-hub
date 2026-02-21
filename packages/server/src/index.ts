@@ -235,7 +235,13 @@ async function main() {
   });
 
   // Create WebSocket handlers
-  const ws = createWebSocketHandler(conductor, debugBus, sessionStore, config.STREAM_TIMEOUT_MS);
+  const ws = createWebSocketHandler(
+    conductor,
+    debugBus,
+    sessionStore,
+    config.STREAM_TIMEOUT_MS,
+    registry,
+  );
   const debugWs = createDebugWebSocketHandler(debugBus);
   const terminalWs = createTerminalWebSocketHandler();
   if (debugWsEnabled) {
@@ -283,6 +289,7 @@ async function main() {
 
   // Backend routes
   router.get('/api/backends/status', backendRoutes.status);
+  router.get('/api/backends/options', backendRoutes.options);
   router.put('/api/backends/api-key', backendRoutes.updateApiKey);
   router.post('/api/backends/claude/logout', backendRoutes.claudeLogout);
 

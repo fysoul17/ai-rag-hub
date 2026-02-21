@@ -1,6 +1,7 @@
 import type {
   AIBackend,
   BackendCapabilities,
+  BackendConfigOption,
   BackendStatus,
   StreamEvent,
 } from '@autonomy/shared';
@@ -17,6 +18,10 @@ export interface BackendSpawnConfig {
   sessionId?: string;
   /** Whether to persist session to disk. Default: true. False = --no-session-persistence. */
   sessionPersistence?: boolean;
+  /** Model alias or full name (e.g., 'sonnet', 'opus'). Backend translates to its own CLI flag. */
+  model?: string;
+  /** Arbitrary extra CLI flags from config options (key = CLI flag e.g. '--effort', value = user value). */
+  extraFlags?: Record<string, string>;
 }
 
 /** A spawned backend process that can send/receive messages. */
@@ -43,4 +48,6 @@ export interface CLIBackend {
   getStatus?(): Promise<BackendStatus>;
   /** Optional: log out from the CLI backend (e.g., revoke CLI session). */
   logout?(): Promise<void>;
+  /** Return the configurable options this backend exposes (e.g., model, effort). */
+  getConfigOptions(): BackendConfigOption[];
 }

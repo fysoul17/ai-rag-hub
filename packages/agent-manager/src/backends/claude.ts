@@ -1,6 +1,7 @@
 import {
   AIBackend,
   BACKEND_CAPABILITIES,
+  type BackendConfigOption,
   type BackendStatus,
   Logger,
   type StreamEvent,
@@ -245,6 +246,18 @@ class ClaudeProcess implements BackendProcess {
       args.push('--dangerously-skip-permissions');
     }
 
+    // Model override from config options
+    if (this.config.model) {
+      args.push('--model', this.config.model);
+    }
+
+    // Extra CLI flags from config options (e.g., { '--effort': 'high' })
+    if (this.config.extraFlags) {
+      for (const [flag, value] of Object.entries(this.config.extraFlags)) {
+        args.push(flag, value);
+      }
+    }
+
     // Stateless mode: each CLI call is independent (no --session-id/--resume).
     // Multi-turn context is handled by the conductor's memory system, not CLI sessions.
     // The -p flag runs in single-shot mode which doesn't reliably persist sessions,
@@ -258,6 +271,24 @@ class ClaudeProcess implements BackendProcess {
 export class ClaudeBackend implements CLIBackend {
   readonly name = AIBackend.CLAUDE;
   readonly capabilities = BACKEND_CAPABILITIES[AIBackend.CLAUDE];
+
+  getConfigOptions(): BackendConfigOption[] {
+    return [
+      {
+        name: 'model',
+        cliFlag: '--model',
+        description: 'Model alias or full name',
+        values: ['sonnet', 'opus', 'haiku'],
+        defaultValue: 'sonnet',
+      },
+      {
+        name: 'effort',
+        cliFlag: '--effort',
+        description: 'Reasoning effort level',
+        values: ['low', 'medium', 'high'],
+      },
+    ];
+  }
 
   async spawn(config: BackendSpawnConfig): Promise<BackendProcess> {
     return new ClaudeProcess(config);

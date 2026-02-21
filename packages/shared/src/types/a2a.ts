@@ -55,3 +55,17 @@ export interface DelegateTaskResult {
   success: boolean;
   error?: string;
 }
+
+/** A configurable option exposed by a CLI backend (e.g., model, effort). */
+export interface BackendConfigOption {
+  /** Canonical name used as the slash command (e.g., 'model', 'effort'). */
+  name: string;
+  /** The CLI flag this maps to (e.g., '--model'). */
+  cliFlag: string;
+  /** Description shown to users. */
+  description: string;
+  /** Known valid values, if enumerable (e.g., ['sonnet', 'opus', 'haiku']). */
+  values?: string[];
+  /** Current default value. */
+  defaultValue?: string;
+}

@@ -15,6 +15,7 @@ export function getBackend(name: AIBackend): CLIBackend {
   return defaultRegistry.get(name);
 }
 
+export type { BackendConfigOption } from '@autonomy/shared';
 export { ClaudeBackend } from './claude.ts';
 export { type BackendRegistry, DefaultBackendRegistry } from './registry.ts';
 export type { BackendProcess, BackendSpawnConfig, CLIBackend } from './types.ts';

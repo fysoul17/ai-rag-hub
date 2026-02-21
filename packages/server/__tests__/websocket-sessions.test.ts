@@ -38,6 +38,11 @@ function asWS(ws: MockWebSocket): ServerWebSocket<WSData> {
   return ws as unknown as ServerWebSocket<WSData>;
 }
 
+let sessionTestCounter = 0;
+function uniqueWsId(prefix = 'ws-session'): string {
+  return `${prefix}-${++sessionTestCounter}`;
+}
+
 describe('WebSocket session support', () => {
   let conductor: MockConductor;
   let db: Database;
@@ -55,7 +60,7 @@ describe('WebSocket session support', () => {
 
   test('sends session_init on open when sessionId is present', () => {
     const session = sessionStore.create({ title: 'WS Test' });
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
 
     const messages = ws.allMessages();
@@ -65,7 +70,7 @@ describe('WebSocket session support', () => {
   });
 
   test('does not send session_init when no sessionId', () => {
-    const ws = new MockWebSocket('ws-1');
+    const ws = new MockWebSocket(uniqueWsId());
     wsHandler.handler.open(asWS(ws));
 
     expect(ws.sent.length).toBe(0);
@@ -73,7 +78,7 @@ describe('WebSocket session support', () => {
 
   test('persists user message on conductor message', async () => {
     const session = sessionStore.create({});
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
 
     // Clear session_init message
@@ -92,7 +97,7 @@ describe('WebSocket session support', () => {
 
   test('persists assistant response after conductor reply', async () => {
     const session = sessionStore.create({});
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
 
     conductor.responseContent = 'Assistant reply';
@@ -109,7 +114,7 @@ describe('WebSocket session support', () => {
   });
 
   test('lazily creates session on first message when no sessionId', async () => {
-    const ws = new MockWebSocket('ws-1');
+    const ws = new MockWebSocket(uniqueWsId());
     wsHandler.handler.open(asWS(ws));
 
     // No session_init sent on open (no sessionId yet)
@@ -138,7 +143,7 @@ describe('WebSocket session support', () => {
 
   test('updates session message count after messages', async () => {
     const session = sessionStore.create({});
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
 
     await wsHandler.handler.message(
@@ -152,7 +157,7 @@ describe('WebSocket session support', () => {
 
   test('still works when session store addMessage fails', async () => {
     const session = sessionStore.create({});
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
     ws.sent = [];
 
@@ -180,7 +185,7 @@ describe('WebSocket session support', () => {
 
   test('ping/pong still works with session store', async () => {
     const session = sessionStore.create({});
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
     ws.sent = [];
 
@@ -191,7 +196,7 @@ describe('WebSocket session support', () => {
 
   test('persists assistant message with agentId when targeted', async () => {
     const session = sessionStore.create({});
-    const ws = new MockWebSocket('ws-1', session.id);
+    const ws = new MockWebSocket(uniqueWsId(), session.id);
     wsHandler.handler.open(asWS(ws));
 
     await wsHandler.handler.message(

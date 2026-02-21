@@ -85,6 +85,8 @@ export class Conductor {
   private backendProcess?: BackendProcess;
   /** Per-session backend processes keyed by sessionId. */
   private sessionProcesses = new Map<string, BackendProcess>();
+  /** Track last-used config overrides per session (to detect changes). */
+  private sessionConfigOverrides = new Map<string, Record<string, string>>();
   private activityLog: ActivityLog;
   private initialized = false;
   private options: ConductorOptions;
@@ -191,6 +193,23 @@ export class Conductor {
     );
     const memoryContext = await this.runAfterMemorySearchHook(processedMessage, rawMemoryContext);
 
+    // Emit context_inject event so the debug console can show conversation history stats.
+    const history = processedMessage.conversationHistory;
+    if (history && history.length > 0) {
+      const historyChars = history.reduce((sum, m) => sum + m.content.length, 0);
+      onEvent?.({
+        type: ConductorEventType.CONTEXT_INJECT,
+        content: `Injected ${history.length} history messages (${historyChars} chars)`,
+        historyTurnCount: history.length,
+        historyChars,
+      });
+      conductorLogger.debug('Conversation history injected', {
+        sessionId: processedMessage.sessionId,
+        historyTurnCount: history.length,
+        historyChars,
+      });
+    }
+
     let accumulatedContent = '';
 
     if (processedMessage.targetAgentId) {
@@ -198,7 +217,7 @@ export class Conductor {
       onEvent?.({ type: ConductorEventType.DELEGATING, agentId: processedMessage.targetAgentId });
 
       const augmentedMessage = this.buildMemoryAugmentedPrompt(
-        processedMessage.content,
+        processedMessage,
         memoryContext,
       );
 
@@ -219,7 +238,13 @@ export class Conductor {
       }
     } else {
       // Conductor responds directly — use per-session backend process
-      const sessionBackend = await this.getBackendProcess(processedMessage.sessionId);
+      const configOverrides = processedMessage.metadata?.configOverrides as
+        | Record<string, string>
+        | undefined;
+      const sessionBackend = await this.getBackendProcess(
+        processedMessage.sessionId,
+        configOverrides,
+      );
       if (!sessionBackend) {
         yield { type: 'chunk', content: FALLBACK_NO_BACKEND };
         yield { type: 'complete' };
@@ -232,7 +257,7 @@ export class Conductor {
         dispatchTarget: 'conductor',
       });
 
-      let prompt = this.buildMemoryAugmentedPrompt(processedMessage.content, memoryContext);
+      let prompt = this.buildMemoryAugmentedPrompt(processedMessage, memoryContext);
 
       // Hook: onBeforeResponse
       if (this.hookRegistry) {
@@ -321,6 +346,18 @@ export class Conductor {
 
       // Hook: onAfterMemorySearch — plugins can transform memory results
       const memoryContext = await this.runAfterMemorySearchHook(processedMessage, rawMemoryContext);
+
+      // Emit context_inject event for monitoring if conversation history is present.
+      const execHistory = processedMessage.conversationHistory;
+      if (execHistory && execHistory.length > 0) {
+        const historyChars = execHistory.reduce((sum, m) => sum + m.content.length, 0);
+        onEvent?.({
+          type: ConductorEventType.CONTEXT_INJECT,
+          content: `Injected ${execHistory.length} history messages (${historyChars} chars)`,
+          historyTurnCount: execHistory.length,
+          historyChars,
+        });
+      }
 
       // 2. Dispatch — delegate to specific agent or respond directly
       let responseContent: string;
@@ -463,6 +500,22 @@ export class Conductor {
     return this.activityLog.getByAgent(agentId, limit);
   }
 
+  /** Kill the backend process for a session so it respawns with new config on next message. */
+  invalidateSessionBackend(sessionId: string): void {
+    const proc = this.sessionProcesses.get(sessionId);
+    if (proc) {
+      proc.stop().catch((error) => {
+        const detail = getErrorDetail(error);
+        conductorLogger.debug('Error stopping invalidated session backend', {
+          sessionId,
+          error: detail,
+        });
+      });
+      this.sessionProcesses.delete(sessionId);
+      this.sessionConfigOverrides.delete(sessionId);
+    }
+  }
+
   async shutdown(): Promise<void> {
     this.activityLog.record(ActivityType.MESSAGE, 'Conductor shutting down');
 
@@ -494,6 +547,7 @@ export class Conductor {
       ),
     );
     this.sessionProcesses.clear();
+    this.sessionConfigOverrides.clear();
 
     this.initialized = false;
   }
@@ -501,12 +555,35 @@ export class Conductor {
   /**
    * Get or create a backend process for the given sessionId.
    * If no sessionId, returns the default (session-less) process.
+   * Accepts optional configOverrides from message metadata to set model/flags.
    */
-  private async getBackendProcess(sessionId?: string): Promise<BackendProcess | undefined> {
+  private async getBackendProcess(
+    sessionId?: string,
+    configOverrides?: Record<string, string>,
+  ): Promise<BackendProcess | undefined> {
     if (!this.backend) return undefined;
 
     // No session — use the default process
     if (!sessionId) return this.backendProcess;
+
+    // Check if config overrides changed — if so, invalidate existing process
+    if (configOverrides && Object.keys(configOverrides).length > 0) {
+      const lastOverrides = this.sessionConfigOverrides.get(sessionId);
+      const changed =
+        !lastOverrides || JSON.stringify(lastOverrides) !== JSON.stringify(configOverrides);
+      if (changed) {
+        const existing = this.sessionProcesses.get(sessionId);
+        if (existing) {
+          this.sessionProcesses.delete(sessionId);
+          existing.stop().catch((error) => {
+            conductorLogger.debug('Error stopping session for config change', {
+              sessionId,
+              error: getErrorDetail(error),
+            });
+          });
+        }
+      }
+    }
 
     // Check for existing session process (LRU: delete+re-insert moves to tail)
     const existing = this.sessionProcesses.get(sessionId);
@@ -519,6 +596,7 @@ export class Conductor {
     // Remove dead entry if present
     if (existing) {
       this.sessionProcesses.delete(sessionId);
+      this.sessionConfigOverrides.delete(sessionId);
     }
 
     // Evict least-recently-used session if at capacity
@@ -527,6 +605,7 @@ export class Conductor {
       if (oldest) {
         const oldProc = this.sessionProcesses.get(oldest);
         this.sessionProcesses.delete(oldest);
+        this.sessionConfigOverrides.delete(oldest);
         try {
           await oldProc?.stop();
         } catch (error) {
@@ -539,17 +618,38 @@ export class Conductor {
       }
     }
 
-    // Spawn a new stateless process for this session.
-    // Session isolation happens at the conductor level (per-session process map),
-    // not at the CLI level. Each CLI call is independent.
+    // Build spawn config with config overrides
     const systemPrompt = this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+    const spawnConfig: import('@autonomy/agent-manager').BackendSpawnConfig = {
+      agentId: 'conductor',
+      systemPrompt,
+    };
+
+    // Translate config overrides → spawn config fields
+    if (configOverrides && Object.keys(configOverrides).length > 0) {
+      const backendOptions = this.backend.getConfigOptions();
+
+      for (const [optName, optValue] of Object.entries(configOverrides)) {
+        if (optName === 'model') {
+          spawnConfig.model = optValue;
+        } else {
+          // Find the CLI flag for this option
+          const optDef = backendOptions.find((o) => o.name === optName);
+          if (optDef) {
+            if (!spawnConfig.extraFlags) spawnConfig.extraFlags = {};
+            spawnConfig.extraFlags[optDef.cliFlag] = optValue;
+          }
+        }
+      }
+
+      this.sessionConfigOverrides.set(sessionId, { ...configOverrides });
+    }
+
+    // Spawn a new stateless process for this session.
     try {
-      const proc = await this.backend.spawn({
-        agentId: 'conductor',
-        systemPrompt,
-      });
+      const proc = await this.backend.spawn(spawnConfig);
       this.sessionProcesses.set(sessionId, proc);
-      conductorLogger.info('Session backend spawned', { sessionId });
+      conductorLogger.info('Session backend spawned', { sessionId, configOverrides });
       return proc;
     } catch (error) {
       const detail = getErrorDetail(error);
@@ -559,15 +659,31 @@ export class Conductor {
   }
 
   private buildMemoryAugmentedPrompt(
-    content: string,
+    message: IncomingMessage,
     memoryContext: MemorySearchResult | null,
   ): string {
-    if (!memoryContext || memoryContext.entries.length === 0) return content;
-    const contextSnippet = memoryContext.entries
-      .slice(0, 3)
-      .map((e) => e.content)
-      .join('\n---\n');
-    return `<memory-context>\n${contextSnippet}\n</memory-context>\n\nUser message: ${content}`;
+    let prompt = message.content;
+
+    // Inject ordered conversation history (short-term context for current session).
+    // History comes first so Claude sees the conversation flow before any long-term memory.
+    const history = message.conversationHistory;
+    if (history && history.length > 0) {
+      const formatted = history
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n\n');
+      prompt = `<conversation-history>\n${formatted}\n</conversation-history>\n\nUser message: ${prompt}`;
+    }
+
+    // Layer on RAG memory (long-term knowledge across sessions, complementary to history).
+    if (memoryContext && memoryContext.entries.length > 0) {
+      const contextSnippet = memoryContext.entries
+        .slice(0, 3)
+        .map((e) => e.content)
+        .join('\n---\n');
+      prompt = `<memory-context>\n${contextSnippet}\n</memory-context>\n\n${prompt}`;
+    }
+
+    return prompt;
   }
 
   private async runBeforeMessageHook(message: IncomingMessage): Promise<IncomingMessage | null> {
@@ -627,7 +743,8 @@ export class Conductor {
     decisions: ConductorDecision[],
     onEvent?: OnConductorEvent,
   ): Promise<string> {
-    const sessionBackend = await this.getBackendProcess(message.sessionId);
+    const configOverrides = message.metadata?.configOverrides as Record<string, string> | undefined;
+    const sessionBackend = await this.getBackendProcess(message.sessionId, configOverrides);
     if (!sessionBackend) {
       decisions.push({
         timestamp: new Date().toISOString(),
@@ -643,7 +760,7 @@ export class Conductor {
       dispatchTarget: 'conductor',
     });
 
-    let prompt = this.buildMemoryAugmentedPrompt(message.content, memoryContext);
+    let prompt = this.buildMemoryAugmentedPrompt(message, memoryContext);
 
     // Hook: onBeforeResponse — plugins can transform the prompt
     if (this.hookRegistry) {
@@ -683,7 +800,7 @@ export class Conductor {
     message: IncomingMessage,
     memoryContext: MemorySearchResult | null,
   ): Promise<string> {
-    const augmentedMessage = this.buildMemoryAugmentedPrompt(message.content, memoryContext);
+    const augmentedMessage = this.buildMemoryAugmentedPrompt(message, memoryContext);
 
     try {
       const result = await this.pool.sendMessage(agentId, augmentedMessage);

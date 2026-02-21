@@ -27,4 +27,8 @@ export interface ConductorDebugPayload {
   memoryQuery?: string;
   memoryEntryPreviews?: string[];
   dispatchTarget?: string;
+  /** Number of conversation history turns injected into the prompt. */
+  historyTurnCount?: number;
+  /** Total character count of injected conversation history. */
+  historyChars?: number;
 }

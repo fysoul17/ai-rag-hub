@@ -104,7 +104,62 @@ export class MockConductor {
     });
   }
 
+  invalidateSessionBackendCalls: string[] = [];
+
+  invalidateSessionBackend(sessionId: string): void {
+    this.invalidateSessionBackendCalls.push(sessionId);
+  }
+
   async shutdown(): Promise<void> {
     this.initialized = false;
+  }
+}
+
+/**
+ * A controllable mock conductor where each stream event must be explicitly pushed.
+ * Useful for testing mid-stream disconnect/reconnect scenarios.
+ */
+export class ControllableMockConductor extends MockConductor {
+  private eventQueue: StreamEvent[] = [];
+  private waiters: Array<(event: StreamEvent) => void> = [];
+
+  override async *handleMessageStreaming(message: IncomingMessage): AsyncGenerator<StreamEvent> {
+    this.handleMessageCalls.push(message);
+    while (true) {
+      const event = await this.nextEvent();
+      yield event;
+      if (event.type === 'complete' || event.type === 'error') break;
+    }
+  }
+
+  private nextEvent(): Promise<StreamEvent> {
+    return new Promise((resolve) => {
+      if (this.eventQueue.length > 0) {
+        resolve(this.eventQueue.shift()!);
+      } else {
+        this.waiters.push(resolve);
+      }
+    });
+  }
+
+  pushEvent(event: StreamEvent): void {
+    if (this.waiters.length > 0) {
+      const waiter = this.waiters.shift()!;
+      waiter(event);
+    } else {
+      this.eventQueue.push(event);
+    }
+  }
+
+  emitChunk(content: string): void {
+    this.pushEvent({ type: 'chunk', content });
+  }
+
+  emitComplete(): void {
+    this.pushEvent({ type: 'complete' });
+  }
+
+  emitError(error: string): void {
+    this.pushEvent({ type: 'error', error });
   }
 }

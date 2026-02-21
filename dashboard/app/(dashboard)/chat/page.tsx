@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ChatInterface } from '@/components/chat/chat-interface';
 import { Header } from '@/components/layout/header';
-import { getAgents, getSessionDetail, getSessions } from '@/lib/api-server';
+import { getAgents, getBackendOptions, getSessionDetail, getSessions } from '@/lib/api-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +52,14 @@ export default async function ChatPage({
     agents = [];
   }
 
+  let backendOptions: Awaited<ReturnType<typeof getBackendOptions>>['options'] = [];
+  try {
+    const result = await getBackendOptions();
+    backendOptions = result.options;
+  } catch {
+    backendOptions = [];
+  }
+
   let initialSessionId: string | undefined;
   let initialMessages:
     | { role: string; content: string; agentId?: string; createdAt: string }[]
@@ -80,6 +88,7 @@ export default async function ChatPage({
         initialAgents={agents}
         initialSessionId={initialSessionId}
         initialMessages={initialMessages}
+        backendOptions={backendOptions}
       />
     </>
   );

@@ -23,6 +23,12 @@ export function createBackendRoutes(registry: BackendRegistry) {
       return jsonResponse(response);
     },
 
+    options: (): Response => {
+      const backend = registry.getDefault();
+      const options = backend.getConfigOptions();
+      return jsonResponse({ backend: backend.name, options });
+    },
+
     updateApiKey: async (req: Request): Promise<Response> => {
       try {
         const body = await parseJsonBody<{ apiKey: string | null }>(req);

@@ -1,35 +1,45 @@
 'use client';
 
-import type { AgentRuntimeInfo } from '@autonomy/shared';
+import type { AgentRuntimeInfo, BackendConfigOption } from '@autonomy/shared';
 import { Layers, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSlashCommands } from '@/hooks/use-backend-options';
 import { useShowSteps } from '@/hooks/use-show-steps';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { AgentSelector } from './agent-selector';
 import { ChatInput } from './chat-input';
 import { ChatMessageBubble } from './chat-message';
+import { ModelSelector } from './model-selector';
 
 const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL ?? 'http://localhost:7820';
 const WS_BASE = `${RUNTIME_URL.replace(/^http/, 'ws')}/ws/chat`;
+
+/** Regex to parse system confirmations like: **model** set to **opus** for this session. */
+const CONFIG_CONFIRM_RE = /\*\*(\w+)\*\* set to \*\*(.+?)\*\* for this session\./;
 
 interface ChatInterfaceProps {
   initialAgents: AgentRuntimeInfo[];
   initialSessionId?: string;
   initialMessages?: { role: string; content: string; agentId?: string; createdAt: string }[];
+  backendOptions?: BackendConfigOption[];
 }
 
 export function ChatInterface({
   initialAgents,
   initialSessionId,
   initialMessages,
+  backendOptions = [],
 }: ChatInterfaceProps) {
   const [agents, setAgents] = useState<AgentRuntimeInfo[]>(initialAgents);
   const [targetAgent, setTargetAgent] = useState<string | undefined>(undefined);
   const [conductorName, setConductorName] = useState('Conductor');
   const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
+  const [configOverrides, setConfigOverrides] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const { showSteps, toggleSteps } = useShowSteps();
+
+  const slashCommands = useSlashCommands(backendOptions);
 
   const wsUrl = initialSessionId ? `${WS_BASE}?sessionId=${initialSessionId}` : WS_BASE;
 
@@ -76,6 +86,20 @@ export function ChatInterface({
     initialMessages: seedMessages,
   });
 
+  // Watch messages for system confirmations to keep configOverrides in sync
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.streaming) return;
+    if (last.role !== 'assistant' || last.agentId !== 'system') return;
+
+    const match = CONFIG_CONFIRM_RE.exec(last.content);
+    if (match?.[1] && match[2]) {
+      const name = match[1];
+      const value = match[2];
+      setConfigOverrides((prev) => ({ ...prev, [name]: value }));
+    }
+  }, [messages]);
+
   // Smart scroll: scroll on send always, scroll on incoming only when near bottom
   const isNearBottomRef = useRef(true);
   const userSentRef = useRef(false);
@@ -108,14 +132,23 @@ export function ChatInterface({
   const handleSend = useCallback(
     (content: string) => {
       userSentRef.current = true;
-      sendMessage(content, targetAgent);
+      const isSlashCommand = content.startsWith('/');
+      sendMessage(content, targetAgent, isSlashCommand ? { silent: true } : undefined);
+    },
+    [sendMessage, targetAgent],
+  );
+
+  const handleOptionChange = useCallback(
+    (name: string, value: string) => {
+      userSentRef.current = true;
+      sendMessage(`/${name} ${value}`, targetAgent, { silent: true });
     },
     [sendMessage, targetAgent],
   );
 
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col">
-      {/* Agent selector + new chat */}
+      {/* Agent selector + model selector + new chat */}
       <div className="flex items-center border-b border-border">
         <div className="flex-1 overflow-hidden">
           <AgentSelector
@@ -125,6 +158,16 @@ export function ChatInterface({
             conductorName={conductorName}
           />
         </div>
+        {backendOptions.some((o) => o.name === 'model' && o.values) && (
+          <>
+            <div className="h-5 w-px bg-border/50" />
+            <ModelSelector
+              options={backendOptions}
+              currentOverrides={configOverrides}
+              onChangeOption={handleOptionChange}
+            />
+          </>
+        )}
         <Link
           href="/chat?new"
           aria-label="New chat"
@@ -203,7 +246,12 @@ export function ChatInterface({
       </div>
 
       {/* Input */}
-      <ChatInput onSend={handleSend} status={status} isProcessing={isProcessing} />
+      <ChatInput
+        onSend={handleSend}
+        status={status}
+        isProcessing={isProcessing}
+        slashCommands={slashCommands}
+      />
     </div>
   );
 }
