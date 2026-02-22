@@ -143,7 +143,7 @@ SELF-HOSTED (docker-compose up)
 | Runtime       | Bun (latest)                                       | Fast, native TypeScript, built-in SQLite |
 | Language      | TypeScript 5+                                      | Type safety                              |
 | Monorepo      | Bun workspaces + Turborepo                         | Build orchestration                      |
-| AI Backend    | claude -p (default)                                | Pluggable: codex, gemini, goose          |
+| AI Backend    | claude -p (default)                                | Pluggable: codex, gemini, ollama         |
 | Vector DB     | LanceDB (embedded)                                 | 4MB idle, fast ANN, native TS SDK        |
 | Structured DB | bun:sqlite                                         | Embedded, zero config                    |
 | Dashboard     | Next.js latest (App Router) + Tailwind + shadcn/ui | RSC, standalone output                   |
@@ -269,11 +269,11 @@ User sends message with targetAgentId
 
 Each agent can use a different CLI backend. The BackendRegistry manages multiple backends:
 
-| Capability          | Claude Code | Codex CLI | Gemini CLI | Goose |
-| ------------------- | ----------- | --------- | ---------- | ----- |
-| Streaming           | ✅          | ✅        | ✅         | ✅    |
-| Session Persistence | ✅          | ✅        | ✅         | ✅    |
-| File Access         | ✅          | ✅        | ✅         | ✅    |
+| Capability          | Claude Code | Codex CLI | Gemini CLI | Ollama |
+| ------------------- | ----------- | --------- | ---------- | ------ |
+| Streaming           | ✅          | ✅        | ✅         | ✅     |
+| Session Persistence | ✅          | ✅        | ✅         | ❌     |
+| File Access         | ✅          | ✅        | ❌         | ❌     |
 
 ---
 

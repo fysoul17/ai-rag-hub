@@ -4,41 +4,96 @@ import '@xterm/xterm/css/xterm.css';
 import { Copy, ExternalLink, LogIn, RefreshCw, RotateCcw, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { logoutClaudeBackend } from '@/lib/api';
+import { logoutBackend } from '@/lib/api';
 
 type LoginState = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
 
-interface ClaudeLoginTerminalProps {
+interface CliLoginTerminalProps {
+  /** Which backend this terminal logs into. */
+  backendName: string;
   /** Whether the user is already authenticated via CLI login. */
   isAuthenticated?: boolean;
   onComplete?: () => void;
 }
 
 const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL ?? 'http://localhost:7820';
-const WS_TERMINAL_URL = `${RUNTIME_URL.replace(/^http/, 'ws')}/ws/terminal`;
 
-/** Trusted domains for login URLs. */
-const TRUSTED_LOGIN_DOMAINS = new Set([
-  'console.anthropic.com',
-  'anthropic.com',
-  'claude.ai',
-  'platform.claude.com',
-  'accounts.google.com',
-  'github.com',
-  'login.microsoftonline.com',
-]);
+/** Per-backend configuration for the login terminal. */
+const BACKEND_LOGIN_CONFIG: Record<
+  string,
+  { command: string; label: string; hint: string; trustedDomains: string[] }
+> = {
+  claude: {
+    command: 'claude setup-token',
+    label: 'Claude',
+    hint: 'Click the link above to log in, then paste the code into the terminal.',
+    trustedDomains: [
+      'console.anthropic.com',
+      'anthropic.com',
+      'claude.ai',
+      'platform.claude.com',
+      'accounts.google.com',
+      'github.com',
+      'login.microsoftonline.com',
+    ],
+  },
+  codex: {
+    command: 'codex login --device-auth',
+    label: 'Codex',
+    hint: 'Click the link above and enter the code shown in the terminal. Login completes automatically.',
+    trustedDomains: [
+      'auth0.openai.com',
+      'auth.openai.com',
+      'chat.openai.com',
+      'openai.com',
+      'platform.openai.com',
+      'accounts.google.com',
+      'login.microsoftonline.com',
+      'github.com',
+      'appleid.apple.com',
+    ],
+  },
+  gemini: {
+    command: 'gemini auth login',
+    label: 'Gemini',
+    hint: 'Click the link above to log in, then paste the verification code into the terminal.',
+    trustedDomains: [
+      'accounts.google.com',
+      'myaccount.google.com',
+      'cloud.google.com',
+      'aistudio.google.com',
+      'gemini.google.com',
+      'login.microsoftonline.com',
+    ],
+  },
+};
 
+function getBackendConfig(backendName: string) {
+  return (
+    BACKEND_LOGIN_CONFIG[backendName] ?? {
+      command: `${backendName} login`,
+      label: backendName,
+      hint: 'Follow the instructions in the terminal to complete login.',
+      trustedDomains: [],
+    }
+  );
+}
+
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ESC char needed for ANSI stripping
 const URL_REGEX = /https?:\/\/[^\s"'<>\x1b]+/g;
 
-/** Extract trusted login URLs from text (strips ANSI codes first). */
-function extractAuthUrl(text: string): string | null {
-  // Strip ANSI escape sequences before matching
-  const clean = text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+/** Extract trusted login URLs from text (strips ANSI codes and line breaks first). */
+function extractAuthUrl(text: string, trustedDomains: Set<string>): string | null {
+  const clean = text
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: ESC char needed for ANSI stripping
+    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+    // Strip \r\n added by PTY line-wrapping — URLs span multiple terminal lines
+    .replace(/[\r\n]+/g, '');
   const matches = clean.match(URL_REGEX);
   if (!matches) return null;
   for (const url of matches) {
     try {
-      if (TRUSTED_LOGIN_DOMAINS.has(new URL(url).hostname)) {
+      if (trustedDomains.has(new URL(url).hostname)) {
         return url;
       }
     } catch {
@@ -53,9 +108,11 @@ function extractAuthUrl(text: string): string | null {
  * The CLI gets a real TTY so interactive prompts (including auth code input) work.
  */
 function XtermTerminal({
+  backendName,
   onExit,
   onUrlDetected,
 }: {
+  backendName: string;
   onExit: (exitCode: number | null) => void;
   onUrlDetected: (url: string) => void;
 }) {
@@ -65,6 +122,10 @@ function XtermTerminal({
 
   useEffect(() => {
     let disposed = false;
+    let resizeObserver: ResizeObserver | null = null;
+    const config = getBackendConfig(backendName);
+    const trustedDomains = new Set(config.trustedDomains);
+    const wsUrl = `${RUNTIME_URL.replace(/^http/, 'ws')}/ws/terminal?backend=${encodeURIComponent(backendName)}`;
 
     (async () => {
       // Dynamic import to avoid SSR issues
@@ -97,13 +158,13 @@ function XtermTerminal({
       termRef.current = term;
 
       // Connect WebSocket to server PTY
-      const ws = new WebSocket(WS_TERMINAL_URL);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.binaryType = 'arraybuffer';
 
       ws.onopen = () => {
-        term.write('\x1b[90m$ claude auth login\x1b[0m\r\n');
+        term.write(`\x1b[90m$ ${config.command}\x1b[0m\r\n`);
       };
 
       ws.onmessage = (event) => {
@@ -117,7 +178,7 @@ function XtermTerminal({
           text = event.data;
         }
         // Detect auth URL in output
-        const url = extractAuthUrl(text);
+        const url = extractAuthUrl(text, trustedDomains);
         if (url) onUrlDetected(url);
       };
 
@@ -142,22 +203,25 @@ function XtermTerminal({
       });
 
       // Handle resize
-      const observer = new ResizeObserver(() => {
+      resizeObserver = new ResizeObserver(() => {
         fitAddon.fit();
       });
-      observer.observe(containerRef.current);
+      resizeObserver.observe(containerRef.current);
     })();
 
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
       wsRef.current?.close();
       wsRef.current = null;
       termRef.current?.dispose();
       termRef.current = null;
     };
-  }, [onExit, onUrlDetected]);
+  }, [backendName, onExit, onUrlDetected]);
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Terminal container — keyboard events handled by xterm.js
+    // biome-ignore lint/a11y/noStaticElementInteractions: Interactive terminal container
     <div
       ref={containerRef}
       className="rounded-md overflow-hidden border border-border/50 cursor-text"
@@ -172,12 +236,15 @@ function AuthUrlLink({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      // fallback: select text
-    });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        // fallback: select text
+      });
   }, [url]);
 
   return (
@@ -204,10 +271,15 @@ function AuthUrlLink({ url }: { url: string }) {
   );
 }
 
-export function ClaudeLoginTerminal({ isAuthenticated, onComplete }: ClaudeLoginTerminalProps) {
+export function CliLoginTerminal({
+  backendName,
+  isAuthenticated,
+  onComplete,
+}: CliLoginTerminalProps) {
   const [state, setState] = useState<LoginState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const config = getBackendConfig(backendName);
 
   const handleExit = useCallback(
     (exitCode: number | null) => {
@@ -226,11 +298,11 @@ export function ClaudeLoginTerminal({ isAuthenticated, onComplete }: ClaudeLogin
 
   const doLogoutFirst = useCallback(async () => {
     try {
-      await logoutClaudeBackend();
+      await logoutBackend(backendName);
     } catch {
       // Ignore logout errors
     }
-  }, []);
+  }, [backendName]);
 
   const handleStart = useCallback(async () => {
     setErrorMessage(null);
@@ -254,7 +326,7 @@ export function ClaudeLoginTerminal({ isAuthenticated, onComplete }: ClaudeLogin
         ) : (
           <>
             <LogIn className="mr-1 h-3 w-3" />
-            Login with Claude
+            Login with {config.label}
           </>
         )}
       </Button>
@@ -268,14 +340,16 @@ export function ClaudeLoginTerminal({ isAuthenticated, onComplete }: ClaudeLogin
 
       {/* Real PTY terminal via xterm.js */}
       {state === 'running' && (
-        <XtermTerminal onExit={handleExit} onUrlDetected={handleUrlDetected} />
+        <XtermTerminal
+          backendName={backendName}
+          onExit={handleExit}
+          onUrlDetected={handleUrlDetected}
+        />
       )}
 
       {/* Hint */}
       {state === 'running' && authUrl && (
-        <p className="text-[10px] text-muted-foreground">
-          A browser window should open automatically. If not, click the link above.
-        </p>
+        <p className="text-[10px] text-muted-foreground">{config.hint}</p>
       )}
 
       {/* Status messages */}

@@ -4,8 +4,11 @@ export { AgentPool, type AgentPoolOptions } from './agent-pool.ts';
 export { AgentProcess, type AgentProcessOptions } from './agent-process.ts';
 export {
   ClaudeBackend,
+  CodexBackend,
   DefaultBackendRegistry,
+  GeminiBackend,
   getBackend,
+  OllamaBackend,
   registerBackend,
 } from './backends/index.ts';
 export type { BackendRegistry } from './backends/registry.ts';

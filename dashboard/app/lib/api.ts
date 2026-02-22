@@ -230,15 +230,18 @@ export async function getBackendStatus(): Promise<BackendStatusResponse> {
   return fetchApi<BackendStatusResponse>('/api/backends/status');
 }
 
-export async function updateBackendApiKey(apiKey: string | null): Promise<BackendStatusResponse> {
-  return fetchApi<BackendStatusResponse>('/api/backends/api-key', {
+export async function updateBackendApiKey(
+  backendName: string,
+  apiKey: string | null,
+): Promise<BackendStatusResponse> {
+  return fetchApi<BackendStatusResponse>(`/api/backends/${backendName}/api-key`, {
     method: 'PUT',
     body: JSON.stringify({ apiKey }),
   });
 }
 
-export async function logoutClaudeBackend(): Promise<BackendStatusResponse> {
-  return fetchApi<BackendStatusResponse>('/api/backends/claude/logout', {
+export async function logoutBackend(backendName: string): Promise<BackendStatusResponse> {
+  return fetchApi<BackendStatusResponse>(`/api/backends/${backendName}/logout`, {
     method: 'POST',
   });
 }

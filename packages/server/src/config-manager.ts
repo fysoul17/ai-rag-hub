@@ -8,6 +8,10 @@ const VALID_AI_BACKENDS = new Set(Object.values(AIBackend));
 /** Fields that cannot be updated via the API (security-sensitive). */
 const REJECTED_FIELDS = new Set([
   'ANTHROPIC_API_KEY',
+  'CODEX_API_KEY',
+  'GEMINI_API_KEY',
+  'OLLAMA_URL',
+  'OLLAMA_MODEL',
   'QDRANT_URL',
   'MEMORY_URL',
   'AUTH_ENABLED',

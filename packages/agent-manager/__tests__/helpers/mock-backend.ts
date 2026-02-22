@@ -4,7 +4,7 @@
  * Implements the CLIBackend interface so AgentProcess and AgentPool tests
  * can run without spawning real CLI processes.
  */
-import type { AIBackend, BackendCapabilities } from '@autonomy/shared';
+import type { AIBackend, BackendCapabilities, BackendConfigOption } from '@autonomy/shared';
 import type { BackendProcess, BackendSpawnConfig, CLIBackend } from '../../src/backends/types.ts';
 
 // ---- MockBackendProcess ----
@@ -109,6 +109,10 @@ export class MockBackend implements CLIBackend {
     }
     this.spawnedProcesses.push(process);
     return process;
+  }
+
+  getConfigOptions(): BackendConfigOption[] {
+    return [];
   }
 
   /** Configure response sequence for subsequently spawned processes. */

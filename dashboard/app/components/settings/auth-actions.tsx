@@ -5,12 +5,52 @@ import { ChevronDown, ChevronUp, Key, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { logoutClaudeBackend, updateBackendApiKey } from '@/lib/api';
-import { ClaudeLoginTerminal } from './claude-login-terminal';
+import { logoutBackend, updateBackendApiKey } from '@/lib/api';
+import { CliLoginTerminal } from './cli-login-terminal';
 
 interface AuthActionsProps {
   backend: BackendStatus;
   onAuthChange: () => void;
+}
+
+/** Per-backend placeholder and label for API key input. */
+const API_KEY_META: Record<string, { placeholder: string; label: string; description: string }> = {
+  claude: {
+    placeholder: 'sk-ant-...',
+    label: 'Anthropic API key',
+    description: 'Set an API key to use this provider.',
+  },
+  codex: {
+    placeholder: 'sk-...',
+    label: 'OpenAI API key',
+    description: 'Enter your OpenAI API key to use Codex.',
+  },
+  gemini: {
+    placeholder: 'AIza...',
+    label: 'Google API key',
+    description: 'Enter your Google API key to use Gemini.',
+  },
+};
+
+/** Backend display names for UI labels. */
+const BACKEND_LABELS: Record<string, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini',
+};
+
+function getKeyMeta(backendName: string) {
+  return (
+    API_KEY_META[backendName] ?? {
+      placeholder: '...',
+      label: 'API key',
+      description: 'Enter your API key.',
+    }
+  );
+}
+
+function getBackendLabel(backendName: string) {
+  return BACKEND_LABELS[backendName] ?? backendName;
 }
 
 function ApiKeyInput({
@@ -18,18 +58,22 @@ function ApiKeyInput({
   onChange,
   onSave,
   saving,
+  placeholder,
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSave: () => void;
   saving: boolean;
+  placeholder?: string;
+  ariaLabel?: string;
 }) {
   return (
     <div className="flex gap-2">
       <Input
         type="password"
-        placeholder="sk-ant-..."
-        aria-label="Anthropic API key"
+        placeholder={placeholder ?? 'sk-ant-...'}
+        aria-label={ariaLabel ?? 'API key'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="h-8 text-xs"
@@ -42,7 +86,7 @@ function ApiKeyInput({
   );
 }
 
-function useApiKeyActions(onAuthChange: () => void) {
+function useApiKeyActions(backendName: string, onAuthChange: () => void) {
   const [showForm, setShowForm] = useState(false);
   const [apiKeyValue, setApiKeyValue] = useState('');
   const [saving, setSaving] = useState(false);
@@ -53,7 +97,7 @@ function useApiKeyActions(onAuthChange: () => void) {
     setSaving(true);
     setError(null);
     try {
-      await updateBackendApiKey(apiKeyValue.trim());
+      await updateBackendApiKey(backendName, apiKeyValue.trim());
       setApiKeyValue('');
       setShowForm(false);
       onAuthChange();
@@ -68,7 +112,7 @@ function useApiKeyActions(onAuthChange: () => void) {
     setSaving(true);
     setError(null);
     try {
-      await updateBackendApiKey(null);
+      await updateBackendApiKey(backendName, null);
       onAuthChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear API key');
@@ -89,7 +133,15 @@ function useApiKeyActions(onAuthChange: () => void) {
   };
 }
 
-function ApiKeyModeActions({ onAuthChange }: { onAuthChange: () => void }) {
+// ---- Shared: API key already set (change / clear) ----
+
+function ApiKeyModeActions({
+  backendName,
+  onAuthChange,
+}: {
+  backendName: string;
+  onAuthChange: () => void;
+}) {
   const {
     showForm,
     setShowForm,
@@ -99,8 +151,9 @@ function ApiKeyModeActions({ onAuthChange }: { onAuthChange: () => void }) {
     error,
     handleSave,
     handleClear,
-  } = useApiKeyActions(onAuthChange);
+  } = useApiKeyActions(backendName, onAuthChange);
   const [confirmClear, setConfirmClear] = useState(false);
+  const meta = getKeyMeta(backendName);
 
   return (
     <div className="space-y-2 border-t border-border/50 pt-3">
@@ -153,14 +206,23 @@ function ApiKeyModeActions({ onAuthChange }: { onAuthChange: () => void }) {
           onChange={setApiKeyValue}
           onSave={handleSave}
           saving={saving}
+          placeholder={meta.placeholder}
+          ariaLabel={meta.label}
         />
       )}
     </div>
   );
 }
 
-/** Shown when CLI is installed and the user IS authenticated. Provides logout + switch account. */
-function CliAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void }) {
+// ---- CLI authenticated (any backend with CLI login) ----
+
+function CliAuthenticatedActions({
+  backendName,
+  onAuthChange,
+}: {
+  backendName: string;
+  onAuthChange: () => void;
+}) {
   const {
     showForm,
     setShowForm,
@@ -169,15 +231,16 @@ function CliAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void })
     saving,
     error: keyError,
     handleSave,
-  } = useApiKeyActions(onAuthChange);
+  } = useApiKeyActions(backendName, onAuthChange);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const meta = getKeyMeta(backendName);
 
   async function handleLogout() {
     setLoggingOut(true);
     setLogoutError(null);
     try {
-      await logoutClaudeBackend();
+      await logoutBackend(backendName);
       onAuthChange();
     } catch (err) {
       setLogoutError(err instanceof Error ? err.message : 'Logout failed');
@@ -205,7 +268,7 @@ function CliAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void })
         <LogOut className="mr-1 h-3 w-3" />
         {loggingOut ? 'Logging out...' : 'Logout'}
       </Button>
-      <ClaudeLoginTerminal isAuthenticated onComplete={onAuthChange} />
+      <CliLoginTerminal backendName={backendName} isAuthenticated onComplete={onAuthChange} />
       <button
         type="button"
         className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground/70 transition-colors"
@@ -221,16 +284,27 @@ function CliAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void })
           onChange={setApiKeyValue}
           onSave={handleSave}
           saving={saving}
+          placeholder={meta.placeholder}
+          ariaLabel={meta.label}
         />
       )}
     </div>
   );
 }
 
-/** Shown when CLI binary is not found. Offers API key as the only option. */
-function NoCliAvailableActions({ onAuthChange }: { onAuthChange: () => void }) {
+// ---- CLI not found (any backend) ----
+
+function NoCliAvailableActions({
+  backendName,
+  onAuthChange,
+}: {
+  backendName: string;
+  onAuthChange: () => void;
+}) {
   const { showForm, setShowForm, apiKeyValue, setApiKeyValue, saving, error, handleSave } =
-    useApiKeyActions(onAuthChange);
+    useApiKeyActions(backendName, onAuthChange);
+  const meta = getKeyMeta(backendName);
+  const label = getBackendLabel(backendName);
 
   return (
     <div className="space-y-2 border-t border-border/50 pt-3">
@@ -240,7 +314,7 @@ function NoCliAvailableActions({ onAuthChange }: { onAuthChange: () => void }) {
         </div>
       )}
       <div className="text-xs text-muted-foreground">
-        Claude Code CLI not found. Set an API key to use this provider.
+        {label} CLI not found. Set an API key to use this provider.
       </div>
       <button
         type="button"
@@ -257,16 +331,26 @@ function NoCliAvailableActions({ onAuthChange }: { onAuthChange: () => void }) {
           onChange={setApiKeyValue}
           onSave={handleSave}
           saving={saving}
+          placeholder={meta.placeholder}
+          ariaLabel={meta.label}
         />
       )}
     </div>
   );
 }
 
-/** Shown when CLI is installed but user is NOT authenticated. Prompts login. */
-function CliNotAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void }) {
+// ---- CLI available but not authenticated (any backend) ----
+
+function CliNotAuthenticatedActions({
+  backendName,
+  onAuthChange,
+}: {
+  backendName: string;
+  onAuthChange: () => void;
+}) {
   const { showForm, setShowForm, apiKeyValue, setApiKeyValue, saving, error, handleSave } =
-    useApiKeyActions(onAuthChange);
+    useApiKeyActions(backendName, onAuthChange);
+  const meta = getKeyMeta(backendName);
 
   return (
     <div className="space-y-2 border-t border-border/50 pt-3">
@@ -275,7 +359,7 @@ function CliNotAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void
           {error}
         </div>
       )}
-      <ClaudeLoginTerminal onComplete={onAuthChange} />
+      <CliLoginTerminal backendName={backendName} onComplete={onAuthChange} />
       <button
         type="button"
         className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground/70 transition-colors"
@@ -291,24 +375,77 @@ function CliNotAuthenticatedActions({ onAuthChange }: { onAuthChange: () => void
           onChange={setApiKeyValue}
           onSave={handleSave}
           saving={saving}
+          placeholder={meta.placeholder}
+          ariaLabel={meta.label}
         />
       )}
     </div>
   );
 }
 
+// ---- Ollama: no auth, show server status ----
+
+function OllamaStatusSection({ backend }: { backend: BackendStatus }) {
+  if (backend.available && backend.configured) {
+    return (
+      <div className="flex items-center gap-2 border-t border-border/50 pt-3">
+        <span className="h-2 w-2 rounded-full bg-neon-green" />
+        <span className="text-xs text-muted-foreground">Server: Connected</span>
+      </div>
+    );
+  }
+  if (backend.available && !backend.configured) {
+    return (
+      <div className="space-y-1 border-t border-border/50 pt-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-neon-amber" />
+          <span className="text-xs text-neon-amber">Server: Connected</span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          No models installed. Run: <code className="text-foreground/70">ollama pull llama3.2</code>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1 border-t border-border/50 pt-3">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-red-400" />
+        <span className="text-xs text-red-400">Server: Unreachable</span>
+      </div>
+      {backend.error && <div className="text-xs text-muted-foreground">{backend.error}</div>}
+    </div>
+  );
+}
+
+// ---- Main dispatcher ----
+
+/** Backends that support CLI subscription login. */
+const CLI_LOGIN_BACKENDS = new Set(['claude', 'codex', 'gemini']);
+
 export function AuthActions({ backend, onAuthChange }: AuthActionsProps) {
+  // Ollama: no auth needed, show server status
+  if (backend.name === 'ollama') {
+    return <OllamaStatusSection backend={backend} />;
+  }
+
+  // CLI-capable backends (Claude, Codex, Gemini): full flow (CLI login + API key fallback)
+  if (CLI_LOGIN_BACKENDS.has(backend.name)) {
+    if (backend.authMode === 'api_key') {
+      return <ApiKeyModeActions backendName={backend.name} onAuthChange={onAuthChange} />;
+    }
+    if (backend.authMode === 'cli_login') {
+      return <CliAuthenticatedActions backendName={backend.name} onAuthChange={onAuthChange} />;
+    }
+    if (!backend.available) {
+      return <NoCliAvailableActions backendName={backend.name} onAuthChange={onAuthChange} />;
+    }
+    return <CliNotAuthenticatedActions backendName={backend.name} onAuthChange={onAuthChange} />;
+  }
+
+  // Fallback for unknown backends: API key only
   if (backend.authMode === 'api_key') {
-    return <ApiKeyModeActions onAuthChange={onAuthChange} />;
+    return <ApiKeyModeActions backendName={backend.name} onAuthChange={onAuthChange} />;
   }
-  if (backend.authMode === 'cli_login') {
-    // CLI installed and actually authenticated — show logout + switch account
-    return <CliAuthenticatedActions onAuthChange={onAuthChange} />;
-  }
-  if (!backend.available) {
-    // CLI binary not found on PATH — can't use CLI login, offer API key instead
-    return <NoCliAvailableActions onAuthChange={onAuthChange} />;
-  }
-  // CLI available but not authenticated — show login terminal
-  return <CliNotAuthenticatedActions onAuthChange={onAuthChange} />;
+  return <NoCliAvailableActions backendName={backend.name} onAuthChange={onAuthChange} />;
 }

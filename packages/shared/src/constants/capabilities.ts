@@ -20,10 +20,10 @@ export const BACKEND_CAPABILITIES: BackendCapabilityMap = {
     sessionPersistence: true,
     fileAccess: false,
   },
-  [AIBackend.GOOSE]: {
+  [AIBackend.OLLAMA]: {
     customTools: false,
     streaming: true,
-    sessionPersistence: true,
-    fileAccess: true,
+    sessionPersistence: false,
+    fileAccess: false,
   },
 };

@@ -10,14 +10,14 @@ const backendColors: Record<string, string> = {
   claude: 'text-neon-purple',
   codex: 'text-neon-green',
   gemini: 'text-neon-cyan',
-  goose: 'text-neon-amber',
+  ollama: 'text-neon-amber',
 };
 
 const backendLabels: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
-  goose: 'Goose',
+  ollama: 'Ollama',
 };
 
 type ChipStatus = 'connected' | 'no_key' | 'unavailable' | 'loading' | 'error';

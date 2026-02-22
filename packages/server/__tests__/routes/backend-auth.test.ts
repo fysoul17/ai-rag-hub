@@ -209,14 +209,156 @@ describe('PUT /api/backends/api-key', () => {
   });
 });
 
-describe('POST /api/backends/claude/logout', () => {
+describe('PUT /api/backends/:name/api-key — per-backend', () => {
+  const originalCodexKey = process.env.CODEX_API_KEY;
+  const originalGeminiKey = process.env.GEMINI_API_KEY;
+  const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
+
+  afterEach(() => {
+    // Restore all keys
+    for (const [key, orig] of [
+      ['CODEX_API_KEY', originalCodexKey],
+      ['GEMINI_API_KEY', originalGeminiKey],
+      ['ANTHROPIC_API_KEY', originalAnthropicKey],
+      ['OPENAI_API_KEY', undefined],
+      ['GOOGLE_API_KEY', undefined],
+    ] as const) {
+      if (orig) {
+        process.env[key] = orig;
+      } else {
+        delete process.env[key];
+      }
+    }
+  });
+
+  function makePerBackendRequest(body: unknown): Request {
+    return new Request('http://localhost/api/backends/codex/api-key', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  test('sets CODEX_API_KEY when backendName=codex', async () => {
+    delete process.env.CODEX_API_KEY;
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(
+      makePerBackendRequest({ apiKey: 'sk-openai-test-key-12345' }),
+      'codex',
+    );
+    expect(res.status).toBe(200);
+    expect(process.env.CODEX_API_KEY).toBe('sk-openai-test-key-12345');
+  });
+
+  test('clears CODEX_API_KEY and OPENAI_API_KEY when backendName=codex', async () => {
+    process.env.CODEX_API_KEY = 'sk-existing-key-00000000';
+    process.env.OPENAI_API_KEY = 'sk-openai-alt-key-00000';
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(makePerBackendRequest({ apiKey: null }), 'codex');
+    expect(res.status).toBe(200);
+    expect(process.env.CODEX_API_KEY).toBeUndefined();
+    expect(process.env.OPENAI_API_KEY).toBeUndefined();
+  });
+
+  test('sets GEMINI_API_KEY when backendName=gemini', async () => {
+    delete process.env.GEMINI_API_KEY;
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(
+      makePerBackendRequest({ apiKey: 'AIzaSyA-test-key-1234-abcd' }),
+      'gemini',
+    );
+    expect(res.status).toBe(200);
+    expect(process.env.GEMINI_API_KEY).toBe('AIzaSyA-test-key-1234-abcd');
+  });
+
+  test('clears GEMINI_API_KEY and GOOGLE_API_KEY when backendName=gemini', async () => {
+    process.env.GEMINI_API_KEY = 'AIzaSyA-existing-key-0000';
+    process.env.GOOGLE_API_KEY = 'AIzaSyA-alt-key-00000000';
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(makePerBackendRequest({ apiKey: null }), 'gemini');
+    expect(res.status).toBe(200);
+    expect(process.env.GEMINI_API_KEY).toBeUndefined();
+    expect(process.env.GOOGLE_API_KEY).toBeUndefined();
+  });
+
+  test('does not cross-contaminate: setting codex key does not affect ANTHROPIC_API_KEY', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-existing-key-value-0000';
+    delete process.env.CODEX_API_KEY;
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    await routes.updateApiKey(
+      makePerBackendRequest({ apiKey: 'sk-openai-test-key-12345' }),
+      'codex',
+    );
+    expect(process.env.CODEX_API_KEY).toBe('sk-openai-test-key-12345');
+    expect(process.env.ANTHROPIC_API_KEY).toBe('sk-ant-existing-key-value-0000');
+  });
+
+  test('accepts codex keys without sk-ant- prefix', async () => {
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(
+      makePerBackendRequest({ apiKey: 'sk-proj-test-key-1234567890' }),
+      'codex',
+    );
+    expect(res.status).toBe(200);
+    expect(process.env.CODEX_API_KEY).toBe('sk-proj-test-key-1234567890');
+  });
+
+  test('still validates sk-ant- prefix for claude', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(
+      makePerBackendRequest({ apiKey: 'invalid-key-1234567890123456' }),
+      'claude',
+    );
+    const envelope = await parseResponse(res);
+    expect(envelope.success).toBe(false);
+    expect(envelope.error).toContain('sk-ant-');
+  });
+
+  test('returns 400 for unknown backend', async () => {
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(
+      makePerBackendRequest({ apiKey: 'some-key-12345678901234' }),
+      'ollama',
+    );
+    const envelope = await parseResponse(res);
+    expect(envelope.success).toBe(false);
+    expect(envelope.error).toContain('ollama');
+  });
+});
+
+describe('POST /api/backends/:name/logout — generalized', () => {
   test('calls logout on claude backend', async () => {
     const backend = new MockBackend('claude');
     const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
     registry.register(backend as any);
 
     const routes = createBackendRoutes(registry);
-    const res = await routes.claudeLogout();
+    const res = await routes.logout('claude');
     const envelope = await parseResponse(res);
 
     expect(res.status).toBe(200);
@@ -224,11 +366,39 @@ describe('POST /api/backends/claude/logout', () => {
     expect(backend.wasLogoutCalled).toBe(true);
   });
 
-  test('returns 404 when claude backend not registered', async () => {
+  test('calls logout on codex backend', async () => {
+    const backend = new MockBackend('codex');
+    const registry = new DefaultBackendRegistry(AIBackend.CODEX);
+    registry.register(backend as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.logout('codex');
+    const envelope = await parseResponse(res);
+
+    expect(res.status).toBe(200);
+    expect(envelope.success).toBe(true);
+    expect(backend.wasLogoutCalled).toBe(true);
+  });
+
+  test('calls logout on gemini backend', async () => {
+    const backend = new MockBackend('gemini');
+    const registry = new DefaultBackendRegistry(AIBackend.GEMINI);
+    registry.register(backend as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.logout('gemini');
+    const envelope = await parseResponse(res);
+
+    expect(res.status).toBe(200);
+    expect(envelope.success).toBe(true);
+    expect(backend.wasLogoutCalled).toBe(true);
+  });
+
+  test('returns 404 when requested backend not registered', async () => {
     const registry = new DefaultBackendRegistry(AIBackend.CODEX);
 
     const routes = createBackendRoutes(registry);
-    const res = await routes.claudeLogout();
+    const res = await routes.logout('claude');
     const envelope = await parseResponse(res);
 
     expect(envelope.success).toBe(false);
@@ -242,7 +412,7 @@ describe('POST /api/backends/claude/logout', () => {
     registry.register(backend as any);
 
     const routes = createBackendRoutes(registry);
-    const res = await routes.claudeLogout();
+    const res = await routes.logout('claude');
     const envelope = await parseResponse(res);
 
     expect(envelope.success).toBe(false);
@@ -255,7 +425,7 @@ describe('POST /api/backends/claude/logout', () => {
     registry.register(backend as any);
 
     const routes = createBackendRoutes(registry);
-    const res = await routes.claudeLogout();
+    const res = await routes.logout('claude');
     const envelope = await parseResponse(res);
 
     expect(envelope.success).toBe(true);
@@ -270,10 +440,40 @@ describe('POST /api/backends/claude/logout', () => {
     registry.register(backend as any);
 
     const routes = createBackendRoutes(registry);
-    const res = await routes.claudeLogout();
+    const res = await routes.logout('claude');
     const envelope = await parseResponse(res);
 
     expect(envelope.success).toBe(false);
     expect(envelope.error).toContain('not supported');
+  });
+
+  test('returns error for codex logout failure', async () => {
+    const backend = new MockBackend('codex', {
+      logoutError: new Error('codex CLI not found'),
+    });
+    const registry = new DefaultBackendRegistry(AIBackend.CODEX);
+    registry.register(backend as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.logout('codex');
+    const envelope = await parseResponse(res);
+
+    expect(envelope.success).toBe(false);
+    expect(envelope.error).toContain('codex CLI not found');
+  });
+
+  test('returns error for gemini logout failure', async () => {
+    const backend = new MockBackend('gemini', {
+      logoutError: new Error('gemini auth error'),
+    });
+    const registry = new DefaultBackendRegistry(AIBackend.GEMINI);
+    registry.register(backend as any);
+
+    const routes = createBackendRoutes(registry);
+    const res = await routes.logout('gemini');
+    const envelope = await parseResponse(res);
+
+    expect(envelope.success).toBe(false);
+    expect(envelope.error).toContain('gemini auth error');
   });
 });

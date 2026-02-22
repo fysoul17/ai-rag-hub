@@ -4,7 +4,7 @@ export const AIBackend = {
   CLAUDE: 'claude',
   CODEX: 'codex',
   GEMINI: 'gemini',
-  GOOSE: 'goose',
+  OLLAMA: 'ollama',
 } as const;
 export type AIBackend = (typeof AIBackend)[keyof typeof AIBackend];
 

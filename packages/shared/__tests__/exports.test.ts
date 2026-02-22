@@ -38,6 +38,7 @@ describe('@autonomy/shared exports', () => {
     expect(shared.AIBackend.CLAUDE).toBe('claude');
     expect(shared.AIBackend.CODEX).toBe('codex');
     expect(shared.AIBackend.GEMINI).toBe('gemini');
+    expect(shared.AIBackend.OLLAMA).toBe('ollama');
   });
 
   test('exports MemoryType enum', () => {

@@ -22,6 +22,11 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - MODE=standalone
       - MEMORY_URL=${MEMORY_URL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CODEX_API_KEY=${CODEX_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-}
     restart: unless-stopped
 
   dashboard:
@@ -92,10 +97,23 @@ services:
     profiles:
       - full
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    profiles:
+      - ollama
+      - full
+
 volumes:
   agent-data:
     driver: local
   memory-data:
     driver: local
   neo4j-data:
+    driver: local
+  ollama-data:
     driver: local

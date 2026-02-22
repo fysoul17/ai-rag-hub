@@ -94,7 +94,7 @@ The Conductor is a simple AI agent: it searches memory for context, then either 
 ## Features
 
 ### Pluggable AI Backends
-Swap AI providers without changing code. Any CLI tool that reads stdin and writes stdout works. `claude -p` is the default. Codex CLI, Gemini CLI, and Ollama slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
+Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, and Ollama (local LLM server) slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
 
 ### Persistent Dual-Storage Memory
 Structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB. Naive RAG engine: embed query, vector search, hydrate from SQLite. Memory persists across sessions and agent restarts.
@@ -174,6 +174,10 @@ docker compose -f docker/docker-compose.yaml down
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `ollama`) |
+| `CODEX_API_KEY` | *(empty)* | API key for OpenAI Codex CLI |
+| `GEMINI_API_KEY` | *(empty)* | API key for Google Gemini CLI |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_MODEL` | `llama3.2` | Default Ollama model |
 | `MAX_AGENTS` | `10` | Maximum concurrent agents |
 | `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `DASHBOARD_USER` | *(empty)* | Set with `DASHBOARD_PASSWORD` to enable dashboard auth |

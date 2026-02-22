@@ -8,13 +8,27 @@
  *   Client -> Server:  raw keystrokes (binary or text)
  *   Server -> Client:  raw terminal output (binary or text)
  */
-import type { ServerWebSocket } from 'bun';
 import { join } from 'node:path';
+import type { ServerWebSocket } from 'bun';
 
 export interface TerminalWSData {
   id: string;
   type: 'terminal';
+  /** Which backend this terminal session is for. */
+  backend: string;
 }
+
+/**
+ * Per-backend login commands.
+ * Each entry maps a backend name to the CLI args passed to the PTY bridge.
+ * This is the ONLY place that determines what commands can be spawned —
+ * arbitrary backend names are rejected.
+ */
+export const LOGIN_COMMANDS: Record<string, string[]> = {
+  claude: ['claude', 'setup-token'],
+  codex: ['codex', 'login', '--device-auth'],
+  gemini: ['gemini', 'auth', 'login'],
+};
 
 /**
  * Env vars allowlisted for the PTY login process.
@@ -39,7 +53,7 @@ const PTY_ENV_ALLOWLIST = [
   'SSH_AUTH_SOCK',
 ];
 
-function buildPtyEnv(): Record<string, string> {
+export function buildPtyEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const key of PTY_ENV_ALLOWLIST) {
     const val = process.env[key];
@@ -53,6 +67,10 @@ function buildPtyEnv(): Record<string, string> {
   }
   // Ensure proper terminal type for xterm.js rendering
   env.TERM = 'xterm-256color';
+  // Suppress browser auto-open — the dashboard shows auth URLs as clickable links
+  env.BROWSER = '';
+  // Gemini-specific: force headless paste-code flow
+  env.NO_BROWSER = 'true';
   return env;
 }
 
@@ -68,114 +86,129 @@ const PTY_TIMEOUT_MS = 5 * 60 * 1000;
 
 const PTY_BRIDGE_PATH = join(import.meta.dir, 'pty-bridge.py');
 
+/** Pipe a ReadableStream to a WebSocket, stopping when the session dies. */
+async function pipeStreamToWs(
+  stream: ReadableStream<Uint8Array>,
+  ws: ServerWebSocket<TerminalWSData>,
+  session: PtySession,
+): Promise<void> {
+  const reader = stream.getReader();
+  try {
+    while (session.alive) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      try {
+        ws.send(value);
+      } catch {
+        break; // WebSocket closed
+      }
+    }
+  } catch {
+    // Stream error
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Send an ANSI-formatted message to a WebSocket, ignoring errors. */
+function sendAnsiMessage(ws: ServerWebSocket<TerminalWSData>, msg: string): void {
+  try {
+    ws.send(new TextEncoder().encode(msg));
+  } catch {
+    // Already closed
+  }
+}
+
+/** Clean up a PTY session after the process exits. */
+async function handleProcessExit(
+  proc: ReturnType<typeof Bun.spawn>,
+  ws: ServerWebSocket<TerminalWSData>,
+  session: PtySession,
+  sessionId: string,
+): Promise<void> {
+  try {
+    const exitCode = await proc.exited;
+    sendAnsiMessage(ws, `\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m\r\n`);
+  } catch {
+    // Ignore
+  }
+  session.alive = false;
+  sessions.delete(sessionId);
+  try {
+    ws.close();
+  } catch {
+    // Already closed
+  }
+}
+
+/** Set a hard timeout that kills the PTY session after PTY_TIMEOUT_MS. */
+function setupPtyTimeout(
+  ws: ServerWebSocket<TerminalWSData>,
+  session: PtySession,
+  sessionId: string,
+): void {
+  setTimeout(() => {
+    if (!session.alive) return;
+    session.alive = false;
+    try {
+      session.proc.kill();
+    } catch {
+      // Ignore
+    }
+    sendAnsiMessage(ws, '\r\n\x1b[31m[Login timed out]\x1b[0m\r\n');
+    try {
+      ws.close();
+    } catch {
+      // Already closed
+    }
+    sessions.delete(sessionId);
+  }, PTY_TIMEOUT_MS);
+}
+
 export function createTerminalWebSocketHandler() {
   return {
     handler: {
       open(ws: ServerWebSocket<TerminalWSData>) {
-        const env = buildPtyEnv();
+        const { backend, id: sessionId } = ws.data;
+        const loginCmd = LOGIN_COMMANDS[backend];
 
-        // Spawn `claude auth login` inside the PTY bridge
-        const proc = Bun.spawn(
-          ['python3', PTY_BRIDGE_PATH, 'claude', 'auth', 'login'],
-          {
-            stdin: 'pipe',
-            stdout: 'pipe',
-            stderr: 'pipe',
-            env,
-          },
-        );
-
-        const session: PtySession = { proc, alive: true };
-        sessions.set(ws.data.id, session);
-
-        // Stream PTY stdout -> WebSocket
-        const stdoutReader = (proc.stdout as ReadableStream<Uint8Array>).getReader();
-        (async () => {
-          try {
-            while (session.alive) {
-              const { done, value } = await stdoutReader.read();
-              if (done) break;
-              try {
-                ws.send(value);
-              } catch {
-                // WebSocket closed
-                break;
-              }
-            }
-          } catch {
-            // Stream error
-          } finally {
-            stdoutReader.releaseLock();
-          }
-
-          // Process exited — send exit notification and close
-          try {
-            const exitCode = await proc.exited;
-            const msg = `\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m\r\n`;
-            try {
-              ws.send(new TextEncoder().encode(msg));
-            } catch {
-              // Already closed
-            }
-          } catch {
-            // Ignore
-          }
-
-          session.alive = false;
-          sessions.delete(ws.data.id);
+        if (!loginCmd) {
+          sendAnsiMessage(ws, `\x1b[31mUnknown backend: ${backend}\x1b[0m\r\n`);
           try {
             ws.close();
           } catch {
             // Already closed
           }
-        })();
+          return;
+        }
 
-        // Also stream stderr -> WebSocket
-        const stderrReader = (proc.stderr as ReadableStream<Uint8Array>).getReader();
-        (async () => {
-          try {
-            while (session.alive) {
-              const { done, value } = await stderrReader.read();
-              if (done) break;
-              try {
-                ws.send(value);
-              } catch {
-                break;
-              }
-            }
-          } catch {
-            // Stream error
-          } finally {
-            stderrReader.releaseLock();
-          }
-        })();
+        const env = buildPtyEnv();
+        const proc = Bun.spawn(['python3', PTY_BRIDGE_PATH, ...loginCmd], {
+          stdin: 'pipe',
+          stdout: 'pipe',
+          stderr: 'pipe',
+          env,
+        });
+
+        const session: PtySession = { proc, alive: true };
+        sessions.set(sessionId, session);
+
+        // Pipe stdout to WS, then handle exit notification
+        pipeStreamToWs(proc.stdout as ReadableStream<Uint8Array>, ws, session).then(() =>
+          handleProcessExit(proc, ws, session, sessionId),
+        );
+
+        // Pipe stderr to WS
+        pipeStreamToWs(proc.stderr as ReadableStream<Uint8Array>, ws, session);
 
         // Hard timeout
-        setTimeout(() => {
-          if (session.alive) {
-            session.alive = false;
-            try {
-              proc.kill();
-            } catch {
-              // Ignore
-            }
-            try {
-              const msg = '\r\n\x1b[31m[Login timed out]\x1b[0m\r\n';
-              ws.send(new TextEncoder().encode(msg));
-              ws.close();
-            } catch {
-              // Already closed
-            }
-            sessions.delete(ws.data.id);
-          }
-        }, PTY_TIMEOUT_MS);
+        setupPtyTimeout(ws, session, sessionId);
       },
 
       message(ws: ServerWebSocket<TerminalWSData>, raw: string | Buffer) {
         const session = sessions.get(ws.data.id);
         if (!session?.alive) return;
 
-        // Forward user keystrokes to PTY stdin
         try {
           const data = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
           session.proc.stdin.write(data);

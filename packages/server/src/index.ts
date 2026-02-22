@@ -2,7 +2,14 @@
 
 import { Database } from 'bun:sqlite';
 import { join } from 'node:path';
-import { AgentPool, ClaudeBackend, DefaultBackendRegistry } from '@autonomy/agent-manager';
+import {
+  AgentPool,
+  ClaudeBackend,
+  CodexBackend,
+  DefaultBackendRegistry,
+  GeminiBackend,
+  OllamaBackend,
+} from '@autonomy/agent-manager';
 import { Conductor } from '@autonomy/conductor';
 import {
   AgentStore,
@@ -173,7 +180,9 @@ async function main() {
   // Initialize Backend Registry
   const registry = new DefaultBackendRegistry(config.AI_BACKEND);
   registry.register(new ClaudeBackend());
-  // Future: registry.register(new GooseBackend()), etc.
+  registry.register(new CodexBackend());
+  registry.register(new GeminiBackend());
+  registry.register(new OllamaBackend());
 
   // Initialize Agent Pool (with registry for per-agent backend selection)
   const workspaceDir = join(config.DATA_DIR, 'workspaces');
@@ -309,7 +318,12 @@ async function main() {
   router.get('/api/backends/status', backendRoutes.status);
   router.get('/api/backends/options', backendRoutes.options);
   router.put('/api/backends/api-key', backendRoutes.updateApiKey);
-  router.post('/api/backends/claude/logout', backendRoutes.claudeLogout);
+  router.put('/api/backends/:name/api-key', (req: Request, params: Record<string, string>) =>
+    backendRoutes.updateApiKey(req, params.name),
+  );
+  router.post('/api/backends/:name/logout', (_req: Request, params: Record<string, string>) =>
+    backendRoutes.logout(params.name),
+  );
 
   // Auth routes
   router.get('/api/auth/keys', authRoutes.listKeys);
@@ -398,8 +412,9 @@ async function main() {
           const wsAuthResult = authMiddleware.authenticate(req);
           if (wsAuthResult instanceof Response) return wsAuthResult;
         }
+        const backend = url.searchParams.get('backend') ?? 'claude';
         const upgraded = server.upgrade(req, {
-          data: { id: crypto.randomUUID(), type: 'terminal' as const },
+          data: { id: crypto.randomUUID(), type: 'terminal' as const, backend },
         });
         if (upgraded) return undefined as unknown as Response;
         return new Response('WebSocket upgrade failed', { status: 400 });

@@ -81,5 +81,9 @@ export function parseEnvConfig(): EnvironmentConfig {
     RATE_LIMIT_WINDOW_MS: rateLimitWindowMs,
     TRUST_PROXY: trustProxy,
     STREAM_TIMEOUT_MS: streamTimeoutMs,
+    OLLAMA_URL: env.OLLAMA_URL,
+    OLLAMA_MODEL: env.OLLAMA_MODEL,
+    CODEX_API_KEY: env.CODEX_API_KEY,
+    GEMINI_API_KEY: env.GEMINI_API_KEY,
   };
 }

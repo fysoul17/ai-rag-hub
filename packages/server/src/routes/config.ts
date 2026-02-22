@@ -9,6 +9,8 @@ export function createConfigRoutes(configManager: ConfigManager) {
       const redacted = {
         ...config,
         ANTHROPIC_API_KEY: config.ANTHROPIC_API_KEY ? '***' : undefined,
+        CODEX_API_KEY: config.CODEX_API_KEY ? '***' : undefined,
+        GEMINI_API_KEY: config.GEMINI_API_KEY ? '***' : undefined,
         AUTH_MASTER_KEY: config.AUTH_MASTER_KEY ? '***' : undefined,
       };
       return jsonResponse(redacted);
@@ -22,6 +24,8 @@ export function createConfigRoutes(configManager: ConfigManager) {
         const redacted = {
           ...updated,
           ANTHROPIC_API_KEY: updated.ANTHROPIC_API_KEY ? '***' : undefined,
+          CODEX_API_KEY: updated.CODEX_API_KEY ? '***' : undefined,
+          GEMINI_API_KEY: updated.GEMINI_API_KEY ? '***' : undefined,
           AUTH_MASTER_KEY: updated.AUTH_MASTER_KEY ? '***' : undefined,
         };
         return jsonResponse(redacted);

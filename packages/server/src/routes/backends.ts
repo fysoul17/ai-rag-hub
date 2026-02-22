@@ -1,19 +1,51 @@
 import type { BackendRegistry } from '@autonomy/agent-manager';
-import { AIBackend, type BackendStatusResponse } from '@autonomy/shared';
+import type { AIBackend, BackendStatusResponse } from '@autonomy/shared';
 import { errorResponse, jsonResponse, parseJsonBody } from '../middleware.ts';
 
-/** Minimum length for a valid Anthropic API key. */
+/** Minimum length for a valid API key. */
 const MIN_API_KEY_LENGTH = 20;
 /** Max length to reject obviously bogus values. */
 const MAX_API_KEY_LENGTH = 256;
-/** Pattern for valid Anthropic API key prefixes. */
-const API_KEY_PREFIX = /^sk-ant-/;
+
+/** Per-backend env var mapping and optional key prefix validation. */
+const BACKEND_KEY_CONFIG: Record<string, { envVar: string; altEnvVar?: string; prefix?: RegExp }> =
+  {
+    claude: { envVar: 'ANTHROPIC_API_KEY', prefix: /^sk-ant-/ },
+    codex: { envVar: 'CODEX_API_KEY', altEnvVar: 'OPENAI_API_KEY' },
+    gemini: { envVar: 'GEMINI_API_KEY', altEnvVar: 'GOOGLE_API_KEY' },
+  };
 
 function buildStatusResponse(registry: BackendRegistry): Promise<BackendStatusResponse> {
   return registry.getStatusAll().then((backends) => ({
     defaultBackend: registry.getDefaultName(),
     backends,
   }));
+}
+
+/** Validate and set/clear the API key for the given backend config. Returns an error Response or null on success. */
+function applyApiKey(
+  apiKey: string | null | undefined,
+  config: { envVar: string; altEnvVar?: string; prefix?: RegExp },
+): Response | null {
+  if (apiKey && typeof apiKey === 'string' && apiKey.trim().length > 0) {
+    const key = apiKey.trim();
+    if (key.length < MIN_API_KEY_LENGTH || key.length > MAX_API_KEY_LENGTH) {
+      return errorResponse('API key must be between 20 and 256 characters', 400);
+    }
+    if (config.prefix && !config.prefix.test(key)) {
+      return errorResponse(
+        `API key must start with "${config.prefix.source.replace('^', '')}"`,
+        400,
+      );
+    }
+    process.env[config.envVar] = key;
+  } else {
+    delete process.env[config.envVar];
+    if (config.altEnvVar) {
+      delete process.env[config.altEnvVar];
+    }
+  }
+  return null;
 }
 
 export function createBackendRoutes(registry: BackendRegistry) {
@@ -33,22 +65,21 @@ export function createBackendRoutes(registry: BackendRegistry) {
       }
     },
 
-    updateApiKey: async (req: Request): Promise<Response> => {
+    updateApiKey: async (req: Request, backendName?: string): Promise<Response> => {
       try {
-        const body = await parseJsonBody<{ apiKey: string | null }>(req);
+        const body = await parseJsonBody<{ apiKey: string | null; backendName?: string }>(req);
+        const name = backendName ?? body.backendName ?? 'claude';
+        const config = BACKEND_KEY_CONFIG[name];
 
-        if (body.apiKey && typeof body.apiKey === 'string' && body.apiKey.trim().length > 0) {
-          const key = body.apiKey.trim();
-          if (key.length < MIN_API_KEY_LENGTH || key.length > MAX_API_KEY_LENGTH) {
-            return errorResponse('API key must be between 20 and 256 characters', 400);
-          }
-          if (!API_KEY_PREFIX.test(key)) {
-            return errorResponse('API key must start with "sk-ant-"', 400);
-          }
-          process.env.ANTHROPIC_API_KEY = key;
-        } else {
-          delete process.env.ANTHROPIC_API_KEY;
+        if (!config) {
+          return errorResponse(
+            `Unknown backend: ${name}. API key management is not supported for this backend.`,
+            400,
+          );
         }
+
+        const validationError = applyApiKey(body.apiKey, config);
+        if (validationError) return validationError;
 
         const response = await buildStatusResponse(registry);
         return jsonResponse(response);
@@ -57,13 +88,14 @@ export function createBackendRoutes(registry: BackendRegistry) {
       }
     },
 
-    claudeLogout: async (): Promise<Response> => {
+    logout: async (backendName: string): Promise<Response> => {
       try {
-        if (!registry.has(AIBackend.CLAUDE)) {
-          return errorResponse('Claude backend not registered', 404);
+        const name = backendName as AIBackend;
+        if (!registry.has(name)) {
+          return errorResponse(`Backend "${backendName}" not registered`, 404);
         }
 
-        const backend = registry.get(AIBackend.CLAUDE);
+        const backend = registry.get(name);
         if (!backend.logout) {
           return errorResponse('Logout not supported for this backend', 400);
         }
