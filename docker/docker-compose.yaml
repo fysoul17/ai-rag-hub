@@ -9,12 +9,12 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.runtime
     ports:
-      - "3001:3001"
+      - "7820:7820"
     volumes:
       - agent-data:/data
     environment:
       - DATA_DIR=/data
-      - PORT=3001
+      - PORT=7820
       - AI_BACKEND=${AI_BACKEND:-claude}
       - IDLE_TIMEOUT_MS=${IDLE_TIMEOUT_MS:-300000}
       - MAX_AGENTS=${MAX_AGENTS:-10}
@@ -29,9 +29,9 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.dashboard
     ports:
-      - "3000:3000"
+      - "7821:7821"
     environment:
-      - RUNTIME_URL=http://runtime:3001
+      - RUNTIME_URL=http://runtime:7820
       - NODE_ENV=production
       - MEMORY_URL=${MEMORY_URL:-}
       - DASHBOARD_USER=${DASHBOARD_USER:-}

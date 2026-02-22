@@ -146,14 +146,14 @@ bun install
 bun run dev
 
 # Or start individually
-bun run dev:runtime    # Runtime server on :3001
-bun run dev:dashboard  # Dashboard on :3000
+bun run dev:runtime    # Runtime server on :7820
+bun run dev:dashboard  # Dashboard on :7821
 ```
 
 ### Docker
 
 ```bash
-# Minimal — runtime (:3001) + dashboard (:3000)
+# Minimal — runtime (:7820) + dashboard (:7821)
 docker compose -f docker/docker-compose.yaml up
 
 # Rebuild images after code changes
