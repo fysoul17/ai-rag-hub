@@ -14,4 +14,5 @@ export {
 export { InstanceRegistry } from './instance-registry.ts';
 export { QuotaManager } from './quota-manager.ts';
 export { UsageStore } from './usage-store.ts';
+export { PageStore } from './page-store.ts';
 export { UsageTracker } from './usage-tracker.ts';

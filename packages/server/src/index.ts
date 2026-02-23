@@ -16,6 +16,7 @@ import {
   AuthMiddleware,
   AuthStore,
   InstanceRegistry,
+  PageStore,
   QuotaManager,
   setAuthContext,
   UsageStore,
@@ -41,6 +42,7 @@ import { createCronRoutes } from './routes/crons.ts';
 import { createHealthRoute } from './routes/health.ts';
 import { createInstanceRoutes } from './routes/instances.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
+import { createPageRoutes } from './routes/pages.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
 import { createUsageRoutes } from './routes/usage.ts';
 import { SecretStore } from './secret-store.ts';
@@ -73,6 +75,7 @@ export { createCronRoutes } from './routes/crons.ts';
 export { createHealthRoute } from './routes/health.ts';
 export { createInstanceRoutes } from './routes/instances.ts';
 export { createMemoryRoutes } from './routes/memory.ts';
+export { createPageRoutes } from './routes/pages.ts';
 export { createSessionRoutes } from './routes/sessions.ts';
 export { createUsageRoutes } from './routes/usage.ts';
 export { SecretStore } from './secret-store.ts';
@@ -131,6 +134,7 @@ async function main() {
   const authStore = new AuthStore(controlPlaneDb);
   const sessionStore = new SessionStore(controlPlaneDb);
   const agentStore = new AgentStore(controlPlaneDb);
+  const pageStore = new PageStore(controlPlaneDb);
   const usageStore = new UsageStore(controlPlaneDb);
   const authMiddleware = new AuthMiddleware(authStore, {
     enabled: config.AUTH_ENABLED,
@@ -300,6 +304,7 @@ async function main() {
   const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
   const instanceRoutes = createInstanceRoutes(instanceRegistry);
   const sessionRoutes = createSessionRoutes(sessionStore, memory);
+  const pageRoutes = createPageRoutes(pageStore);
 
   router.get('/health', healthRoute);
 
@@ -352,6 +357,13 @@ async function main() {
   // Instance routes
   router.get('/api/instances', instanceRoutes.list);
   router.delete('/api/instances/:id', instanceRoutes.remove);
+
+  // Page routes
+  router.get('/api/pages', pageRoutes.list);
+  router.post('/api/pages', pageRoutes.create);
+  router.get('/api/pages/:id', pageRoutes.get);
+  router.put('/api/pages/:id', pageRoutes.update);
+  router.delete('/api/pages/:id', pageRoutes.remove);
 
   // Session routes
   router.get('/api/sessions', sessionRoutes.list);

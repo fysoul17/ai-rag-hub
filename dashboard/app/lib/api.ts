@@ -8,6 +8,7 @@ import type {
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   CreateCronRequest,
+  CreatePageRequest,
   CreateSessionRequest,
   CronEntry,
   CronEntryWithStatus,
@@ -20,6 +21,7 @@ import type {
   MemoryIngestRequest,
   MemorySearchResult,
   MemoryStats,
+  PageDefinition,
   PlatformConfig,
   QuotaConfig,
   RAGStrategy,
@@ -29,6 +31,7 @@ import type {
   UpdateAgentRequest,
   UpdateApiKeyRequest,
   UpdateCronRequest,
+  UpdatePageRequest,
   UpdateSessionRequest,
   UsageSummary,
 } from '@autonomy/shared';
@@ -348,6 +351,33 @@ export async function updateSession(id: string, data: UpdateSessionRequest): Pro
 
 export async function deleteSession(id: string): Promise<{ deleted: string }> {
   return fetchApi<{ deleted: string }>(`/api/sessions/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// --- Custom Pages ---
+
+export async function getCustomPages(status?: string): Promise<PageDefinition[]> {
+  const params = status ? `?status=${encodeURIComponent(status)}` : '';
+  return fetchApi<PageDefinition[]>(`/api/pages${params}`);
+}
+
+export async function createCustomPage(data: CreatePageRequest): Promise<PageDefinition> {
+  return fetchApi<PageDefinition>('/api/pages', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCustomPage(id: string, data: UpdatePageRequest): Promise<PageDefinition> {
+  return fetchApi<PageDefinition>(`/api/pages/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCustomPage(id: string): Promise<{ deleted: string }> {
+  return fetchApi<{ deleted: string }>(`/api/pages/${id}`, {
     method: 'DELETE',
   });
 }

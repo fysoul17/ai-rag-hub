@@ -11,4 +11,5 @@ export * from './memory.ts';
 export * from './plugin.ts';
 export * from './session.ts';
 export * from './streaming.ts';
+export * from './page.ts';
 export * from './websocket.ts';
