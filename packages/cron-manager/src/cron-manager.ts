@@ -180,8 +180,8 @@ export class CronManager {
     this.ensureInitialized();
     return this.crons.map((cron) => {
       const nextRun = this.getNextRun(cron.id);
-      const logs = this.executionLogs.filter((l) => l.cronId === cron.id);
-      const lastExecution = logs.length > 0 ? (logs[logs.length - 1] as CronExecutionLog) : null;
+      const cronLogs = this.getExecutionLogs(cron.id);
+      const lastExecution = cronLogs.at(-1) ?? null;
       return {
         ...cron,
         nextRunAt: nextRun ? nextRun.toISOString() : null,

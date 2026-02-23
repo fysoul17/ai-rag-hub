@@ -26,7 +26,9 @@ export function CronCard({ cron }: { cron: CronEntryWithStatus }) {
           </Badge>
         </div>
         <div className="space-y-1 text-xs text-muted-foreground">
-          <div>{cron.workflow.steps.length} step{cron.workflow.steps.length !== 1 ? 's' : ''}</div>
+          <div>
+            {cron.workflow.steps.length} step{cron.workflow.steps.length !== 1 ? 's' : ''}
+          </div>
           {cron.nextRunAt && (
             <div className="flex items-center gap-1">
               <span className="text-neon-cyan">Next:</span>

@@ -15,7 +15,14 @@ export function createCronRoutes(cronManager: CronManager) {
       const url = new URL(req.url);
       const cronId = url.searchParams.get('cronId') ?? undefined;
       const limitParam = url.searchParams.get('limit');
-      const limit = limitParam ? Number.parseInt(limitParam, 10) : 50;
+      let limit = 50;
+      if (limitParam) {
+        const parsed = Number.parseInt(limitParam, 10);
+        if (Number.isNaN(parsed) || parsed < 1) {
+          throw new BadRequestError('limit must be a positive integer');
+        }
+        limit = Math.min(parsed, 200);
+      }
 
       const logs = cronManager.getExecutionLogs(cronId, limit);
       return jsonResponse(logs);

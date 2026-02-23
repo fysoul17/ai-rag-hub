@@ -157,7 +157,12 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <CronLogsDialog cronId={cron.id} cronName={cron.name} open={showLogs} onOpenChange={setShowLogs} />
+      <CronLogsDialog
+        cronId={cron.id}
+        cronName={cron.name}
+        open={showLogs}
+        onOpenChange={setShowLogs}
+      />
     </>
   );
 }

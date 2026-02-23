@@ -369,7 +369,10 @@ export async function createCustomPage(data: CreatePageRequest): Promise<PageDef
   });
 }
 
-export async function updateCustomPage(id: string, data: UpdatePageRequest): Promise<PageDefinition> {
+export async function updateCustomPage(
+  id: string,
+  data: UpdatePageRequest,
+): Promise<PageDefinition> {
   return fetchApi<PageDefinition>(`/api/pages/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
