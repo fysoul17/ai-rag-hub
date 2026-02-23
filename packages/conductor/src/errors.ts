@@ -12,13 +12,6 @@ export class ConductorNotInitializedError extends ConductorError {
   }
 }
 
-export class RoutingError extends ConductorError {
-  constructor(detail: string) {
-    super(`Routing failed: ${detail}`);
-    this.name = 'RoutingError';
-  }
-}
-
 export class DelegationError extends ConductorError {
   constructor(agentId: string, detail: string) {
     super(`Delegation to agent "${agentId}" failed: ${detail}`);

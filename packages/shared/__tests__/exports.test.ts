@@ -77,7 +77,6 @@ describe('@autonomy/shared exports', () => {
     expect(shared.WSServerMessageType.ERROR).toBe('error');
     expect(shared.WSServerMessageType.PONG).toBe('pong');
     expect(shared.WSServerMessageType.AGENT_STATUS).toBe('agent_status');
-    expect(shared.WSServerMessageType.A2A_EVENT).toBe('a2a_event');
   });
 
   test('exports ActivityType enum', () => {
@@ -90,13 +89,6 @@ describe('@autonomy/shared exports', () => {
     expect(shared.ActivityType.MEMORY_STORED).toBe('memory_stored');
     expect(shared.ActivityType.ERROR).toBe('error');
     expect(Object.keys(shared.ActivityType)).toHaveLength(7);
-  });
-
-  test('exports A2ACommunicationMode enum', () => {
-    expect(shared.A2ACommunicationMode).toBeDefined();
-    expect(shared.A2ACommunicationMode.DIRECT).toBe('direct');
-    expect(shared.A2ACommunicationMode.RELAY).toBe('relay');
-    expect(Object.keys(shared.A2ACommunicationMode)).toHaveLength(2);
   });
 
   test('exports DEFAULTS constants', () => {

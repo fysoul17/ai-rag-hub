@@ -1,7 +1,11 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { DefaultBackendRegistry } from '@autonomy/agent-manager';
 import { AIBackend, BACKEND_CAPABILITIES, type BackendStatus } from '@autonomy/shared';
 import { createBackendRoutes } from '../../src/routes/backends.ts';
+import { SecretStore } from '../../src/secret-store.ts';
 
 /** Mock CLIBackend with configurable getStatus() response and optional logout(). */
 class MockBackend {
@@ -475,5 +479,90 @@ describe('POST /api/backends/:name/logout — generalized', () => {
 
     expect(envelope.success).toBe(false);
     expect(envelope.error).toContain('gemini auth error');
+  });
+});
+
+describe('SecretStore integration with backend routes', () => {
+  let testDir: string;
+  const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
+  const originalCodexKey = process.env.CODEX_API_KEY;
+
+  beforeEach(() => {
+    testDir = join(
+      tmpdir(),
+      `backend-secret-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+    if (originalAnthropicKey) {
+      process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+    } else {
+      delete process.env.ANTHROPIC_API_KEY;
+    }
+    if (originalCodexKey) {
+      process.env.CODEX_API_KEY = originalCodexKey;
+    } else {
+      delete process.env.CODEX_API_KEY;
+    }
+    delete process.env.OPENAI_API_KEY;
+  });
+
+  test('updateApiKey persists key to SecretStore', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+    const secretStore = new SecretStore(testDir);
+    const routes = createBackendRoutes(registry, secretStore);
+
+    await routes.updateApiKey(makeRequest({ apiKey: 'sk-ant-test-persist-key-00' }));
+
+    const secrets = JSON.parse(readFileSync(join(testDir, 'secrets.json'), 'utf-8'));
+    expect(secrets.ANTHROPIC_API_KEY).toBe('sk-ant-test-persist-key-00');
+  });
+
+  test('updateApiKey clears key from SecretStore when null', async () => {
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+    const secretStore = new SecretStore(testDir);
+
+    // First set a key
+    const routes = createBackendRoutes(registry, secretStore);
+    await routes.updateApiKey(makeRequest({ apiKey: 'sk-ant-to-be-cleared-key-0' }));
+    // Now clear it
+    await routes.updateApiKey(makeRequest({ apiKey: null }));
+
+    const secrets = JSON.parse(readFileSync(join(testDir, 'secrets.json'), 'utf-8'));
+    expect(secrets.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  test('logout clears persisted keys from SecretStore', async () => {
+    const backend = new MockBackend('claude');
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(backend as any);
+    const secretStore = new SecretStore(testDir);
+
+    // Pre-set a key
+    secretStore.set('ANTHROPIC_API_KEY', 'sk-ant-logout-test-key-00');
+
+    const routes = createBackendRoutes(registry, secretStore);
+    await routes.logout('claude');
+
+    const secrets = JSON.parse(readFileSync(join(testDir, 'secrets.json'), 'utf-8'));
+    expect(secrets.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  test('routes work without SecretStore (backward compatible)', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const registry = new DefaultBackendRegistry(AIBackend.CLAUDE);
+    registry.register(new MockBackend('claude') as any);
+
+    // No secretStore passed
+    const routes = createBackendRoutes(registry);
+    const res = await routes.updateApiKey(makeRequest({ apiKey: 'sk-ant-no-store-key-00000' }));
+    expect(res.status).toBe(200);
+    expect(process.env.ANTHROPIC_API_KEY).toBe('sk-ant-no-store-key-00000');
   });
 });

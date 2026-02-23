@@ -9,7 +9,6 @@ export {
   DelegationDepthError,
   DelegationError,
   QueueFullError,
-  RoutingError,
 } from './errors.ts';
 export type {
   ConductorEvent,

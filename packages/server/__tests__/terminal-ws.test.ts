@@ -68,6 +68,9 @@ describe('buildPtyEnv', () => {
     'CLAUDE_CONFIG_DIR',
     'CLAUDE_DATA_DIR',
     'CLAUDECODE',
+    'CODEX_HOME',
+    'GEMINI_CLI_HOME',
+    'XDG_CONFIG_HOME',
   ];
 
   beforeEach(() => {
@@ -130,6 +133,30 @@ describe('buildPtyEnv', () => {
     delete process.env.DISPLAY;
     const env = buildPtyEnv();
     expect('DISPLAY' in env).toBe(false);
+  });
+
+  test('does not include CLAUDE_CONFIG_DIR when not set', () => {
+    delete process.env.CLAUDE_CONFIG_DIR;
+    const env = buildPtyEnv();
+    expect('CLAUDE_CONFIG_DIR' in env).toBe(false);
+  });
+
+  test('forwards XDG_CONFIG_HOME for CLI tools that use XDG', () => {
+    process.env.XDG_CONFIG_HOME = '/data/cli-config';
+    const env = buildPtyEnv();
+    expect(env.XDG_CONFIG_HOME).toBe('/data/cli-config');
+  });
+
+  test('forwards CODEX_HOME for Codex CLI auth persistence', () => {
+    process.env.CODEX_HOME = '/data/cli-config/codex';
+    const env = buildPtyEnv();
+    expect(env.CODEX_HOME).toBe('/data/cli-config/codex');
+  });
+
+  test('forwards GEMINI_CLI_HOME for Gemini CLI auth persistence', () => {
+    process.env.GEMINI_CLI_HOME = '/data/cli-config/gemini';
+    const env = buildPtyEnv();
+    expect(env.GEMINI_CLI_HOME).toBe('/data/cli-config/gemini');
   });
 
   test('always sets TERM=xterm-256color', () => {

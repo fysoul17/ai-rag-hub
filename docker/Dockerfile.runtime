@@ -37,7 +37,9 @@ COPY tsconfig.base.json ./
 COPY packages/ ./packages/
 
 # Create data directory with seed files
-RUN mkdir -p /data/agents /data/memory /data/vectors /data/workspaces && \
+RUN mkdir -p /data/agents /data/memory /data/vectors /data/workspaces \
+             /data/cli-config/claude /data/cli-config/codex /data/cli-config/gemini && \
+    chmod 700 /data/cli-config/claude /data/cli-config/codex /data/cli-config/gemini && \
     chown -R bun:bun /data
 
 COPY --chown=bun:bun data/config.json /data/config.json
@@ -54,6 +56,10 @@ ENV VECTOR_PROVIDER=lancedb
 ENV LOG_LEVEL=info
 ENV MODE=standalone
 ENV OLLAMA_URL=http://ollama:11434
+ENV XDG_CONFIG_HOME=/data/cli-config
+ENV CLAUDE_CONFIG_DIR=/data/cli-config/claude
+ENV CODEX_HOME=/data/cli-config/codex
+ENV GEMINI_CLI_HOME=/data/cli-config/gemini
 
 USER bun
 

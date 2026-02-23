@@ -58,6 +58,8 @@ const PTY_ENV_ALLOWLIST = [
   'XDG_CONFIG_HOME',
   'XDG_CACHE_HOME',
   'SSH_AUTH_SOCK',
+  'CODEX_HOME',
+  'GEMINI_CLI_HOME',
 ];
 
 export function buildPtyEnv(): Record<string, string> {

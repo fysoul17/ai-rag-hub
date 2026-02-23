@@ -3,7 +3,6 @@ import {
   ConductorError,
   ConductorNotInitializedError,
   DelegationError,
-  RoutingError,
 } from '../src/errors.ts';
 
 describe('ConductorError', () => {
@@ -31,19 +30,6 @@ describe('ConductorNotInitializedError', () => {
     const err = new ConductorNotInitializedError();
     expect(err.name).toBe('ConductorNotInitializedError');
     expect(err.message).toContain('not initialized');
-  });
-});
-
-describe('RoutingError', () => {
-  test('extends ConductorError', () => {
-    const err = new RoutingError('no agents available');
-    expect(err).toBeInstanceOf(ConductorError);
-  });
-
-  test('includes detail in message', () => {
-    const err = new RoutingError('no agents available');
-    expect(err.name).toBe('RoutingError');
-    expect(err.message).toContain('no agents available');
   });
 });
 

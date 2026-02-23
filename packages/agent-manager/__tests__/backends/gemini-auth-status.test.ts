@@ -349,6 +349,25 @@ describe('GeminiBackend.getStatus() — auth detection', () => {
         }
       }
     });
+
+    test('forwards GEMINI_CLI_HOME to spawned auth status process', async () => {
+      // @ts-expect-error — mocking Bun.which for testing
+      Bun.which = mock(() => '/usr/local/bin/gemini');
+      const spawnMock = createExitCodeMockSpawn(0);
+      // @ts-expect-error — mocking Bun.spawn for testing
+      Bun.spawn = spawnMock;
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.GOOGLE_API_KEY;
+      process.env.GEMINI_CLI_HOME = '/data/cli-config/gemini';
+
+      await backend.getStatus();
+
+      expect(spawnMock).toHaveBeenCalled();
+      const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
+      expect(spawnOpts?.env).toBeDefined();
+      const env = spawnOpts!.env as Record<string, string>;
+      expect(env.GEMINI_CLI_HOME).toBe('/data/cli-config/gemini');
+    });
   });
 
   // ============================================================

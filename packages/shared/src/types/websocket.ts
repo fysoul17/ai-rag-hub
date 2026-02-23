@@ -17,7 +17,6 @@ export const WSServerMessageType = {
   ERROR: 'error',
   PONG: 'pong',
   AGENT_STATUS: 'agent_status',
-  A2A_EVENT: 'a2a_event',
   CONDUCTOR_STATUS: 'conductor_status',
   DEBUG_EVENT: 'debug_event',
   DEBUG_HISTORY: 'debug_history',
@@ -73,13 +72,6 @@ export interface WSServerAgentStatus {
   type: typeof WSServerMessageType.AGENT_STATUS;
   agents: AgentRuntimeInfo[];
   conductorName?: string;
-}
-
-export interface WSServerA2AEvent {
-  type: typeof WSServerMessageType.A2A_EVENT;
-  fromAgentId: AgentId;
-  toAgentId: AgentId;
-  task: string;
 }
 
 export interface WSServerConductorStatus {
@@ -141,7 +133,6 @@ export type WSServerMessage =
   | WSServerError
   | WSServerPong
   | WSServerAgentStatus
-  | WSServerA2AEvent
   | WSServerConductorStatus
   | WSServerDebugEvent
   | WSServerDebugHistory

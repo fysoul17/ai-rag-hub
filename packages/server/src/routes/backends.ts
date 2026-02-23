@@ -1,6 +1,7 @@
 import type { BackendRegistry } from '@autonomy/agent-manager';
 import type { AIBackend, BackendStatusResponse } from '@autonomy/shared';
 import { errorResponse, jsonResponse, parseJsonBody } from '../middleware.ts';
+import type { SecretStore } from '../secret-store.ts';
 
 /** Minimum length for a valid API key. */
 const MIN_API_KEY_LENGTH = 20;
@@ -26,6 +27,7 @@ function buildStatusResponse(registry: BackendRegistry): Promise<BackendStatusRe
 function applyApiKey(
   apiKey: string | null | undefined,
   config: { envVar: string; altEnvVar?: string; prefix?: RegExp },
+  secretStore?: SecretStore,
 ): Response | null {
   if (apiKey && typeof apiKey === 'string' && apiKey.trim().length > 0) {
     const key = apiKey.trim();
@@ -39,16 +41,18 @@ function applyApiKey(
       );
     }
     process.env[config.envVar] = key;
+    secretStore?.set(config.envVar, key);
   } else {
     delete process.env[config.envVar];
     if (config.altEnvVar) {
       delete process.env[config.altEnvVar];
     }
+    secretStore?.removeBackendKeys(config.envVar, config.altEnvVar);
   }
   return null;
 }
 
-export function createBackendRoutes(registry: BackendRegistry) {
+export function createBackendRoutes(registry: BackendRegistry, secretStore?: SecretStore) {
   return {
     status: async (): Promise<Response> => {
       const response = await buildStatusResponse(registry);
@@ -78,7 +82,7 @@ export function createBackendRoutes(registry: BackendRegistry) {
           );
         }
 
-        const validationError = applyApiKey(body.apiKey, config);
+        const validationError = applyApiKey(body.apiKey, config, secretStore);
         if (validationError) return validationError;
 
         const response = await buildStatusResponse(registry);
@@ -100,7 +104,15 @@ export function createBackendRoutes(registry: BackendRegistry) {
           return errorResponse('Logout not supported for this backend', 400);
         }
 
-        await backend.logout();
+        // Clear persisted API keys regardless of whether logout succeeds
+        const keyConfig = BACKEND_KEY_CONFIG[name];
+        try {
+          await backend.logout();
+        } finally {
+          if (keyConfig) {
+            secretStore?.removeBackendKeys(keyConfig.envVar, keyConfig.altEnvVar);
+          }
+        }
 
         const response = await buildStatusResponse(registry);
         return jsonResponse(response);

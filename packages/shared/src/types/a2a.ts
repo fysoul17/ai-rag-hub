@@ -35,12 +35,6 @@ export interface BackendStatus {
   error?: string;
 }
 
-export const A2ACommunicationMode = {
-  DIRECT: 'direct',
-  RELAY: 'relay',
-} as const;
-export type A2ACommunicationMode = (typeof A2ACommunicationMode)[keyof typeof A2ACommunicationMode];
-
 export interface DelegateTaskRequest {
   fromAgentId: AgentId;
   toAgentId: AgentId;

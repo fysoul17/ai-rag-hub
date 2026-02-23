@@ -5,7 +5,6 @@ import {
   ConductorError,
   ConductorNotInitializedError,
   DelegationError,
-  RoutingError,
 } from '../src/index.ts';
 
 describe('conductor smoke tests', () => {
@@ -16,7 +15,6 @@ describe('conductor smoke tests', () => {
   test('all error classes are exported', () => {
     expect(ConductorError).toBeDefined();
     expect(ConductorNotInitializedError).toBeDefined();
-    expect(RoutingError).toBeDefined();
     expect(DelegationError).toBeDefined();
   });
 

@@ -328,6 +328,25 @@ describe('CodexBackend.getStatus() — auth detection', () => {
         }
       }
     });
+
+    test('forwards CODEX_HOME to spawned auth status process', async () => {
+      // @ts-expect-error — mocking Bun.which for testing
+      Bun.which = mock(() => '/usr/local/bin/codex');
+      const spawnMock = createExitCodeMockSpawn(0);
+      // @ts-expect-error — mocking Bun.spawn for testing
+      Bun.spawn = spawnMock;
+      delete process.env.CODEX_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      process.env.CODEX_HOME = '/data/cli-config/codex';
+
+      await backend.getStatus();
+
+      expect(spawnMock).toHaveBeenCalled();
+      const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
+      expect(spawnOpts?.env).toBeDefined();
+      const env = spawnOpts!.env as Record<string, string>;
+      expect(env.CODEX_HOME).toBe('/data/cli-config/codex');
+    });
   });
 
   // ============================================================

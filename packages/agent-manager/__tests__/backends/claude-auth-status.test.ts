@@ -411,6 +411,72 @@ describe('ClaudeBackend.getStatus() — auth detection', () => {
       // spawn should NOT be called — API key takes precedence, no CLI check needed
       expect(spawnMock).not.toHaveBeenCalled();
     });
+
+    test('forwards CLAUDE_CONFIG_DIR to spawned auth status process', async () => {
+      // @ts-expect-error — mocking Bun.which for testing
+      Bun.which = mock(() => '/usr/local/bin/claude');
+      const spawnMock = createAuthStatusMockSpawn(AUTH_LOGGED_IN, 0);
+      // @ts-expect-error — mocking Bun.spawn for testing
+      Bun.spawn = spawnMock;
+      delete process.env.ANTHROPIC_API_KEY;
+      process.env.CLAUDE_CONFIG_DIR = '/data/cli-config/claude';
+
+      await backend.getStatus();
+
+      expect(spawnMock).toHaveBeenCalled();
+      const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
+      expect(spawnOpts?.env).toBeDefined();
+      const env = spawnOpts!.env as Record<string, string>;
+      expect(env.CLAUDE_CONFIG_DIR).toBe('/data/cli-config/claude');
+    });
+
+    test('forwards CLAUDE_DATA_DIR to spawned auth status process', async () => {
+      // @ts-expect-error — mocking Bun.which for testing
+      Bun.which = mock(() => '/usr/local/bin/claude');
+      const spawnMock = createAuthStatusMockSpawn(AUTH_LOGGED_IN, 0);
+      // @ts-expect-error — mocking Bun.spawn for testing
+      Bun.spawn = spawnMock;
+      delete process.env.ANTHROPIC_API_KEY;
+      process.env.CLAUDE_DATA_DIR = '/data/cli-config/claude-data';
+
+      await backend.getStatus();
+
+      expect(spawnMock).toHaveBeenCalled();
+      const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
+      expect(spawnOpts?.env).toBeDefined();
+      const env = spawnOpts!.env as Record<string, string>;
+      expect(env.CLAUDE_DATA_DIR).toBe('/data/cli-config/claude-data');
+    });
+
+    test('does not forward server secrets to spawned auth status process', async () => {
+      // @ts-expect-error — mocking Bun.which for testing
+      Bun.which = mock(() => '/usr/local/bin/claude');
+      const spawnMock = createAuthStatusMockSpawn(AUTH_NOT_LOGGED_IN, 0);
+      // @ts-expect-error — mocking Bun.spawn for testing
+      Bun.spawn = spawnMock;
+      delete process.env.ANTHROPIC_API_KEY;
+      clearClaudeEnvVars();
+      // Set secrets that should NOT be forwarded
+      process.env.AUTH_MASTER_KEY = 'master-secret';
+      process.env.DASHBOARD_PASSWORD = 'dashboard-secret';
+      process.env.OPENAI_API_KEY = 'sk-openai-secret';
+      process.env.CODEX_API_KEY = 'codex-secret';
+      process.env.GEMINI_API_KEY = 'gemini-secret';
+      process.env.GOOGLE_API_KEY = 'google-secret';
+
+      await backend.getStatus();
+
+      expect(spawnMock).toHaveBeenCalled();
+      const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
+      expect(spawnOpts?.env).toBeDefined();
+      const env = spawnOpts!.env as Record<string, string>;
+      expect(env).not.toHaveProperty('AUTH_MASTER_KEY');
+      expect(env).not.toHaveProperty('DASHBOARD_PASSWORD');
+      expect(env).not.toHaveProperty('OPENAI_API_KEY');
+      expect(env).not.toHaveProperty('CODEX_API_KEY');
+      expect(env).not.toHaveProperty('GEMINI_API_KEY');
+      expect(env).not.toHaveProperty('GOOGLE_API_KEY');
+    });
   });
 
   // ============================================================

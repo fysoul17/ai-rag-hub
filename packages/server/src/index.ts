@@ -43,6 +43,7 @@ import { createInstanceRoutes } from './routes/instances.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
 import { createUsageRoutes } from './routes/usage.ts';
+import { SecretStore } from './secret-store.ts';
 import { runSeeds } from './seeds/index.ts';
 import { SessionStore } from './session-store.ts';
 import { createTerminalWebSocketHandler, type TerminalWSData } from './terminal-ws.ts';
@@ -74,6 +75,7 @@ export { createInstanceRoutes } from './routes/instances.ts';
 export { createMemoryRoutes } from './routes/memory.ts';
 export { createSessionRoutes } from './routes/sessions.ts';
 export { createUsageRoutes } from './routes/usage.ts';
+export { SecretStore } from './secret-store.ts';
 export { SessionStore } from './session-store.ts';
 export { createWebSocketHandler, type WSData } from './websocket.ts';
 
@@ -92,6 +94,8 @@ async function main() {
   const logger = new Logger({ level: config.LOG_LEVEL, context: { source: 'server' } });
   const configManager = new ConfigManager(config);
   configManager.initialize();
+  const secretStore = new SecretStore(config.DATA_DIR);
+  secretStore.initialize();
   const env = typeof Bun !== 'undefined' ? Bun.env : process.env;
   const debugWsEnabled = env.ENABLE_DEBUG_WS !== 'false';
   const debugWsToken = env.DEBUG_WS_TOKEN;
@@ -114,6 +118,13 @@ async function main() {
   const { mkdirSync, existsSync } = await import('node:fs');
   if (!existsSync(config.DATA_DIR)) {
     mkdirSync(config.DATA_DIR, { recursive: true });
+  }
+  // Ensure CLI config directories exist (for existing Docker volumes that predate this change)
+  for (const subdir of ['claude', 'codex', 'gemini']) {
+    const cliConfigDir = join(config.DATA_DIR, 'cli-config', subdir);
+    if (!existsSync(cliConfigDir)) {
+      mkdirSync(cliConfigDir, { recursive: true });
+    }
   }
   const controlPlaneDb = new Database(join(config.DATA_DIR, 'control-plane.sqlite'));
   controlPlaneDb.exec('PRAGMA journal_mode = WAL;');
@@ -284,7 +295,7 @@ async function main() {
   const cronRoutes = createCronRoutes(cronManager);
   const activityRoute = createActivityRoute(conductor);
   const configRoutes = createConfigRoutes(configManager);
-  const backendRoutes = createBackendRoutes(registry);
+  const backendRoutes = createBackendRoutes(registry, secretStore);
   const authRoutes = createAuthRoutes(authStore, authMiddleware);
   const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
   const instanceRoutes = createInstanceRoutes(instanceRegistry);
