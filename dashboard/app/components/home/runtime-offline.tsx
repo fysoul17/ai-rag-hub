@@ -3,13 +3,13 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export function RuntimeOffline() {
   return (
-    <Card className="glass border-neon-red/30 glow-red">
+    <Card className="border-status-red/30">
       <CardContent className="flex items-center gap-4 py-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neon-red/10">
-          <AlertTriangle className="h-6 w-6 text-neon-red" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-status-red/10">
+          <AlertTriangle className="h-6 w-6 text-status-red" />
         </div>
         <div>
-          <h3 className="font-bold text-neon-red">Runtime Offline</h3>
+          <h3 className="font-bold text-status-red">Runtime Offline</h3>
           <p className="text-sm text-muted-foreground">
             Cannot connect to the runtime at{' '}
             <code className="font-mono text-xs">

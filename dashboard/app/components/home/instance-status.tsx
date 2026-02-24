@@ -25,7 +25,7 @@ export { StatusBadge };
 
 export function InstanceStatus({ instances }: { instances: InstanceInfo[] }) {
   return (
-    <Card className="glass glass-hover transition-all">
+    <Card className="card-hover accent-line-top transition-all">
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
         <Server className="h-4 w-4 text-primary" />
         <CardTitle className="text-sm font-medium">Instances</CardTitle>

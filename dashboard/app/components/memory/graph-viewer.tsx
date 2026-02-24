@@ -39,7 +39,7 @@ export function GraphViewer() {
   if (error) {
     return (
       <div className="py-12 text-center">
-        <p className="text-neon-red">{error}</p>
+        <p className="text-status-red">{error}</p>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export function GraphViewer() {
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {nodes.map((node) => (
-          <Card key={node.id} className="glass transition-all hover:glow-purple">
+          <Card key={node.id} className="card-hover accent-line-top transition-all">
             <CardContent className="space-y-2 py-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-sm font-bold">{node.name}</span>

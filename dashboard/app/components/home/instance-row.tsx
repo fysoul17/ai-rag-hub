@@ -104,14 +104,14 @@ export function InstanceRow({ instance }: { instance: InstanceInfo }) {
             </div>
           </div>
 
-          {error && <p className="text-[10px] text-neon-red">{error}</p>}
+          {error && <p className="text-[10px] text-status-red">{error}</p>}
 
           {isUnreachable && (
             <div className="pt-1">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-[11px] text-neon-red hover:text-neon-red hover:bg-neon-red/10"
+                className="h-6 px-2 text-[11px] text-status-red hover:text-status-red hover:bg-status-red/10"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowDelete(true);
@@ -128,7 +128,7 @@ export function InstanceRow({ instance }: { instance: InstanceInfo }) {
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-        <AlertDialogContent className="glass border-neon-red/30">
+        <AlertDialogContent className="border-status-red/30">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Instance</AlertDialogTitle>
             <AlertDialogDescription>
@@ -141,7 +141,7 @@ export function InstanceRow({ instance }: { instance: InstanceInfo }) {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={loading}
-              className="bg-neon-red hover:bg-neon-red/80"
+              className="bg-status-red hover:bg-status-red/80"
             >
               Remove
             </AlertDialogAction>

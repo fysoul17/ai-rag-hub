@@ -8,34 +8,34 @@ import type { DebugConnectionStatus } from '@/hooks/use-debug-websocket';
 // ─── Color maps ────────────────────────────────────────────────────────────
 
 const CATEGORY_BADGE: Record<DebugEventCategory, string> = {
-  conductor: 'bg-neon-cyan/10 text-neon-cyan/70',
-  agent: 'bg-neon-purple/10 text-neon-purple/70',
-  memory: 'bg-neon-green/10 text-neon-green/70',
+  conductor: 'bg-primary/10 text-primary/70',
+  agent: 'bg-status-purple/10 text-status-purple/70',
+  memory: 'bg-status-green/10 text-status-green/70',
   websocket: 'bg-muted-foreground/5 text-muted-foreground/40',
   system: 'bg-muted-foreground/5 text-muted-foreground/40',
 };
 
 const CATEGORY_PILL_ACTIVE: Record<DebugEventCategory, string> = {
-  conductor: 'bg-neon-cyan/10 text-neon-cyan/70 border border-neon-cyan/20',
-  agent: 'bg-neon-purple/10 text-neon-purple/70 border border-neon-purple/20',
-  memory: 'bg-neon-green/10 text-neon-green/70 border border-neon-green/20',
+  conductor: 'bg-primary/10 text-primary/70 border border-primary/20',
+  agent: 'bg-status-purple/10 text-status-purple/70 border border-status-purple/20',
+  memory: 'bg-status-green/10 text-status-green/70 border border-status-green/20',
   websocket: 'bg-muted-foreground/10 text-muted-foreground/50',
   system: 'bg-muted-foreground/10 text-muted-foreground/50',
 };
 
-// Fix UI-1/UI-2: Use design system tokens (neon-amber/neon-red), not raw Tailwind amber-400/red-400
+// Fix UI-1/UI-2: Use design system tokens (status-amber/status-red), not raw Tailwind amber-400/red-400
 const LEVEL_TEXT: Record<DebugEventLevel, string> = {
   debug: 'text-muted-foreground/40',
   info: 'text-muted-foreground/70',
-  warn: 'text-neon-amber',
-  error: 'text-neon-red',
+  warn: 'text-status-amber',
+  error: 'text-status-red',
 };
 
 const LEVEL_ROW_BG: Record<DebugEventLevel, string> = {
   debug: '',
   info: '',
-  warn: 'bg-neon-amber/5',
-  error: 'bg-neon-red/5',
+  warn: 'bg-status-amber/5',
+  error: 'bg-status-red/5',
 };
 
 const ALL_CATEGORIES: DebugEventCategory[] = [
@@ -118,7 +118,7 @@ const DebugLogEntry = memo(function DebugLogEntry({ event }: { event: DebugEvent
         <pre
           id={dataId}
           hidden={!expanded}
-          className="mt-0.5 ml-[9.5rem] glass rounded px-1.5 py-1 text-[8px] font-mono text-muted-foreground/60 overflow-x-auto max-h-32 whitespace-pre-wrap break-all"
+          className="mt-0.5 ml-[9.5rem] rounded px-1.5 py-1 text-[8px] font-mono text-muted-foreground/60 overflow-x-auto max-h-32 whitespace-pre-wrap break-all"
         >
           {JSON.stringify(event.data, null, 2)}
         </pre>
@@ -204,12 +204,12 @@ export function DebugConsole({ events, connectionStatus, onClear, onClose }: Deb
     isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 40;
   }
 
-  // Fix UI-1: neon-amber instead of amber-400 for connecting dot
+  // Fix UI-1: status-amber instead of amber-400 for connecting dot
   const statusDot =
     connectionStatus === 'connected'
-      ? 'bg-neon-green'
+      ? 'bg-status-green'
       : connectionStatus === 'connecting'
-        ? 'bg-neon-amber animate-pulse motion-reduce:animate-none'
+        ? 'bg-status-amber animate-pulse motion-reduce:animate-none'
         : 'bg-muted-foreground/30';
 
   // Fix UX-HIGH-1/2: precise empty state copy
@@ -228,8 +228,8 @@ export function DebugConsole({ events, connectionStatus, onClear, onClose }: Deb
         <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusDot}`} aria-hidden="true" />
         {/* A11y-5: SR-only connection status text */}
         <span className="sr-only">Debug console: {connectionStatus}</span>
-        {/* Fix UI-1: neon-amber/70 instead of amber-400/70 */}
-        <span className="text-[10px] font-mono font-medium text-neon-amber/70 tracking-widest uppercase">
+        {/* Fix UI-1: status-amber/70 instead of amber-400/70 */}
+        <span className="text-[10px] font-mono font-medium text-status-amber/70 tracking-widest uppercase">
           Debug
         </span>
         {/* A11y-6: sr-only provides accessible context; visible span is decorative */}

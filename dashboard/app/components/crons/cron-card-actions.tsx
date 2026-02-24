@@ -86,7 +86,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
   return (
     <>
       {error && (
-        <p className="absolute -bottom-5 left-0 right-0 truncate text-[10px] text-neon-red">
+        <p className="absolute -bottom-5 left-0 right-0 truncate text-[10px] text-status-red">
           {error}
         </p>
       )}
@@ -106,7 +106,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="glass">
+        <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={handleTrigger} disabled={loading}>
             <Zap className="mr-2 h-4 w-4" />
             Trigger Now
@@ -131,7 +131,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
           <DropdownMenuItem
             onClick={() => setShowDelete(true)}
             disabled={loading}
-            className="text-neon-red focus:text-neon-red"
+            className="text-status-red focus:text-status-red"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
@@ -140,7 +140,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
       </DropdownMenu>
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-        <AlertDialogContent className="glass border-neon-red/30">
+        <AlertDialogContent className="border-status-red/30">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Cron Job</AlertDialogTitle>
             <AlertDialogDescription>
@@ -150,7 +150,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-neon-red hover:bg-neon-red/80">
+            <AlertDialogAction onClick={handleDelete} className="bg-status-red hover:bg-status-red/80">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

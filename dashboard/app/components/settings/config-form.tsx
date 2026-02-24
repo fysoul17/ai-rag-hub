@@ -50,7 +50,7 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
   }
 
   return (
-    <Card className="glass max-w-2xl">
+    <Card className="max-w-2xl">
       <CardHeader>
         <CardTitle className="text-sm">Configuration</CardTitle>
       </CardHeader>

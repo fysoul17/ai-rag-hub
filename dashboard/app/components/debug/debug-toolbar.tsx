@@ -12,27 +12,27 @@ const CATEGORY_CONFIG: Array<{
   {
     value: Categories.CONDUCTOR,
     label: 'Conductor',
-    activeClass: 'bg-neon-cyan/20 border-neon-cyan/50 text-neon-cyan',
+    activeClass: 'bg-primary/20 border-primary/50 text-primary',
   },
   {
     value: Categories.AGENT,
     label: 'Agent',
-    activeClass: 'bg-neon-purple/20 border-neon-purple/50 text-neon-purple',
+    activeClass: 'bg-status-purple/20 border-status-purple/50 text-status-purple',
   },
   {
     value: Categories.MEMORY,
     label: 'Memory',
-    activeClass: 'bg-neon-green/20 border-neon-green/50 text-neon-green',
+    activeClass: 'bg-status-green/20 border-status-green/50 text-status-green',
   },
   {
     value: Categories.WEBSOCKET,
     label: 'WebSocket',
-    activeClass: 'bg-neon-amber/20 border-neon-amber/50 text-neon-amber',
+    activeClass: 'bg-status-amber/20 border-status-amber/50 text-status-amber',
   },
   {
     value: Categories.SYSTEM,
     label: 'System',
-    activeClass: 'bg-neon-red/20 border-neon-red/50 text-neon-red',
+    activeClass: 'bg-status-red/20 border-status-red/50 text-status-red',
   },
 ];
 
@@ -73,7 +73,7 @@ export function DebugToolbar({
   filteredCount,
 }: DebugToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2 glass border-b border-white/[0.06]">
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border">
       {/* Category filter chips */}
       <div className="flex items-center gap-1">
         {CATEGORY_CONFIG.map((cat) => {
@@ -137,7 +137,7 @@ export function DebugToolbar({
       <button
         type="button"
         onClick={onTogglePause}
-        className={`p-1 rounded hover:bg-white/10 transition-colors ${paused ? 'text-neon-amber' : 'text-muted-foreground'}`}
+        className={`p-1 rounded hover:bg-white/10 transition-colors ${paused ? 'text-status-amber' : 'text-muted-foreground'}`}
         title={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
         aria-label={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
       >

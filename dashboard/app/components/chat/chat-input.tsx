@@ -148,7 +148,7 @@ export function ChatInput({
           aria-controls={isAutocompleteOpen ? 'slash-command-listbox' : undefined}
           aria-activedescendant={isAutocompleteOpen ? `slash-option-${activeIndex}` : undefined}
           aria-label="Chat message input"
-          className="w-full resize-none rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:glow-cyan focus:outline-none disabled:opacity-50"
+          className="w-full resize-none rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
         />
       </div>
       {isProcessing && onCancel ? (
@@ -157,7 +157,7 @@ export function ChatInput({
           size="icon"
           onClick={onCancel}
           aria-label="Cancel processing"
-          className="shrink-0 border-neon-red/50 text-neon-red hover:bg-neon-red/10"
+          className="shrink-0 border-status-red/50 text-status-red hover:bg-status-red/10"
           variant="outline"
         >
           <Square className="h-4 w-4" />
@@ -168,7 +168,7 @@ export function ChatInput({
           size="icon"
           disabled={disabled}
           aria-label="Send message"
-          className="shrink-0 glow-cyan"
+          className="shrink-0"
         >
           <Send className="h-4 w-4" />
         </Button>

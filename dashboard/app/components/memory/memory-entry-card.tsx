@@ -20,8 +20,8 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 const typeGlow: Record<string, string> = {
-  'short-term': 'hover:border-neon-amber/30 hover:glow-amber',
-  'long-term': 'hover:border-neon-cyan/30 hover:glow-cyan',
+  'short-term': 'hover:border-status-amber/30',
+  'long-term': 'hover:border-primary/30',
 };
 
 export function MemoryEntryCard({ entry, onSelect }: MemoryEntryCardProps) {
@@ -29,7 +29,7 @@ export function MemoryEntryCard({ entry, onSelect }: MemoryEntryCardProps) {
 
   return (
     <Card
-      className={`glass cursor-pointer transition-all hover:scale-[1.02] ${glow}`}
+      className={`card-hover accent-line-top cursor-pointer transition-all ${glow}`}
       onClick={() => onSelect?.(entry)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(entry); } }}
       tabIndex={0}

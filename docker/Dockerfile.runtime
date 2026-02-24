@@ -36,15 +36,11 @@ RUN npm install -g @anthropic-ai/claude-code @openai/codex @google/gemini-cli
 COPY tsconfig.base.json ./
 COPY packages/ ./packages/
 
-# Create data directory with seed files
+# Create data directories (services create JSON files on first write)
 RUN mkdir -p /data/agents /data/memory /data/vectors /data/workspaces \
              /data/cli-config/claude /data/cli-config/codex /data/cli-config/gemini /data/cli-config/pi && \
     chmod 700 /data/cli-config/claude /data/cli-config/codex /data/cli-config/gemini /data/cli-config/pi && \
     chown -R bun:bun /data
-
-COPY --chown=bun:bun data/config.json /data/config.json
-COPY --chown=bun:bun data/crons.json /data/crons.json
-COPY --chown=bun:bun data/agents/registry.json /data/agents/registry.json
 
 # Runtime config
 ENV DATA_DIR=/data

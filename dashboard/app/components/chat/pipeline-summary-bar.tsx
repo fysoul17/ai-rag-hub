@@ -24,7 +24,7 @@ export function PipelineSummaryBar({ phases }: { phases: PipelinePhase[] }) {
         aria-expanded={expanded}
         aria-controls={panelId}
         aria-label="Toggle processing details"
-        className="flex items-center gap-2 glass rounded-md px-2 py-1 w-full hover:border-neon-cyan/20 transition-colors group"
+        className="flex items-center gap-2 rounded-md px-2 py-1 w-full hover:border-primary/20 transition-colors group"
       >
         {/* Phase dots — decorative */}
         <div className="flex items-center gap-1" aria-hidden="true">
@@ -56,7 +56,7 @@ export function PipelineSummaryBar({ phases }: { phases: PipelinePhase[] }) {
         <section
           id={panelId}
           aria-label="Processing steps"
-          className="glass rounded-md mt-1 px-2 py-1"
+          className="rounded-md mt-1 px-2 py-1"
         >
           <PipelineTimeline phases={phases} />
         </section>

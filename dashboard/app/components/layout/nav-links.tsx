@@ -37,7 +37,7 @@ export function NavLinks({ items }: { items: NavItem[] }) {
                 href={item.href}
                 className={
                   isActive
-                    ? 'text-primary text-glow-cyan border-l-2 border-primary'
+                    ? 'text-accent-foreground border-l-2 border-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 }
               >

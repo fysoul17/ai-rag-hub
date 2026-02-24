@@ -254,12 +254,12 @@ export function ChatInterface({
         <output className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className={`h-2 w-2 rounded-full animate-pulse-glow ${
+            className={`h-2 w-2 rounded-full ${
               status === 'connected'
-                ? 'bg-neon-cyan'
+                ? 'bg-status-green status-pulse-green'
                 : status === 'connecting'
-                  ? 'bg-neon-amber'
-                  : 'bg-neon-red'
+                  ? 'bg-status-amber'
+                  : 'bg-status-red'
             }`}
           />
           <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
@@ -280,7 +280,7 @@ export function ChatInterface({
           aria-label={showSteps ? 'Hide processing steps' : 'Show processing steps'}
           className={`ml-auto flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-mono transition-colors ${
             showSteps
-              ? 'bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20'
+              ? 'bg-primary/10 text-primary border border-primary/20'
               : 'text-muted-foreground/50 hover:text-muted-foreground'
           }`}
         >
@@ -293,7 +293,7 @@ export function ChatInterface({
           aria-label={showDebug ? 'Hide debug console' : 'Show debug console'}
           className={`flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-mono transition-colors ${
             showDebug
-              ? 'bg-neon-amber/10 text-neon-amber border border-neon-amber/20'
+              ? 'bg-status-amber/10 text-status-amber border border-status-amber/20'
               : 'text-muted-foreground/50 hover:text-muted-foreground'
           }`}
         >

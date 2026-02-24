@@ -111,14 +111,14 @@ export function CreateCronDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 glow-cyan">
+        <Button className="gap-2">
           <Plus className="h-4 w-4" />
           Create Cron Job
         </Button>
       </DialogTrigger>
-      <DialogContent className="glass border-primary/20 sm:max-w-lg">
+      <DialogContent className="border-primary/20 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-primary text-glow-cyan">New Cron Job</DialogTitle>
+          <DialogTitle className="text-primary font-display tracking-wider">New Cron Job</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -186,7 +186,7 @@ export function CreateCronDialog() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-neon-red"
+                    className="h-8 w-8 text-muted-foreground hover:text-status-red"
                     onClick={() => removeStep(index)}
                     aria-label={`Remove step ${index + 1}`}
                   >
@@ -197,9 +197,9 @@ export function CreateCronDialog() {
             ))}
           </div>
 
-          {error && <p className="text-sm text-neon-red">{error}</p>}
+          {error && <p className="text-sm text-status-red">{error}</p>}
 
-          <Button type="submit" className="w-full glow-cyan" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Create Cron Job'}
           </Button>
         </form>

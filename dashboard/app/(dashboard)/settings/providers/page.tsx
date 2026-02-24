@@ -25,7 +25,7 @@ export default async function ProvidersPage() {
         {status ? (
           <ProviderList status={status} />
         ) : (
-          <div className="glass rounded-lg p-8 text-center text-muted-foreground">
+          <div className="rounded-none p-8 text-center text-muted-foreground">
             <p>Unable to connect to runtime. Check that the server is running.</p>
           </div>
         )}

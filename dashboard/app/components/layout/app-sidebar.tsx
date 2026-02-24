@@ -53,11 +53,11 @@ export function AppSidebar({ authEnabled }: { authEnabled?: boolean }) {
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="px-4 py-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 glow-cyan">
-            <Cpu className="h-4 w-4 text-primary text-glow-cyan" />
+          <div className="flex h-8 w-8 items-center justify-center diamond bg-primary">
+            <Cpu className="h-4 w-4 text-background" />
           </div>
           <div>
-            <h2 className="text-sm font-bold tracking-wide text-primary text-glow-cyan">
+            <h2 className="font-display text-lg tracking-[0.1em] text-foreground">
               AUTONOMY
             </h2>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">

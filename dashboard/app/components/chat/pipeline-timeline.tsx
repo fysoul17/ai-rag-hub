@@ -53,7 +53,7 @@ export function PipelineTimeline({ phases }: { phases: PipelinePhase[] }) {
             {showRaw ? 'Hide' : 'Show'} decisions
           </button>
           {showRaw && (
-            <pre className="mt-1 glass rounded p-2 text-[9px] font-mono text-muted-foreground/70 overflow-x-auto max-h-40">
+            <pre className="mt-1 rounded p-2 text-[9px] font-mono text-muted-foreground/70 overflow-x-auto max-h-40">
               {JSON.stringify(lastPhaseWithDecisions.debug?.decisions, null, 2)}
             </pre>
           )}

@@ -25,7 +25,7 @@ export default async function SettingsPage() {
         {config ? (
           <ConfigForm config={config} />
         ) : (
-          <div className="glass rounded-lg p-6 text-center text-muted-foreground">
+          <div className="rounded-none p-6 text-center text-muted-foreground">
             Unable to load configuration. Is the runtime running?
           </div>
         )}

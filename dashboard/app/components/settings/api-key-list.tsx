@@ -6,7 +6,7 @@ import type { ApiKey } from '@autonomy/shared';
 export function ApiKeyList({ keys }: { keys: ApiKey[] }) {
   if (keys.length === 0) {
     return (
-      <div className="glass rounded-lg p-8 text-center text-muted-foreground">
+      <div className="rounded-none p-8 text-center text-muted-foreground">
         No API keys configured. Create one to enable authenticated access.
       </div>
     );

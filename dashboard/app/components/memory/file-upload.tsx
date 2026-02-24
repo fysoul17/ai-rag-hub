@@ -54,8 +54,8 @@ export function FileUpload() {
   return (
     <div className="space-y-4">
       <Card
-        className={`glass transition-all ${
-          dragOver ? 'border-primary glow-cyan' : 'border-dashed'
+        className={`transition-all ${
+          dragOver ? 'border-primary' : 'border-dashed'
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -94,11 +94,11 @@ export function FileUpload() {
       )}
 
       {result && (
-        <p className="text-sm text-neon-cyan">{result}</p>
+        <p className="text-sm text-primary">{result}</p>
       )}
 
       {error && (
-        <p className="text-sm text-neon-red">{error}</p>
+        <p className="text-sm text-status-red">{error}</p>
       )}
     </div>
   );

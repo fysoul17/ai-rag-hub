@@ -10,23 +10,23 @@ import { AuthActions } from './auth-actions';
 const backendStyles: Record<string, { label: string; color: string; badgeClass: string }> = {
   claude: {
     label: 'Claude',
-    color: 'text-neon-purple',
-    badgeClass: 'bg-neon-purple/10 text-neon-purple border-neon-purple/20',
+    color: 'text-status-purple',
+    badgeClass: 'bg-status-purple/10 text-status-purple border-status-purple/20',
   },
   codex: {
     label: 'Codex',
-    color: 'text-neon-green',
-    badgeClass: 'bg-neon-green/10 text-neon-green border-neon-green/20',
+    color: 'text-status-green',
+    badgeClass: 'bg-status-green/10 text-status-green border-status-green/20',
   },
   gemini: {
     label: 'Gemini',
-    color: 'text-neon-cyan',
-    badgeClass: 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20',
+    color: 'text-primary',
+    badgeClass: 'bg-primary/10 text-primary border-primary/20',
   },
   pi: {
     label: 'Pi',
-    color: 'text-neon-amber',
-    badgeClass: 'bg-neon-amber/10 text-neon-amber border-neon-amber/20',
+    color: 'text-status-amber',
+    badgeClass: 'bg-status-amber/10 text-status-amber border-status-amber/20',
   },
 };
 
@@ -46,13 +46,13 @@ function StatusBadge({ backend }: { backend: BackendStatus }) {
   }
   if (!backend.configured) {
     return (
-      <Badge variant="outline" className="bg-neon-amber/10 text-neon-amber border-neon-amber/20">
+      <Badge variant="outline" className="bg-status-amber/10 text-status-amber border-status-amber/20">
         Not Configured
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="bg-neon-green/10 text-neon-green border-neon-green/20">
+    <Badge variant="outline" className="bg-status-green/10 text-status-green border-status-green/20">
       Ready
     </Badge>
   );
@@ -85,7 +85,7 @@ function AuthInfo({ backend }: { backend: BackendStatus }) {
   if (!backend.available) {
     return <div className="text-xs text-red-400">{backend.error ?? 'CLI not installed'}</div>;
   }
-  return <div className="text-xs text-neon-amber">No authentication configured</div>;
+  return <div className="text-xs text-status-amber">No authentication configured</div>;
 }
 
 function CapabilityList({ backend }: { backend: BackendStatus }) {
@@ -154,7 +154,7 @@ export function ProviderCard({
   const style = backendStyles[backend.name] ?? defaultStyle;
 
   return (
-    <Card className={`glass ${isDefault ? 'ring-1 ring-primary/30' : ''}`}>
+    <Card className={`${isDefault ? 'ring-1 ring-primary/30' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

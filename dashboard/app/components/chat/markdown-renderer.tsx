@@ -27,7 +27,7 @@ const components: Components = {
     }
     return (
       <code
-        className="rounded-sm bg-neon-cyan/5 border border-neon-cyan/10 px-1.5 py-0.5 text-[0.85em] font-mono text-neon-cyan/80"
+        className="rounded-sm bg-primary/5 border border-primary/10 px-1.5 py-0.5 text-[0.85em] font-mono text-primary/80"
         {...props}
       >
         {children}
@@ -60,11 +60,11 @@ const components: Components = {
   },
   // Lists
   ul({ children }) {
-    return <ul className="mb-2 ml-4 list-disc space-y-0.5 marker:text-neon-cyan/40">{children}</ul>;
+    return <ul className="mb-2 ml-4 list-disc space-y-0.5 marker:text-primary/40">{children}</ul>;
   },
   ol({ children }) {
     return (
-      <ol className="mb-2 ml-4 list-decimal space-y-0.5 marker:text-neon-cyan/40">{children}</ol>
+      <ol className="mb-2 ml-4 list-decimal space-y-0.5 marker:text-primary/40">{children}</ol>
     );
   },
   li({ children }) {
@@ -73,7 +73,7 @@ const components: Components = {
   // Block quotes
   blockquote({ children }) {
     return (
-      <blockquote className="my-2 border-l-2 border-neon-purple/40 pl-3 text-muted-foreground italic">
+      <blockquote className="my-2 border-l-2 border-status-purple/40 pl-3 text-muted-foreground italic">
         {children}
       </blockquote>
     );
@@ -89,7 +89,7 @@ const components: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-neon-cyan/80 underline underline-offset-2 decoration-neon-cyan/30 hover:text-neon-cyan hover:decoration-neon-cyan/60 transition-colors"
+        className="text-primary/80 underline underline-offset-2 decoration-primary/30 hover:text-primary hover:decoration-primary/60 transition-colors"
       >
         {children}
       </a>

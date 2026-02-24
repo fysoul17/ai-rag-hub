@@ -7,7 +7,7 @@ import { CronCardActions } from './cron-card-actions';
 export function CronCard({ cron }: { cron: CronEntryWithStatus }) {
   return (
     <Card
-      className={`glass transition-all hover:scale-[1.02] ${cron.enabled ? 'hover:border-neon-cyan/30 hover:glow-cyan' : ''}`}
+      className={`card-hover accent-line-top transition-all`}
     >
       <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
         <div className="min-w-0">

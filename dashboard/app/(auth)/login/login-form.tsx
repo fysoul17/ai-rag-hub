@@ -42,10 +42,10 @@ export function LoginForm({ redirectUrl }: { redirectUrl: string }) {
   return (
     <Card className="w-full max-w-sm border-primary/20">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 glow-cyan">
-          <Cpu className="h-5 w-5 text-primary text-glow-cyan" />
+        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center diamond bg-primary">
+          <Cpu className="h-5 w-5 text-background" />
         </div>
-        <CardTitle className="text-primary text-glow-cyan">AUTONOMY</CardTitle>
+        <CardTitle className="text-foreground font-display text-lg tracking-[0.1em]">AUTONOMY</CardTitle>
         <CardDescription>Sign in to the dashboard</CardDescription>
       </CardHeader>
       <CardContent>

@@ -14,9 +14,9 @@ const STALE_THRESHOLD_MS = 30_000;
 type ConnectionStatus = 'connected' | 'stale' | 'error';
 
 const CONNECTION_DOT_CLASSES: Record<ConnectionStatus, string> = {
-  connected: 'bg-neon-cyan',
-  stale: 'bg-neon-amber',
-  error: 'bg-neon-red',
+  connected: 'bg-status-green',
+  stale: 'bg-status-amber',
+  error: 'bg-status-red',
 };
 
 const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
@@ -122,7 +122,7 @@ export function LiveStatusCards({ initialHealth, initialMemoryStats }: LiveStatu
         className={`grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-4 ${fetching ? 'opacity-80' : ''}`}
       >
         {/* System Status */}
-        <Card className="glass glass-hover transition-all">
+        <Card className="card-hover accent-line-top transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               System
@@ -141,12 +141,12 @@ export function LiveStatusCards({ initialHealth, initialMemoryStats }: LiveStatu
         </Card>
 
         {/* Uptime */}
-        <Card className="glass glass-hover transition-all">
+        <Card className="card-hover accent-line-top transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Uptime
             </CardTitle>
-            <Clock className="h-4 w-4 text-neon-green" />
+            <Clock className="h-4 w-4 text-status-green" />
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-bold text-foreground">
@@ -159,12 +159,12 @@ export function LiveStatusCards({ initialHealth, initialMemoryStats }: LiveStatu
         </Card>
 
         {/* Agents */}
-        <Card className="glass glass-hover transition-all">
+        <Card className="card-hover accent-line-top transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Agents
             </CardTitle>
-            <Bot className="h-4 w-4 text-neon-purple" />
+            <Bot className="h-4 w-4 text-status-purple" />
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-bold text-foreground">
@@ -175,12 +175,12 @@ export function LiveStatusCards({ initialHealth, initialMemoryStats }: LiveStatu
         </Card>
 
         {/* Memory */}
-        <Card className="glass glass-hover transition-all">
+        <Card className="card-hover accent-line-top transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Memory
             </CardTitle>
-            <Brain className="h-4 w-4 text-neon-amber" />
+            <Brain className="h-4 w-4 text-status-amber" />
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-bold text-foreground">

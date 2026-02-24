@@ -7,10 +7,10 @@ import { useEffect, useState } from 'react';
 import { getBackendStatus } from '@/lib/api';
 
 const backendColors: Record<string, string> = {
-  claude: 'text-neon-purple',
-  codex: 'text-neon-green',
-  gemini: 'text-neon-cyan',
-  pi: 'text-neon-amber',
+  claude: 'text-status-purple',
+  codex: 'text-status-green',
+  gemini: 'text-primary',
+  pi: 'text-status-amber',
 };
 
 const backendLabels: Record<string, string> = {
@@ -25,9 +25,9 @@ type ChipStatus = 'connected' | 'no_key' | 'unavailable' | 'loading' | 'error';
 function statusDot(status: ChipStatus) {
   switch (status) {
     case 'connected':
-      return 'bg-neon-green';
+      return 'bg-status-green';
     case 'no_key':
-      return 'bg-neon-amber';
+      return 'bg-status-amber';
     case 'unavailable':
     case 'error':
       return 'bg-red-500';

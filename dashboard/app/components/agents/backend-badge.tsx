@@ -5,19 +5,19 @@ import { Badge } from '@/components/ui/badge';
 const backendConfig: Record<string, { label: string; className: string }> = {
   claude: {
     label: 'Claude',
-    className: 'bg-neon-purple/10 text-neon-purple border-neon-purple/20',
+    className: 'bg-status-purple/10 text-status-purple border-status-purple/20',
   },
   codex: {
     label: 'Codex',
-    className: 'bg-neon-green/10 text-neon-green border-neon-green/20',
+    className: 'bg-status-green/10 text-status-green border-status-green/20',
   },
   gemini: {
     label: 'Gemini',
-    className: 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20',
+    className: 'bg-primary/10 text-primary border-primary/20',
   },
   pi: {
     label: 'Pi',
-    className: 'bg-neon-amber/10 text-neon-amber border-neon-amber/20',
+    className: 'bg-status-amber/10 text-status-amber border-status-amber/20',
   },
 };
 

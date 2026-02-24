@@ -39,7 +39,7 @@ function PipelinePhaseRow({
             </span>
           )}
           {isActive && (
-            <span className="text-[10px] font-mono text-neon-cyan/60 animate-pulse motion-reduce:animate-none">
+            <span className="text-[10px] font-mono text-primary/60 animate-pulse motion-reduce:animate-none">
               running...
             </span>
           )}
@@ -120,9 +120,9 @@ export function LivePipelineCard({
           aria-expanded={expanded}
           aria-controls={timelinePanelId}
           aria-label="Toggle processing details"
-          className="flex items-center gap-2 w-full glass rounded-t-md border-b-0 px-3 py-1.5 hover:border-neon-cyan/20 transition-colors group"
+          className="flex items-center gap-2 w-full rounded-t-md border-b-0 px-3 py-1.5 hover:border-primary/20 transition-colors group"
         >
-          <span className="text-[10px] font-mono font-medium text-neon-cyan/70">PROCESSING</span>
+          <span className="text-[10px] font-mono font-medium text-primary/70">PROCESSING</span>
 
           {/* Phase dots summary — decorative */}
           <div className="flex items-center gap-0.5 ml-1" aria-hidden="true">
@@ -140,7 +140,7 @@ export function LivePipelineCard({
 
           <span className="ml-auto text-[10px] font-mono text-muted-foreground/50">
             {isProcessing ? (
-              <span className="text-neon-cyan/60 animate-pulse motion-reduce:animate-none">
+              <span className="text-primary/60 animate-pulse motion-reduce:animate-none">
                 live
               </span>
             ) : (
@@ -160,7 +160,7 @@ export function LivePipelineCard({
         {expanded && (
           <div
             id={timelinePanelId}
-            className="glass rounded-b-md px-3 py-2 border-t border-border/20"
+            className="rounded-b-md px-3 py-2 border-t border-border/20"
             aria-live="polite"
           >
             <div className="space-y-0">
@@ -194,7 +194,7 @@ export function LivePipelineCard({
                 {showDecisions && (
                   <pre
                     id={decisionsPanelId}
-                    className="mt-1 glass rounded p-2 text-[9px] font-mono text-muted-foreground/70 overflow-x-auto max-h-40"
+                    className="mt-1 rounded p-2 text-[9px] font-mono text-muted-foreground/70 overflow-x-auto max-h-40"
                   >
                     {JSON.stringify(lastPhaseWithDecisions.debug?.decisions, null, 2)}
                   </pre>

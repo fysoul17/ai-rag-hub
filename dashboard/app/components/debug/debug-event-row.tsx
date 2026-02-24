@@ -7,36 +7,36 @@ import { memo, useState } from 'react';
 const CATEGORY_STYLES: Record<DebugEventCategory, { label: string; color: string; bg: string }> = {
   conductor: {
     label: 'COND',
-    color: 'text-neon-cyan',
-    bg: 'bg-neon-cyan/10 border-neon-cyan/30',
+    color: 'text-primary',
+    bg: 'bg-primary/10 border-primary/30',
   },
   agent: {
     label: 'AGNT',
-    color: 'text-neon-purple',
-    bg: 'bg-neon-purple/10 border-neon-purple/30',
+    color: 'text-status-purple',
+    bg: 'bg-status-purple/10 border-status-purple/30',
   },
   memory: {
     label: 'MEM',
-    color: 'text-neon-green',
-    bg: 'bg-neon-green/10 border-neon-green/30',
+    color: 'text-status-green',
+    bg: 'bg-status-green/10 border-status-green/30',
   },
   websocket: {
     label: 'WS',
-    color: 'text-neon-amber',
-    bg: 'bg-neon-amber/10 border-neon-amber/30',
+    color: 'text-status-amber',
+    bg: 'bg-status-amber/10 border-status-amber/30',
   },
   system: {
     label: 'SYS',
-    color: 'text-neon-red',
-    bg: 'bg-neon-red/10 border-neon-red/30',
+    color: 'text-status-red',
+    bg: 'bg-status-red/10 border-status-red/30',
   },
 };
 
 const LEVEL_STYLES: Record<DebugEventLevel, string> = {
   debug: 'text-muted-foreground/60',
   info: 'text-foreground',
-  warn: 'text-neon-amber',
-  error: 'text-neon-red',
+  warn: 'text-status-amber',
+  error: 'text-status-red',
 };
 
 const LEVEL_INDICATOR: Record<DebugEventLevel, string> = {
@@ -113,7 +113,7 @@ export const DebugEventRow = memo(function DebugEventRow({ event }: { event: Deb
 
       {/* Expanded data payload */}
       {expanded && hasData && (
-        <div className="mx-3 mb-2 ml-[120px] p-3 rounded glass font-mono text-[11px] text-muted-foreground overflow-x-auto">
+        <div className="mx-3 mb-2 ml-[120px] p-3 rounded font-mono text-[11px] text-muted-foreground overflow-x-auto">
           <pre className="whitespace-pre-wrap break-all">{JSON.stringify(event.data, null, 2)}</pre>
         </div>
       )}

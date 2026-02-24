@@ -3,10 +3,10 @@
 import type { TimeWarning } from '@/hooks/use-processing-timer';
 
 const DOT_COLOR: Record<TimeWarning, string> = {
-  timeout_risk: 'bg-neon-red',
-  very_long: 'bg-neon-amber',
-  long: 'bg-neon-cyan',
-  none: 'bg-neon-cyan',
+  timeout_risk: 'bg-status-red',
+  very_long: 'bg-status-amber',
+  long: 'bg-primary',
+  none: 'bg-primary',
 };
 
 const WARNING_TEXT: Partial<Record<TimeWarning, string>> = {
@@ -51,14 +51,14 @@ export function ProcessingIndicator({
           <span
             role="timer"
             aria-live="off"
-            className={`text-[10px] font-mono ${warning !== 'none' ? 'text-neon-amber' : 'text-muted-foreground/40'}`}
+            className={`text-[10px] font-mono ${warning !== 'none' ? 'text-status-amber' : 'text-muted-foreground/40'}`}
           >
             {elapsedStr}
           </span>
         )}
         {warningText && (
           <span
-            className={`text-[10px] font-mono ${warning === 'timeout_risk' ? 'text-neon-red' : 'text-neon-amber'}`}
+            className={`text-[10px] font-mono ${warning === 'timeout_risk' ? 'text-status-red' : 'text-status-amber'}`}
           >
             {warningText}
           </span>

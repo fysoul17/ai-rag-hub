@@ -28,10 +28,10 @@ export function ModelSelector({ options, currentOverrides, onChangeOption }: Mod
         aria-label="Select model"
         className="h-6 gap-1 border-none bg-transparent px-2 text-xs font-mono shadow-none"
       >
-        <Sparkles className="h-3 w-3 text-neon-amber" />
+        <Sparkles className="h-3 w-3 text-status-amber" />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="glass">
+      <SelectContent>
         {modelOption.values.map((v) => (
           <SelectItem key={v} value={v} className="text-xs font-mono">
             {v}

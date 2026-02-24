@@ -15,7 +15,7 @@ export function SlashAutocomplete({ commands, activeIndex, onSelect }: SlashAuto
     <div
       id="slash-command-listbox"
       role="listbox"
-      className="absolute bottom-full left-0 z-50 mb-1 w-full max-h-56 overflow-y-auto rounded-md glass p-1"
+      className="absolute bottom-full left-0 z-50 mb-1 w-full max-h-56 overflow-y-auto rounded-none p-1"
     >
       {commands.map((cmd, i) => (
         <div

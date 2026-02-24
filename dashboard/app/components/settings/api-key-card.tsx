@@ -45,7 +45,7 @@ export function ApiKeyCard({ apiKey }: { apiKey: ApiKey }) {
   }
 
   return (
-    <Card className="glass glass-hover">
+    <Card className="card-hover accent-line-top">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{apiKey.name}</CardTitle>

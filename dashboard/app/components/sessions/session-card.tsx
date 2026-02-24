@@ -7,8 +7,8 @@ import { SessionCardActions } from './session-card-actions';
 const statusConfig: Record<string, { label: string; className: string; dot: string }> = {
   active: {
     label: 'Active',
-    className: 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20',
-    dot: 'bg-neon-cyan',
+    className: 'bg-status-green/10 text-status-green border-status-green/20',
+    dot: 'bg-status-green',
   },
   closed: {
     label: 'Closed',
@@ -27,7 +27,7 @@ export function SessionCard({ session }: { session: Session }) {
   const config = statusConfig[session.status] ?? defaultConfig;
 
   return (
-    <Card className="glass transition-all hover:scale-[1.01] hover:border-neon-cyan/30 hover:glow-cyan">
+    <Card className="card-hover accent-line-top transition-all">
       <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
         <div className="min-w-0">
           <h3 className="truncate font-mono text-sm font-bold text-foreground">

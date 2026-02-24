@@ -6,18 +6,18 @@ import { formatRelativeTime } from '@/lib/format';
 
 const typeBadgeColors: Record<string, string> = {
   message: 'bg-primary/10 text-primary border-primary/20',
-  delegation: 'bg-neon-purple/10 text-neon-purple border-neon-purple/20',
-  agent_created: 'bg-neon-green/10 text-neon-green border-neon-green/20',
-  agent_deleted: 'bg-neon-red/10 text-neon-red border-neon-red/20',
-  cron_executed: 'bg-neon-amber/10 text-neon-amber border-neon-amber/20',
-  memory_stored: 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20',
-  error: 'bg-neon-red/10 text-neon-red border-neon-red/20',
+  delegation: 'bg-status-purple/10 text-status-purple border-status-purple/20',
+  agent_created: 'bg-status-green/10 text-status-green border-status-green/20',
+  agent_deleted: 'bg-status-red/10 text-status-red border-status-red/20',
+  cron_executed: 'bg-status-amber/10 text-status-amber border-status-amber/20',
+  memory_stored: 'bg-primary/10 text-primary border-primary/20',
+  error: 'bg-status-red/10 text-status-red border-status-red/20',
 };
 
 export function RecentActivity({ entries }: { entries: ActivityEntry[] }) {
   if (entries.length === 0) {
     return (
-      <Card className="glass">
+      <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
             Recent Activity
@@ -31,14 +31,14 @@ export function RecentActivity({ entries }: { entries: ActivityEntry[] }) {
   }
 
   return (
-    <Card className="glass">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
           Recent Activity
         </CardTitle>
         <Link
           href="/activity"
-          className="text-xs text-primary hover:text-primary/80 hover:text-glow-cyan transition-colors"
+          className="text-xs text-primary hover:text-primary/80 transition-colors"
         >
           View all
         </Link>

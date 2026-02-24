@@ -70,11 +70,11 @@ export function CreateApiKeyDialog() {
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : handleClose())}>
       <DialogTrigger asChild>
-        <Button size="sm" className="glow-cyan">
+        <Button size="sm">
           Create API Key
         </Button>
       </DialogTrigger>
-      <DialogContent className="glass">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{rawKey ? 'API Key Created' : 'Create API Key'}</DialogTitle>
         </DialogHeader>

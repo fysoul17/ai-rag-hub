@@ -55,7 +55,7 @@ export function UsageDashboard({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="glass">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider">
               Today
@@ -67,7 +67,7 @@ export function UsageDashboard({
           </CardContent>
         </Card>
 
-        <Card className="glass">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider">
               This Month
@@ -80,7 +80,7 @@ export function UsageDashboard({
         </Card>
       </div>
 
-      <Card className="glass">
+      <Card>
         <CardHeader>
           <CardTitle className="text-sm">Requests by Key (Today)</CardTitle>
         </CardHeader>
@@ -89,7 +89,7 @@ export function UsageDashboard({
         </CardContent>
       </Card>
 
-      <Card className="glass">
+      <Card>
         <CardHeader>
           <CardTitle className="text-sm">Requests by Key (Month)</CardTitle>
         </CardHeader>

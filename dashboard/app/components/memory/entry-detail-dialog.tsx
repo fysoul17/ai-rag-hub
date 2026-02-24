@@ -42,9 +42,9 @@ export function EntryDetailDialog({ entry, open, onOpenChange }: EntryDetailDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass border-primary/20 sm:max-w-2xl">
+      <DialogContent className="border-primary/20 sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-primary text-glow-cyan">
+          <DialogTitle className="flex items-center gap-2 text-primary font-display tracking-wider">
             <span className="font-mono text-sm">{entry.id.slice(0, 16)}...</span>
           </DialogTitle>
         </DialogHeader>

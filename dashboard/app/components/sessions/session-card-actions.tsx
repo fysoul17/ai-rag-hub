@@ -45,7 +45,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
   return (
     <>
       {error && (
-        <p className="absolute -bottom-5 left-0 right-0 text-[10px] text-neon-red truncate">
+        <p className="absolute -bottom-5 left-0 right-0 text-[10px] text-status-red truncate">
           {error}
         </p>
       )}
@@ -53,7 +53,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-neon-cyan"
+          className="h-7 w-7 text-muted-foreground hover:text-primary"
           aria-label="Resume session"
           asChild
         >
@@ -64,7 +64,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-neon-red"
+          className="h-7 w-7 text-muted-foreground hover:text-status-red"
           aria-label="Delete session"
           onClick={() => setShowDelete(true)}
           disabled={loading}
@@ -74,7 +74,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
       </div>
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-        <AlertDialogContent className="glass border-neon-red/30">
+        <AlertDialogContent className="border-status-red/30">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Session</AlertDialogTitle>
             <AlertDialogDescription>
@@ -84,7 +84,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-neon-red hover:bg-neon-red/80">
+            <AlertDialogAction onClick={handleDelete} className="bg-status-red hover:bg-status-red/80">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
