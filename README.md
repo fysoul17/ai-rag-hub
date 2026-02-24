@@ -19,7 +19,7 @@ An open-source **runtime template** that wraps CLI AI tools (`claude -p`, Codex 
 
 - A **Conductor** — AI agent that responds to messages, searches memory for context, and delegates to specialist agents
 - An **Agent Pool** of AI agents with pluggable backends (per-agent backend selection)
-- **Persistent Memory** with vector search (LanceDB) and structured storage (SQLite)
+- **Persistent Memory** via [pyx-memory](https://github.com/fysoul17/pyx-memory-v1) — vector search (LanceDB), structured storage (SQLite), Graph RAG (Neo4j), and file ingestion. Runs embedded or as a sidecar.
 - A real-time **Cyberpunk Dashboard** with streaming chat, agent management, and debug console
 - **Scheduled tasks** via Cron Manager
 - **Control Plane** with API key auth, usage tracking, quotas, and instance registry
@@ -58,9 +58,9 @@ An open-source **runtime template** that wraps CLI AI tools (`claude -p`, Codex 
 │                        │  ┌─────────────┐     ┌──────────────┐    │  │
 │                        │  │ Agent Pool  │     │    Memory     │    │  │
 │                        │  │             │     │              │    │  │
-│                        │  │ Agent #1    │     │ bun:sqlite   │    │  │
-│                        │  │ Agent #2    │     │ LanceDB      │    │  │
-│                        │  │ Agent #N    │     │ Naive RAG    │    │  │
+│                        │  │ Agent #1    │     │ pyx-memory   │    │  │
+│                        │  │ Agent #2    │     │ (embedded or │    │  │
+│                        │  │ Agent #N    │     │   sidecar)   │    │  │
 │                        │  └─────────────┘     └──────────────┘    │  │
 │                        └──────────────────────────────────────────┘  │
 │                                                                      │
@@ -94,10 +94,10 @@ The Conductor is a simple AI agent: it searches memory for context, then either 
 ## Features
 
 ### Pluggable AI Backends
-Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, and Ollama (local LLM server) slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
+Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, and Pi slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
 
-### Persistent Dual-Storage Memory
-Structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB. Naive RAG engine: embed query, vector search, hydrate from SQLite. Memory persists across sessions and agent restarts.
+### Persistent Memory (pyx-memory)
+Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), extracted as a standalone repo and consumed via git submodule at `vendor/pyx-memory`. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + three RAG strategies (Naive, Graph, Agentic). Runs **embedded** (in-process, zero-latency) or as a **sidecar** (standalone HTTP service with Neo4j graph store). Memory persists across sessions and agent restarts.
 
 ### Agent Lifecycle Management
 Full CRUD for AI agents with serial message queues, idle timeout auto-shutdown, configurable pool limits, session persistence (`--resume` flags), and ownership-based permissions (user-created vs conductor-created agents).
@@ -135,9 +135,12 @@ IP-based rate limiting (configurable window + max), structured JSON logging with
 ### Development Mode
 
 ```bash
-# Clone
-git clone https://github.com/fysoul17/agent-forge.git
+# Clone (include submodules for pyx-memory)
+git clone --recurse-submodules https://github.com/fysoul17/agent-forge.git
 cd agent-forge
+
+# Or if already cloned without submodules:
+git submodule update --init --recursive
 
 # Install dependencies
 bun install
@@ -173,15 +176,17 @@ docker compose -f docker/docker-compose.yaml down
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `ollama`) |
+| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `pi`) |
+| `ANTHROPIC_API_KEY` | *(empty)* | API key for Claude CLI |
 | `CODEX_API_KEY` | *(empty)* | API key for OpenAI Codex CLI |
 | `GEMINI_API_KEY` | *(empty)* | API key for Google Gemini CLI |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `llama3.2` | Default Ollama model |
+| `PI_API_KEY` | *(empty)* | API key for Pi backend |
+| `PI_MODEL` | *(empty)* | Model name for Pi backend |
 | `MAX_AGENTS` | `10` | Maximum concurrent agents |
 | `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `DASHBOARD_USER` | *(empty)* | Set with `DASHBOARD_PASSWORD` to enable dashboard auth |
 | `DASHBOARD_PASSWORD` | *(empty)* | Dashboard login password |
+| `MEMORY_URL` | *(empty)* | Memory sidecar URL (set automatically in `--profile full`) |
 | `EMBEDDING_PROVIDER` | `stub` | Embedding provider for memory (full profile) |
 | `EMBEDDING_API_KEY` | *(empty)* | API key for embedding provider (full profile) |
 | `NEO4J_PASSWORD` | `password` | Neo4j password (full profile, local container) |
@@ -219,17 +224,19 @@ agent-forge/
 ├── packages/
 │   ├── shared/          # Types, interfaces, constants
 │   ├── agent-manager/   # CLIBackend, AgentProcess, AgentPool, BackendRegistry
-│   ├── memory/          # SQLite + LanceDB + Naive/Graph/Agentic RAG + embeddings + ingestion
-│   ├── memory-server/   # Standalone memory sidecar (:7822) — optional
 │   ├── conductor/       # Simple AI agent with memory + delegation
 │   ├── cron-manager/    # Scheduled tasks
 │   ├── control-plane/   # API key auth, usage tracking, quotas, instance registry
 │   ├── plugin-system/   # Event hooks, middleware pipeline, plugin manager
 │   └── server/          # Bun.serve HTTP + WebSocket + routes
+├── vendor/
+│   └── pyx-memory/      # Git submodule → fysoul17/pyx-memory-v1
+│       └── packages/
+│           ├── shared/  # Memory types (@pyx-memory/shared)
+│           ├── client/  # MemoryInterface + HTTP client (@pyx-memory/client)
+│           └── core/    # SQLite + LanceDB + RAG + embeddings (@pyx-memory/core)
 ├── dashboard/           # Next.js 16.1 cyberpunk dashboard
-├── docs/
-│   ├── SPEC.md          # Full specification (single source of truth)
-│   └── CLI-BACKEND-RESEARCH.md  # Backend capabilities research
+├── docker/              # Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
 ├── package.json         # Monorepo root
 ├── turbo.json           # Turborepo config
 └── biome.json           # Linter config
@@ -238,21 +245,23 @@ agent-forge/
 ### Package Dependencies
 
 ```
-@autonomy/shared
-       │
-       ├──▶ @autonomy/agent-manager
-       ├──▶ @autonomy/memory
-       │         │
-       │         └──▶ @autonomy/memory-server (optional sidecar :7822)
+@autonomy/shared             @pyx-memory/shared
+       │                            │
+       ├──▶ @autonomy/agent-manager │
+       │                     @pyx-memory/client ◀── MemoryInterface contract
+       │                            │
+       │                     @pyx-memory/core   ◀── Memory, RAG, embeddings
+       │                            │
+       ├──▶ @autonomy/conductor ────┘ (uses @pyx-memory/client)
        ├──▶ @autonomy/cron-manager
        ├──▶ @autonomy/control-plane (auth, usage, quotas)
        └──▶ @autonomy/plugin-system (hooks, middleware)
                     │
                     ▼
-            @autonomy/conductor
-                    │
+             @autonomy/server  ◀── uses @pyx-memory/core (embedded)
+                    │                  or @pyx-memory/client (sidecar)
                     ▼
-             @autonomy/server  ◀──  dashboard (HTTP + WS)
+               dashboard (HTTP + WS)
 ```
 
 ---
@@ -357,7 +366,7 @@ bun run typecheck            # Type checking
 
 - [x] **Step 8: Cron Manager** — CronManager class, workflow executor, server routes, dashboard Automation page
 - [x] **Step 9: Docker** — Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
-- [x] **Step 10: Advanced Memory** — Memory-server sidecar, pluggable embeddings, Graph/Agentic RAG, file ingestion, Neo4j graph, memory browser UI
+- [x] **Step 10: Advanced Memory** — Extracted to [pyx-memory-v1](https://github.com/fysoul17/pyx-memory-v1). Pluggable embeddings, Graph/Agentic RAG, file ingestion, Neo4j graph store, memory browser UI. Runs embedded or as sidecar.
 - [x] **Step 11: Control Plane** — API key auth, usage tracking, quotas, instance registry, settings UI
 
 ### Extensibility (Steps 12-14) ✅
