@@ -1,4 +1,4 @@
-import type { MemoryInterface } from '@autonomy/memory';
+import type { MemoryInterface } from '@pyx-memory/client';
 import type { MemoryEntry, MemorySearchParams, MemorySearchResult, MemoryStats } from '@autonomy/shared';
 
 export class MockMemory implements MemoryInterface {

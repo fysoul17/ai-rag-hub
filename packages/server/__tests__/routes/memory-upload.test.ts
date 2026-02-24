@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { Memory } from '@autonomy/memory';
+import type { Memory } from '@pyx-memory/core';
 import { BadRequestError } from '../../src/errors.ts';
 import { createMemoryRoutes } from '../../src/routes/memory.ts';
 

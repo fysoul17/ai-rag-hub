@@ -1,0 +1,3 @@
+[submodule "vendor/pyx-memory"]
+	path = vendor/pyx-memory
+	url = https://github.com/fysoul17/pyx-memory-v1.git

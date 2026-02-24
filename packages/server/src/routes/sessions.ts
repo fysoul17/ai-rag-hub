@@ -1,4 +1,4 @@
-import type { MemoryInterface } from '@autonomy/memory';
+import type { MemoryInterface } from '@pyx-memory/client';
 import type { CreateSessionRequest, UpdateSessionRequest } from '@autonomy/shared';
 import { BadRequestError, NotFoundError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';

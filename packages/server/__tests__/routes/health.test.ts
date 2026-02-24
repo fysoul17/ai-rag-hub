@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Conductor } from '@autonomy/conductor';
-import type { Memory } from '@autonomy/memory';
+import type { Memory } from '@pyx-memory/core';
 import { createHealthRoute } from '../../src/routes/health.ts';
 import { MockConductor } from '../helpers/mock-conductor.ts';
 

@@ -11,12 +11,13 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/agent-manager/package.json ./packages/agent-manager/
-COPY packages/memory/package.json ./packages/memory/
+COPY vendor/pyx-memory/packages/shared/package.json ./vendor/pyx-memory/packages/shared/
+COPY vendor/pyx-memory/packages/client/package.json ./vendor/pyx-memory/packages/client/
+COPY vendor/pyx-memory/packages/core/package.json ./vendor/pyx-memory/packages/core/
 COPY packages/conductor/package.json ./packages/conductor/
 COPY packages/cron-manager/package.json ./packages/cron-manager/
 COPY packages/server/package.json ./packages/server/
 COPY packages/control-plane/package.json ./packages/control-plane/
-COPY packages/memory-server/package.json ./packages/memory-server/
 COPY packages/plugin-system/package.json ./packages/plugin-system/
 COPY dashboard/package.json ./dashboard/
 
@@ -35,6 +36,7 @@ RUN npm install -g @anthropic-ai/claude-code @openai/codex @google/gemini-cli
 # Copy source (Bun runs TS directly — no build step)
 COPY tsconfig.base.json ./
 COPY packages/ ./packages/
+COPY vendor/pyx-memory/ ./vendor/pyx-memory/
 
 # Create data directory with seed files
 RUN mkdir -p /data/agents /data/memory /data/vectors /data/workspaces \

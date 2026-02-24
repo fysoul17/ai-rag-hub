@@ -53,8 +53,8 @@ services:
 
   memory:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.memory
+      context: ../vendor/pyx-memory
+      dockerfile: docker/Dockerfile
     ports:
       - "7822:7822"
     volumes:

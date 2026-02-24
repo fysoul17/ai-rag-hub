@@ -1,5 +1,5 @@
 import type { Conductor } from '@autonomy/conductor';
-import type { MemoryInterface } from '@autonomy/memory';
+import type { MemoryInterface } from '@pyx-memory/client';
 import type { HealthCheckResponse } from '@autonomy/shared';
 import { jsonResponse } from '../middleware.ts';
 

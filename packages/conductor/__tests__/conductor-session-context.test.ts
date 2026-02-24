@@ -9,7 +9,7 @@
  */
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
-import type { Memory } from '@autonomy/memory';
+import type { Memory } from '@pyx-memory/core';
 import type { BackendSpawnConfig } from '@autonomy/agent-manager';
 import { MemoryType } from '@autonomy/shared';
 import { Conductor } from '../src/conductor.ts';

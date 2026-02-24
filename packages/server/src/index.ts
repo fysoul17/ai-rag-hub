@@ -22,7 +22,7 @@ import {
   UsageTracker,
 } from '@autonomy/control-plane';
 import { CronManager } from '@autonomy/cron-manager';
-import { createMemory, StubEmbeddingProvider } from '@autonomy/memory';
+import { createMemory, StubEmbeddingProvider } from '@pyx-memory/core';
 import { HookRegistry, PluginManager } from '@autonomy/plugin-system';
 import { DebugEventCategory, DebugEventLevel, Logger } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';

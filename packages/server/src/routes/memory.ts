@@ -1,5 +1,5 @@
-import type { MemoryInterface } from '@autonomy/memory';
-import { getSupportedExtensions, IngestionPipeline } from '@autonomy/memory';
+import type { MemoryInterface } from '@pyx-memory/client';
+import { getSupportedExtensions, IngestionPipeline } from '@pyx-memory/core';
 import { type MemoryIngestRequest, type MemorySearchParams, MemoryType } from '@autonomy/shared';
 import { BadRequestError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';

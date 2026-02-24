@@ -4,7 +4,10 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "dashboard"
+    "dashboard",
+    "vendor/pyx-memory/packages/shared",
+    "vendor/pyx-memory/packages/client",
+    "vendor/pyx-memory/packages/core"
   ],
   "scripts": {
     "build": "turbo run build",

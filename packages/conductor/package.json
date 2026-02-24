@@ -14,7 +14,7 @@
   "dependencies": {
     "@autonomy/shared": "workspace:*",
     "@autonomy/agent-manager": "workspace:*",
-    "@autonomy/memory": "workspace:*",
+    "@pyx-memory/client": "workspace:*",
     "nanoid": "^5.1.6"
   }
 }

@@ -1,5 +1,5 @@
 import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
-import type { MemoryInterface } from '@autonomy/memory';
+import type { MemoryInterface } from '@pyx-memory/client';
 import type { StreamEvent } from '@autonomy/shared';
 import {
   type ActivityEntry,
