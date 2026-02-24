@@ -63,7 +63,7 @@ describe('PiBackend', () => {
         const status = await backend.getStatus();
         expect(status.authenticated).toBe(true);
         expect(status.authMode).toBe('api_key');
-        expect(status.apiKeyMasked).toBe('sk-...9012');
+        expect(status.apiKeyMasked).toBe('...9012');
         expect(status.configured).toBe(true);
       } finally {
         // @ts-expect-error — restoring Bun.which mock

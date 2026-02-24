@@ -96,14 +96,13 @@ class GeminiProcess implements BackendProcess {
       throw new BackendError('gemini', `Process exited with code ${exitCode}`);
     }
 
-    this._firstCallDone = true;
-
     // Try to parse session_id from JSON output
     const trimmed = stdout.trim();
     try {
       const parsed = JSON.parse(trimmed) as { session_id?: string };
       if (parsed.session_id) {
         this._nativeSessionId = parsed.session_id;
+        this._firstCallDone = true;
       }
     } catch {
       // Not JSON — that's fine, return as plain text
