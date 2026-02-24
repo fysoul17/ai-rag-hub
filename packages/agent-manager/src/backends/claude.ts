@@ -127,9 +127,9 @@ class ClaudeProcess implements BackendProcess {
       throw new BackendError('claude', `Process exited with code ${exitCode}`);
     }
 
-    this._firstCallDone = true;
-
-    // Parse JSON output to extract session_id and result text
+    // Parse JSON output to extract session_id and result text.
+    // Only mark _firstCallDone when session_id is captured — otherwise subsequent
+    // calls would lose --system-prompt and config flags without gaining --resume.
     const trimmed = stdout.trim();
     try {
       const parsed = JSON.parse(trimmed) as {
@@ -138,6 +138,7 @@ class ClaudeProcess implements BackendProcess {
       };
       if (parsed.session_id) {
         this._nativeSessionId = parsed.session_id;
+        this._firstCallDone = true;
         claudeLogger.debug('Captured native session ID', { sessionId: parsed.session_id });
       }
       return (typeof parsed.result === 'string' ? parsed.result : trimmed).trim();

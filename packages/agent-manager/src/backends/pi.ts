@@ -19,7 +19,7 @@ function getDefaultModel(): string {
 
 function maskApiKey(key: string | undefined): string | undefined {
   if (!key || key.length < 12) return undefined;
-  return `sk-...${key.slice(-4)}`;
+  return `...${key.slice(-4)}`;
 }
 
 /** Env vars allowlisted for Pi child processes. */

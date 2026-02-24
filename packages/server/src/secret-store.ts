@@ -9,6 +9,7 @@ const MANAGED_KEYS = new Set([
   'GEMINI_API_KEY',
   'OPENAI_API_KEY',
   'GOOGLE_API_KEY',
+  'PI_API_KEY',
 ]);
 
 /**
