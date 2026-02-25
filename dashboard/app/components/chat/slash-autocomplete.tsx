@@ -29,7 +29,7 @@ export function SlashAutocomplete({ commands, activeIndex, onSelect }: SlashAuto
             onSelect(cmd);
           }}
           className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-            i === activeIndex ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/50'
+            i === activeIndex ? 'bg-muted text-foreground' : 'text-foreground hover:bg-muted/50'
           }`}
         >
           <span className="font-mono font-medium">

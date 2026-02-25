@@ -55,12 +55,12 @@ const PhaseRow = memo(function PhaseRow({
             {debug.memoryQuery && (
               <div className="text-[9px] font-mono text-muted-foreground/50 truncate">
                 {/* A11y-3: /70 opacity clears 4.5:1 contrast on dark bg */}
-                <span className="text-primary/70">query:</span> &quot;{debug.memoryQuery}&quot;
+                <span className="text-status-purple/70">query:</span> &quot;{debug.memoryQuery}&quot;
               </div>
             )}
             {debug.memoryResults !== undefined && (
               <div className="text-[9px] font-mono text-muted-foreground/50">
-                <span className="text-primary/70">results:</span> {debug.memoryResults} entries
+                <span className="text-status-purple/70">results:</span> {debug.memoryResults} entries
               </div>
             )}
             {debug.memoryEntryPreviews && debug.memoryEntryPreviews.length > 0 && (
@@ -132,7 +132,7 @@ const ToolCallRow = memo(function ToolCallRow({
       <div className="flex flex-col items-center">
         <div
           className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 ${
-            isStreaming ? 'bg-primary animate-pulse motion-reduce:animate-none' : 'bg-status-green'
+            isStreaming ? 'bg-status-amber animate-pulse motion-reduce:animate-none' : 'bg-status-green'
           }`}
         />
         {!isLast && <div className="w-px flex-1 min-h-2 bg-border/20 mt-0.5" />}
@@ -140,10 +140,10 @@ const ToolCallRow = memo(function ToolCallRow({
       <div className="flex-1 min-w-0 pb-1.5">
         <div className="flex items-baseline gap-2">
           <Wrench
-            className="h-2.5 w-2.5 text-primary/60 shrink-0 self-center"
+            className="h-2.5 w-2.5 text-muted-foreground shrink-0 self-center"
             aria-hidden="true"
           />
-          <span className="text-[10px] font-mono font-medium text-primary/80 shrink-0">
+          <span className="text-[10px] font-mono font-medium text-foreground/70 shrink-0">
             {tool.toolName}
           </span>
           {tool.durationMs !== undefined && (
@@ -152,7 +152,7 @@ const ToolCallRow = memo(function ToolCallRow({
             </span>
           )}
           {isStreaming && (
-            <span className="text-[10px] font-mono text-primary/50 animate-pulse motion-reduce:animate-none">
+            <span className="text-[10px] font-mono text-muted-foreground/50 animate-pulse motion-reduce:animate-none">
               running...
             </span>
           )}
@@ -163,7 +163,7 @@ const ToolCallRow = memo(function ToolCallRow({
               {tool.accumulatedInput}
               {isStreaming && (
                 <span
-                  className="inline-block h-3 w-0.5 bg-primary/60 animate-pulse motion-reduce:animate-none ml-px align-middle"
+                  className="inline-block h-3 w-0.5 bg-foreground/40 animate-pulse motion-reduce:animate-none ml-px align-middle"
                   aria-hidden="true"
                 />
               )}
@@ -330,7 +330,7 @@ const CollapsedPill = memo(function CollapsedPill({
         <div className="flex items-center gap-0.5" aria-hidden="true">
           {Array.from({ length: dotCount }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: decorative dots, order is stable
-            <div key={i} className="h-1 w-1 rounded-full bg-primary/60" />
+            <div key={i} className="h-1 w-1 rounded-full bg-muted-foreground/60" />
           ))}
         </div>
       )}

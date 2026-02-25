@@ -39,7 +39,7 @@ function PipelinePhaseRow({
             </span>
           )}
           {isActive && (
-            <span className="text-[10px] font-mono text-primary/60 animate-pulse motion-reduce:animate-none">
+            <span className="text-[10px] font-mono text-muted-foreground/60 animate-pulse motion-reduce:animate-none">
               running...
             </span>
           )}
@@ -122,7 +122,7 @@ export function LivePipelineCard({
           aria-label="Toggle processing details"
           className="flex items-center gap-2 w-full rounded-t-md border-b-0 px-3 py-1.5 hover:border-primary/20 transition-colors group"
         >
-          <span className="text-[10px] font-mono font-medium text-primary/70">PROCESSING</span>
+          <span className="text-[10px] font-mono font-medium text-foreground/70">PROCESSING</span>
 
           {/* Phase dots summary — decorative */}
           <div className="flex items-center gap-0.5 ml-1" aria-hidden="true">
@@ -140,7 +140,7 @@ export function LivePipelineCard({
 
           <span className="ml-auto text-[10px] font-mono text-muted-foreground/50">
             {isProcessing ? (
-              <span className="text-primary/60 animate-pulse motion-reduce:animate-none">
+              <span className="text-status-green animate-pulse motion-reduce:animate-none">
                 live
               </span>
             ) : (

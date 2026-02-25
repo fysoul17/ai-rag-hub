@@ -280,7 +280,7 @@ export function ChatInterface({
           aria-label={showSteps ? 'Hide processing steps' : 'Show processing steps'}
           className={`ml-auto flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-mono transition-colors ${
             showSteps
-              ? 'bg-primary/10 text-primary border border-primary/20'
+              ? 'bg-muted text-foreground border border-border'
               : 'text-muted-foreground/50 hover:text-muted-foreground'
           }`}
         >

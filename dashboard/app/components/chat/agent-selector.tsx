@@ -109,7 +109,7 @@ export function AgentSelector({
           aria-label={`${agent.name} (${agent.status})`}
           className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all ${
             selected === agent.id
-              ? 'bg-primary/20 text-primary'
+              ? 'bg-muted text-foreground'
               : 'text-muted-foreground/70 hover:text-muted-foreground'
           }`}
         >
@@ -133,7 +133,7 @@ export function AgentSelector({
             aria-label={`${overflowAgents.length} more agents`}
             className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
               selectedIsOverflow
-                ? 'text-primary'
+                ? 'text-foreground'
                 : 'text-muted-foreground/50 hover:text-muted-foreground'
             }`}
           >
@@ -167,7 +167,7 @@ export function AgentSelector({
                   }}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${
                     selected === agent.id
-                      ? 'text-primary bg-primary/5'
+                      ? 'text-foreground bg-muted'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                   }`}
                 >

@@ -17,24 +17,24 @@ interface ChatMessageBubbleProps {
 }
 
 function AvatarIcon({ isUser, isConductor }: { isUser: boolean; isConductor: boolean }) {
-  if (isUser) return <User className="h-4 w-4 text-primary" aria-hidden="true" />;
-  if (isConductor) return <Cpu className="h-4 w-4 text-primary" aria-hidden="true" />;
+  if (isUser) return <User className="h-4 w-4 text-foreground" aria-hidden="true" />;
+  if (isConductor) return <Cpu className="h-4 w-4 text-status-purple" aria-hidden="true" />;
   return <Bot className="h-4 w-4 text-status-purple" aria-hidden="true" />;
 }
 
 function getMessageStyles(isUser: boolean, isConductor: boolean) {
   if (isUser) {
     return {
-      avatarBg: 'bg-primary/10',
+      avatarBg: 'bg-secondary',
       labelClass: '',
-      bubbleBorder: 'border-primary/20 text-foreground',
+      bubbleBorder: 'border-border text-foreground',
     };
   }
   if (isConductor) {
     return {
-      avatarBg: 'bg-primary/10',
-      labelClass: 'text-primary',
-      bubbleBorder: 'border-primary/20 text-foreground',
+      avatarBg: 'bg-status-purple/10',
+      labelClass: 'text-status-purple',
+      bubbleBorder: 'border-border text-foreground',
     };
   }
   return {
@@ -79,7 +79,7 @@ function SystemMessage({ message, showSteps, elapsedMs, warning }: ChatMessageBu
     <div className="flex justify-center py-1">
       {/* biome-ignore lint/a11y/useSemanticElements: status messages are not form outputs */}
       <div role="status" className="flex items-center gap-2 text-xs text-muted-foreground/70">
-        <Cpu className="h-3 w-3 text-primary/50" />
+        <Cpu className="h-3 w-3 text-muted-foreground" />
         <span className="italic font-mono">{message.content}</span>
       </div>
     </div>
@@ -124,7 +124,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           {message.streaming && (
             <span
               aria-hidden="true"
-              className="inline-block h-4 w-1 animate-pulse motion-reduce:animate-none bg-primary ml-0.5"
+              className="inline-block h-4 w-1 animate-pulse motion-reduce:animate-none bg-foreground/70 ml-0.5"
             />
           )}
         </div>

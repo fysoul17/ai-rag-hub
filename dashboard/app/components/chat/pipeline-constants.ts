@@ -7,8 +7,8 @@ export interface PhaseConfig {
 
 export const PHASE_CONFIG: Record<string, PhaseConfig> = {
   memory_search: {
-    dot: 'bg-primary',
-    text: 'text-primary',
+    dot: 'bg-status-purple',
+    text: 'text-status-purple',
     label: 'Memory Search',
     friendlyLabel: 'Searching memory...',
   },
@@ -55,8 +55,8 @@ export const PHASE_CONFIG: Record<string, PhaseConfig> = {
     friendlyLabel: 'Saving to memory...',
   },
   responding: {
-    dot: 'bg-primary',
-    text: 'text-primary',
+    dot: 'bg-foreground',
+    text: 'text-foreground',
     label: 'Direct Response',
     friendlyLabel: 'Responding...',
   },

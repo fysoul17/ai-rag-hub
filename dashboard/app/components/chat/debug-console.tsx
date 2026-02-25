@@ -8,7 +8,7 @@ import type { DebugConnectionStatus } from '@/hooks/use-debug-websocket';
 // ─── Color maps ────────────────────────────────────────────────────────────
 
 const CATEGORY_BADGE: Record<DebugEventCategory, string> = {
-  conductor: 'bg-primary/10 text-primary/70',
+  conductor: 'bg-status-purple/10 text-status-purple/70',
   agent: 'bg-status-purple/10 text-status-purple/70',
   memory: 'bg-status-green/10 text-status-green/70',
   websocket: 'bg-muted-foreground/5 text-muted-foreground/40',
@@ -16,7 +16,7 @@ const CATEGORY_BADGE: Record<DebugEventCategory, string> = {
 };
 
 const CATEGORY_PILL_ACTIVE: Record<DebugEventCategory, string> = {
-  conductor: 'bg-primary/10 text-primary/70 border border-primary/20',
+  conductor: 'bg-status-purple/10 text-status-purple/70 border border-status-purple/20',
   agent: 'bg-status-purple/10 text-status-purple/70 border border-status-purple/20',
   memory: 'bg-status-green/10 text-status-green/70 border border-status-green/20',
   websocket: 'bg-muted-foreground/10 text-muted-foreground/50',

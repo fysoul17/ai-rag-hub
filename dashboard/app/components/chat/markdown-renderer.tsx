@@ -27,7 +27,7 @@ const components: Components = {
     }
     return (
       <code
-        className="rounded-sm bg-primary/5 border border-primary/10 px-1.5 py-0.5 text-[0.85em] font-mono text-primary/80"
+        className="rounded-sm bg-muted border border-border/50 px-1.5 py-0.5 text-[0.85em] font-mono text-foreground/80"
         {...props}
       >
         {children}
@@ -60,11 +60,11 @@ const components: Components = {
   },
   // Lists
   ul({ children }) {
-    return <ul className="mb-2 ml-4 list-disc space-y-0.5 marker:text-primary/40">{children}</ul>;
+    return <ul className="mb-2 ml-4 list-disc space-y-0.5 marker:text-muted-foreground/50">{children}</ul>;
   },
   ol({ children }) {
     return (
-      <ol className="mb-2 ml-4 list-decimal space-y-0.5 marker:text-primary/40">{children}</ol>
+      <ol className="mb-2 ml-4 list-decimal space-y-0.5 marker:text-muted-foreground/50">{children}</ol>
     );
   },
   li({ children }) {
@@ -89,7 +89,7 @@ const components: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-primary/80 underline underline-offset-2 decoration-primary/30 hover:text-primary hover:decoration-primary/60 transition-colors"
+        className="text-status-purple underline underline-offset-2 decoration-status-purple/30 hover:text-status-purple/80 hover:decoration-status-purple/60 transition-colors"
       >
         {children}
       </a>

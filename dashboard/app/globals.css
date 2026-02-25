@@ -173,24 +173,6 @@
   }
 }
 
-@keyframes grid-pulse {
-  0%, 100% {
-    opacity: 0.2;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-@keyframes orb-float {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(50px, 50px) scale(1.1);
-  }
-}
-
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -208,16 +190,15 @@
   }
 }
 
-/* Grid background pattern */
+/* Grid background pattern — subtle, static for dashboard readability */
 .bg-grid {
   background-image:
-    linear-gradient(#27272a 1px, transparent 1px),
-    linear-gradient(90deg, #27272a 1px, transparent 1px);
+    linear-gradient(rgba(39, 39, 42, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 39, 42, 0.3) 1px, transparent 1px);
   background-size: 60px 60px;
-  animation: grid-pulse 4s ease-in-out infinite;
 }
 
-/* Gradient orb effect */
+/* Gradient orb effect — toned down for dashboard readability */
 .gradient-orb::before {
   content: "";
   position: fixed;
@@ -225,9 +206,8 @@
   right: -200px;
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
-  filter: blur(80px);
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.12) 0%, transparent 70%);
+  filter: blur(100px);
   pointer-events: none;
   z-index: 0;
-  animation: orb-float 8s ease-in-out infinite;
 }

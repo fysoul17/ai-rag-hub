@@ -5,8 +5,8 @@ import type { TimeWarning } from '@/hooks/use-processing-timer';
 const DOT_COLOR: Record<TimeWarning, string> = {
   timeout_risk: 'bg-status-red',
   very_long: 'bg-status-amber',
-  long: 'bg-primary',
-  none: 'bg-primary',
+  long: 'bg-muted-foreground',
+  none: 'bg-muted-foreground',
 };
 
 const WARNING_TEXT: Partial<Record<TimeWarning, string>> = {
