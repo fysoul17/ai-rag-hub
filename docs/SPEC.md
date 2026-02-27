@@ -466,17 +466,13 @@ Dashboard Pages:
 
 ---
 
-## 10. File Formats
+## 10. Data Storage
 
-### Agent Definition (`/data/agents/{name}.md`)
+### Agent Definitions (SQLite via `AgentStore`)
 
-Frontmatter = machine config. Body = system prompt for the CLI backend.
+Agents are stored in `control-plane.sqlite` via `AgentStore` (part of `@autonomy/control-plane`). Created through the Dashboard UI or REST API (`POST /api/agents`). The `AgentPool` restores agents from the store across restarts.
 
-Fields: id, name, role, tools (allowed tool list), canModifyFiles, canDelegateToAgents, maxConcurrent, owner (user|conductor|system), persistent (boolean), createdBy, createdAt.
-
-### Agent Registry (`/data/agents/registry.json`)
-
-Array of agent entries: id, file (path to .md), owner, autoStart (boolean).
+Fields: id, name, role, systemPrompt, tools (allowed tool list), backend, owner (user|conductor|system), createdAt, updatedAt.
 
 ### Cron Config (`/data/crons.json`)
 

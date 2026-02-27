@@ -13,7 +13,6 @@
  *  5. Edge cases: error handling, concurrent sends, stop behavior
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { StreamEvent } from '@autonomy/shared';
 import { ClaudeBackend } from '../../src/backends/claude.ts';
 
 /**

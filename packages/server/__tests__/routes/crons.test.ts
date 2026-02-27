@@ -8,6 +8,7 @@ import type {
 } from '@autonomy/shared';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createCronRoutes } from '../../src/routes/crons.ts';
+import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 
 let idCounter = 0;
 
@@ -128,12 +129,12 @@ describe('Cron routes', () => {
   beforeEach(() => {
     idCounter = 0;
     cronManager = new MockCronManager();
-    routes = createCronRoutes(cronManager as unknown as CronManager);
+    routes = createCronRoutes(cronManager as unknown as CronManager, createMockAuthMiddleware());
   });
 
   describe('GET /api/crons (list)', () => {
     test('returns empty array when no crons', async () => {
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/crons'));
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data).toEqual([]);
@@ -143,7 +144,7 @@ describe('Cron routes', () => {
       cronManager.addCron({ name: 'c1' });
       cronManager.addCron({ name: 'c2' });
 
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/crons'));
       const body = await res.json();
       expect(body.data.length).toBe(2);
     });
@@ -288,7 +289,7 @@ describe('Cron routes', () => {
       cronManager.addCron({ name: 'enabled-cron', enabled: true });
       cronManager.addCron({ name: 'disabled-cron', enabled: false });
 
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/crons'));
       const body = await res.json();
 
       expect(body.data.length).toBe(2);
@@ -309,7 +310,7 @@ describe('Cron routes', () => {
       });
       await routes.trigger(triggerReq, { id: cron.id });
 
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/crons'));
       const body = await res.json();
 
       expect(body.data[0].lastExecution).toBeDefined();

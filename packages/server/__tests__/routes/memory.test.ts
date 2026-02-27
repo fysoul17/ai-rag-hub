@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { Memory } from '@pyx-memory/core';
 import { RAGStrategy } from '@autonomy/shared';
+import type { Memory } from '@pyx-memory/core';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createMemoryRoutes } from '../../src/routes/memory.ts';
+import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 
 interface MockStoreInput {
   content: string;
@@ -96,7 +97,7 @@ describe('Memory routes', () => {
 
   beforeEach(() => {
     memory = new MockMemory();
-    routes = createMemoryRoutes(memory as unknown as Memory);
+    routes = createMemoryRoutes(memory as unknown as Memory, createMockAuthMiddleware());
   });
 
   describe('GET /api/memory/search', () => {
@@ -127,9 +128,7 @@ describe('Memory routes', () => {
     });
 
     test('passes strategy param to search', async () => {
-      const req = new Request(
-        'http://localhost/api/memory/search?query=test&strategy=hybrid',
-      );
+      const req = new Request('http://localhost/api/memory/search?query=test&strategy=hybrid');
       await routes.search(req);
       expect(memory.searchCalls[0].strategy).toBe('hybrid');
     });
@@ -223,7 +222,7 @@ describe('Memory routes', () => {
 
   describe('GET /api/memory/stats', () => {
     test('returns memory statistics', async () => {
-      const res = await routes.stats();
+      const res = await routes.stats(new Request('http://localhost/api/memory/stats'));
       const body = await res.json();
 
       expect(body.success).toBe(true);
@@ -263,14 +262,14 @@ describe('Memory routes', () => {
       const req = new Request('http://localhost/api/memory/entries?query=hello');
       await routes.entries(req);
 
-      expect(memory.searchCalls.at(-1)!.query).toBe('hello');
+      expect(memory.searchCalls.at(-1)?.query).toBe('hello');
     });
 
     test('uses wildcard query when no query param', async () => {
       const req = new Request('http://localhost/api/memory/entries');
       await routes.entries(req);
 
-      expect(memory.searchCalls.at(-1)!.query).toBe('*');
+      expect(memory.searchCalls.at(-1)?.query).toBe('*');
     });
 
     test('throws BadRequestError for invalid page', async () => {
@@ -331,55 +330,45 @@ describe('Memory routes', () => {
 
   describe('search — enableHyDE and enableRerank', () => {
     test('passes enableHyDE=true when query param is "true"', async () => {
-      const req = new Request(
-        'http://localhost/api/memory/search?query=test&enableHyDE=true',
-      );
+      const req = new Request('http://localhost/api/memory/search?query=test&enableHyDE=true');
       await routes.search(req);
-      expect(memory.searchCalls.at(-1)!.enableHyDE).toBe(true);
+      expect(memory.searchCalls.at(-1)?.enableHyDE).toBe(true);
     });
 
     test('passes enableHyDE=false when query param is "false"', async () => {
-      const req = new Request(
-        'http://localhost/api/memory/search?query=test&enableHyDE=false',
-      );
+      const req = new Request('http://localhost/api/memory/search?query=test&enableHyDE=false');
       await routes.search(req);
-      expect(memory.searchCalls.at(-1)!.enableHyDE).toBe(false);
+      expect(memory.searchCalls.at(-1)?.enableHyDE).toBe(false);
     });
 
     test('enableHyDE is undefined when param is absent', async () => {
       const req = new Request('http://localhost/api/memory/search?query=test');
       await routes.search(req);
-      expect(memory.searchCalls.at(-1)!.enableHyDE).toBeUndefined();
+      expect(memory.searchCalls.at(-1)?.enableHyDE).toBeUndefined();
     });
 
     test('passes enableRerank=true when query param is "true"', async () => {
-      const req = new Request(
-        'http://localhost/api/memory/search?query=test&enableRerank=true',
-      );
+      const req = new Request('http://localhost/api/memory/search?query=test&enableRerank=true');
       await routes.search(req);
-      expect(memory.searchCalls.at(-1)!.enableRerank).toBe(true);
+      expect(memory.searchCalls.at(-1)?.enableRerank).toBe(true);
     });
 
     test('passes enableRerank=false when query param is "false"', async () => {
-      const req = new Request(
-        'http://localhost/api/memory/search?query=test&enableRerank=false',
-      );
+      const req = new Request('http://localhost/api/memory/search?query=test&enableRerank=false');
       await routes.search(req);
-      expect(memory.searchCalls.at(-1)!.enableRerank).toBe(false);
+      expect(memory.searchCalls.at(-1)?.enableRerank).toBe(false);
     });
 
     test('enableRerank is undefined when param is absent', async () => {
       const req = new Request('http://localhost/api/memory/search?query=test');
       await routes.search(req);
-      expect(memory.searchCalls.at(-1)!.enableRerank).toBeUndefined();
+      expect(memory.searchCalls.at(-1)?.enableRerank).toBeUndefined();
     });
   });
 
   describe('search — invalid strategy', () => {
     test('throws BadRequestError for invalid strategy value', async () => {
-      const req = new Request(
-        'http://localhost/api/memory/search?query=test&strategy=invalid',
-      );
+      const req = new Request('http://localhost/api/memory/search?query=test&strategy=invalid');
       await expect(routes.search(req)).rejects.toBeInstanceOf(BadRequestError);
     });
   });

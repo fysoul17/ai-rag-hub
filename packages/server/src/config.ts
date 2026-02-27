@@ -1,11 +1,13 @@
 import {
-  type AIBackend,
+  AIBackend,
   DEFAULTS,
   type EnvironmentConfig,
   type LogLevel,
   type RuntimeMode,
   type VectorProvider,
 } from '@autonomy/shared';
+
+const VALID_BACKENDS = new Set<string>(Object.values(AIBackend));
 
 function parseIntEnv(
   value: string | undefined,
@@ -85,5 +87,17 @@ export function parseEnvConfig(): EnvironmentConfig {
     PI_MODEL: env.PI_MODEL,
     CODEX_API_KEY: env.CODEX_API_KEY,
     GEMINI_API_KEY: env.GEMINI_API_KEY,
+    CORS_ORIGIN: env.CORS_ORIGIN ?? '*',
+    FALLBACK_BACKEND: parseFallbackBackend(env.FALLBACK_BACKEND),
   };
+}
+
+function parseFallbackBackend(value: string | undefined): AIBackend | undefined {
+  if (!value) return undefined;
+  if (!VALID_BACKENDS.has(value)) {
+    throw new Error(
+      `Invalid FALLBACK_BACKEND: "${value}". Valid values: ${[...VALID_BACKENDS].join(', ')}`,
+    );
+  }
+  return value as AIBackend;
 }

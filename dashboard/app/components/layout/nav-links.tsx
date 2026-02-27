@@ -28,7 +28,9 @@ export function NavLinks({ items }: { items: NavItem[] }) {
               (pathname === other.href || pathname.startsWith(`${other.href}/`)),
           );
         const isActive =
-          item.href === '/' ? pathname === '/' : matchesExact || (matchesPrefix && !hasMoreSpecificMatch);
+          item.href === '/'
+            ? pathname === '/'
+            : matchesExact || (matchesPrefix && !hasMoreSpecificMatch);
 
         return (
           <SidebarMenuItem key={item.href}>

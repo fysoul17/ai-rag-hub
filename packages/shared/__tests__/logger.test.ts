@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { Logger, type LoggerConfig } from '../src/logger.ts';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { Logger } from '../src/logger.ts';
 
 /** Capture structured log output by intercepting the write target. */
 function createCapture(): { lines: string[]; write: (line: string) => void } {

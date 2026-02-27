@@ -1,7 +1,7 @@
 'use client';
 
-import { ApiKeyCard } from './api-key-card';
 import type { ApiKey } from '@autonomy/shared';
+import { ApiKeyCard } from './api-key-card';
 
 export function ApiKeyList({ keys }: { keys: ApiKey[] }) {
   if (keys.length === 0) {

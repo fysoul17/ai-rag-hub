@@ -23,22 +23,22 @@ import {
   UsageTracker,
 } from '@autonomy/control-plane';
 import { CronManager } from '@autonomy/cron-manager';
+import { HookRegistry, PluginManager } from '@autonomy/plugin-system';
+import { DebugEventCategory, DebugEventLevel, Logger } from '@autonomy/shared';
 import {
   createMemory,
   HybridRAGEngine,
-  LocalEmbeddingProvider,
   LLMReranker,
+  LocalEmbeddingProvider,
   registerRAGEngine,
   SQLiteGraphStore,
 } from '@pyx-memory/core';
-import { HookRegistry, PluginManager } from '@autonomy/plugin-system';
-import { DebugEventCategory, DebugEventLevel, Logger } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import { parseEnvConfig } from './config.ts';
-import { createMemoryLLMCallback } from './memory-llm-bridge.ts';
 import { ConfigManager } from './config-manager.ts';
 import { DebugBus, makeDebugEvent } from './debug-bus.ts';
 import { createDebugWebSocketHandler, type DebugWSData } from './debug-websocket.ts';
+import { createMemoryLLMCallback } from './memory-llm-bridge.ts';
 import { RateLimiter } from './rate-limiter.ts';
 import { Router } from './router.ts';
 import { createActivityRoute } from './routes/activity.ts';
@@ -72,6 +72,7 @@ export {
   NotImplementedError,
   ServerError,
 } from './errors.ts';
+export { createMemoryLLMCallback } from './memory-llm-bridge.ts';
 export {
   corsHeaders,
   errorResponse,
@@ -91,7 +92,6 @@ export { createGraphRoutes } from './routes/graph.ts';
 export { createHealthRoute } from './routes/health.ts';
 export { createInstanceRoutes } from './routes/instances.ts';
 export { createLifecycleRoutes } from './routes/lifecycle.ts';
-export { createMemoryLLMCallback } from './memory-llm-bridge.ts';
 export { createMemoryRoutes } from './routes/memory.ts';
 export { createSessionRoutes } from './routes/sessions.ts';
 export { createUsageRoutes } from './routes/usage.ts';
@@ -275,11 +275,20 @@ async function main() {
   await pool.restore();
   logger.info('Persisted agents restored');
 
+  // Resolve fallback backend (if configured)
+  const fallbackBackend = config.FALLBACK_BACKEND
+    ? registry.get(config.FALLBACK_BACKEND)
+    : undefined;
+  if (fallbackBackend) {
+    logger.info('Fallback backend configured', { fallback: config.FALLBACK_BACKEND });
+  }
+
   // Initialize Conductor (with default backend for direct AI responses)
   const conductor = new Conductor(pool, memory, registry.getDefault(), {
     maxAgents: config.MAX_AGENTS,
     idleTimeoutMs: config.IDLE_TIMEOUT_MS,
     hookRegistry,
+    fallbackBackend,
   });
   await conductor.initialize();
   logger.info('Conductor initialized');
@@ -311,43 +320,49 @@ async function main() {
 
     // Consolidation every 30 minutes (with overlap protection)
     lifecycleIntervals.push(
-      setInterval(async () => {
-        if (consolidating) return;
-        consolidating = true;
-        try {
-          const result = await memory.consolidate();
-          logger.info('Memory consolidation completed', {
-            processed: result.entriesProcessed,
-            merged: result.entriesMerged,
-            archived: result.entriesArchived,
-            durationMs: result.durationMs,
-          });
-        } catch (error) {
-          logger.warn('Memory consolidation failed', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        } finally {
-          consolidating = false;
-        }
-      }, 30 * 60 * 1000),
+      setInterval(
+        async () => {
+          if (consolidating) return;
+          consolidating = true;
+          try {
+            const result = await memory.consolidate();
+            logger.info('Memory consolidation completed', {
+              processed: result.entriesProcessed,
+              merged: result.entriesMerged,
+              archived: result.entriesArchived,
+              durationMs: result.durationMs,
+            });
+          } catch (error) {
+            logger.warn('Memory consolidation failed', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            consolidating = false;
+          }
+        },
+        30 * 60 * 1000,
+      ),
     );
 
     // Decay every 24 hours (with overlap protection)
     lifecycleIntervals.push(
-      setInterval(async () => {
-        if (decaying) return;
-        decaying = true;
-        try {
-          const archived = await memory.runDecay();
-          logger.info('Memory decay completed', { archived });
-        } catch (error) {
-          logger.warn('Memory decay failed', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        } finally {
-          decaying = false;
-        }
-      }, 24 * 60 * 60 * 1000),
+      setInterval(
+        async () => {
+          if (decaying) return;
+          decaying = true;
+          try {
+            const archived = await memory.runDecay();
+            logger.info('Memory decay completed', { archived });
+          } catch (error) {
+            logger.warn('Memory decay failed', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            decaying = false;
+          }
+        },
+        24 * 60 * 60 * 1000,
+      ),
     );
 
     logger.info('Memory lifecycle timers registered (consolidation: 30m, decay: 24h)');
@@ -392,21 +407,21 @@ async function main() {
   }
 
   // Build HTTP router
-  const router = new Router();
+  const router = new Router(config.CORS_ORIGIN);
 
-  const healthRoute = createHealthRoute(conductor, memory, startTime);
-  const agentRoutes = createAgentRoutes(conductor, pool);
-  const memoryRoutes = createMemoryRoutes(memory);
+  const healthRoute = createHealthRoute(conductor, memory, startTime, registry);
+  const agentRoutes = createAgentRoutes(conductor, pool, authMiddleware);
+  const memoryRoutes = createMemoryRoutes(memory, authMiddleware);
   const lifecycleRoutes = createLifecycleRoutes(memory);
   const graphRoutes = createGraphRoutes(graphStore);
-  const cronRoutes = createCronRoutes(cronManager);
+  const cronRoutes = createCronRoutes(cronManager, authMiddleware);
   const activityRoute = createActivityRoute(conductor);
-  const configRoutes = createConfigRoutes(configManager);
+  const configRoutes = createConfigRoutes(configManager, authMiddleware);
   const backendRoutes = createBackendRoutes(registry, secretStore);
   const authRoutes = createAuthRoutes(authStore, authMiddleware);
   const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
-  const instanceRoutes = createInstanceRoutes(instanceRegistry);
-  const sessionRoutes = createSessionRoutes(sessionStore, memory);
+  const instanceRoutes = createInstanceRoutes(instanceRegistry, authMiddleware);
+  const sessionRoutes = createSessionRoutes(sessionStore, memory, authMiddleware);
 
   router.get('/health', healthRoute);
 

@@ -8,10 +8,13 @@
  *  3. Multiple messages in the same session maintain context
  */
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
+import type {
+  AgentPool,
+  BackendProcess,
+  BackendSpawnConfig,
+  CLIBackend,
+} from '@autonomy/agent-manager';
 import type { Memory } from '@pyx-memory/core';
-import type { BackendSpawnConfig } from '@autonomy/agent-manager';
-import { MemoryType } from '@autonomy/shared';
 import { Conductor } from '../src/conductor.ts';
 import { makeMessage } from './helpers/fixtures.ts';
 import { MockMemory } from './helpers/mock-memory.ts';
@@ -47,16 +50,16 @@ function createMockPool() {
 // Mock backend that captures ALL spawn configs
 function createMockBackend() {
   const spawnConfigs: BackendSpawnConfig[] = [];
-  let sendCalls: string[] = [];
+  const sendCalls: string[] = [];
 
   const mockProcess: BackendProcess = {
     send: mock(async (msg: string) => {
       sendCalls.push(msg);
-      return 'AI response to: ' + msg;
+      return `AI response to: ${msg}`;
     }),
     sendStreaming: mock(async function* (msg: string) {
       sendCalls.push(msg);
-      yield { type: 'chunk' as const, content: 'AI response to: ' + msg };
+      yield { type: 'chunk' as const, content: `AI response to: ${msg}` };
       yield { type: 'complete' as const };
     }),
     stop: mock(async () => {}),
@@ -111,9 +114,7 @@ describe('Per-session backend processes', () => {
     expect(mockBackend.getSpawnConfigs()[0].sessionId).toBeUndefined();
 
     // Send a message with a sessionId
-    await conductor.handleMessage(
-      makeMessage({ content: 'Hello', sessionId: 'sess-123' }),
-    );
+    await conductor.handleMessage(makeMessage({ content: 'Hello', sessionId: 'sess-123' }));
 
     // A second process should be spawned (stateless — no sessionId in spawn config)
     expect(mockBackend.getSpawnConfigs().length).toBe(2);
@@ -129,12 +130,8 @@ describe('Per-session backend processes', () => {
     await conductor.initialize();
 
     // Two messages with same sessionId
-    await conductor.handleMessage(
-      makeMessage({ content: 'First', sessionId: 'sess-reuse' }),
-    );
-    await conductor.handleMessage(
-      makeMessage({ content: 'Second', sessionId: 'sess-reuse' }),
-    );
+    await conductor.handleMessage(makeMessage({ content: 'First', sessionId: 'sess-reuse' }));
+    await conductor.handleMessage(makeMessage({ content: 'Second', sessionId: 'sess-reuse' }));
 
     // Only 2 spawns: 1 default at init + 1 for session (reused on second message)
     expect(mockBackend.getSpawnConfigs().length).toBe(2);
@@ -148,12 +145,8 @@ describe('Per-session backend processes', () => {
     );
     await conductor.initialize();
 
-    await conductor.handleMessage(
-      makeMessage({ content: 'A', sessionId: 'sess-a' }),
-    );
-    await conductor.handleMessage(
-      makeMessage({ content: 'B', sessionId: 'sess-b' }),
-    );
+    await conductor.handleMessage(makeMessage({ content: 'A', sessionId: 'sess-a' }));
+    await conductor.handleMessage(makeMessage({ content: 'B', sessionId: 'sess-b' }));
 
     // 3 spawns: 1 default + 1 for sess-a + 1 for sess-b (stateless — no sessionId in spawn config)
     expect(mockBackend.getSpawnConfigs().length).toBe(3);
@@ -183,9 +176,7 @@ describe('Per-session backend processes', () => {
     );
     await conductor.initialize();
 
-    await conductor.handleMessage(
-      makeMessage({ content: 'A', sessionId: 'sess-x' }),
-    );
+    await conductor.handleMessage(makeMessage({ content: 'A', sessionId: 'sess-x' }));
 
     await conductor.shutdown();
 
@@ -213,9 +204,7 @@ describe('Assistant response stored in memory', () => {
     );
     await conductor.initialize();
 
-    await conductor.handleMessage(
-      makeMessage({ content: 'What is 2+2?', sessionId: 'sess-1' }),
-    );
+    await conductor.handleMessage(makeMessage({ content: 'What is 2+2?', sessionId: 'sess-1' }));
 
     // Should have 2 memory entries: user message + assistant response
     expect(memory.storeCalls.length).toBeGreaterThanOrEqual(2);

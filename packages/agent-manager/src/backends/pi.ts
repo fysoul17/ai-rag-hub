@@ -105,8 +105,9 @@ class PiProcess implements BackendProcess {
         stderr: 'pipe',
       });
 
-      this._stdoutReader = (this._process.stdout as ReadableStream<Uint8Array>)
-        .getReader() as ReadableStreamDefaultReader<Uint8Array>;
+      this._stdoutReader = (
+        this._process.stdout as ReadableStream<Uint8Array>
+      ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
       this._lineBuffer = '';
       this._ensuring = null;
     })();
@@ -125,7 +126,7 @@ class PiProcess implements BackendProcess {
     const stdin = proc.stdin as import('bun').FileSink;
 
     // Write JSON message to stdin
-    const request = JSON.stringify({ type: 'message', content: message }) + '\n';
+    const request = `${JSON.stringify({ type: 'message', content: message })}\n`;
     stdin.write(request);
     stdin.flush();
 
@@ -191,7 +192,7 @@ class PiProcess implements BackendProcess {
     const proc = this._process!;
     const stdin = proc.stdin as import('bun').FileSink;
 
-    const request = JSON.stringify({ type: 'message', content: message }) + '\n';
+    const request = `${JSON.stringify({ type: 'message', content: message })}\n`;
     stdin.write(request);
     stdin.flush();
 
@@ -281,8 +282,15 @@ export class PiBackend implements CLIBackend {
       {
         name: 'model',
         cliFlag: '--model',
-        description: 'Model name in provider/model format (e.g., openai/gpt-4.1, anthropic/claude-sonnet)',
-        values: ['openai/gpt-4.1', 'openai/o3', 'anthropic/claude-sonnet', 'google/gemini-2.5-pro', 'ollama/llama3.2'],
+        description:
+          'Model name in provider/model format (e.g., openai/gpt-4.1, anthropic/claude-sonnet)',
+        values: [
+          'openai/gpt-4.1',
+          'openai/o3',
+          'anthropic/claude-sonnet',
+          'google/gemini-2.5-pro',
+          'ollama/llama3.2',
+        ],
         defaultValue: getDefaultModel(),
       },
     ];

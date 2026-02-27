@@ -1,7 +1,7 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { UsageSummary } from '@autonomy/shared';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function totalRequests(summaries: UsageSummary[]): number {
   return summaries.reduce((sum, s) => sum + s.requestCount, 0);
@@ -20,11 +20,11 @@ function BarChart({ data, label }: { data: UsageSummary[]; label: string }) {
 
   return (
     <div className="space-y-2">
-      {data.map((entry, i) => {
+      {data.map((entry) => {
         const width = Math.max((entry.requestCount / max) * 100, 2);
         const keyLabel = entry.apiKeyName ?? entry.apiKeyId ?? 'anonymous';
         return (
-          <div key={`${keyLabel}-${i}`} className="space-y-1">
+          <div key={entry.apiKeyId ?? keyLabel} className="space-y-1">
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground truncate max-w-[200px]">{keyLabel}</span>
               <span className="font-mono">{entry.requestCount}</span>

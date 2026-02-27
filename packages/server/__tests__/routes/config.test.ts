@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { DEFAULTS, type EnvironmentConfig } from '@autonomy/shared';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEFAULTS, type EnvironmentConfig } from '@autonomy/shared';
 import { ConfigManager } from '../../src/config-manager.ts';
 import { createConfigRoutes } from '../../src/routes/config.ts';
+import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 
 const TEST_DATA_DIR = join(import.meta.dir, '.test-data-config-routes');
 
@@ -36,9 +37,9 @@ describe('Config routes', () => {
     test('returns config with redacted API key', async () => {
       const cm = new ConfigManager(makeConfig({ ANTHROPIC_API_KEY: 'sk-secret-key-123' }));
       cm.initialize();
-      const routes = createConfigRoutes(cm);
+      const routes = createConfigRoutes(cm, createMockAuthMiddleware());
 
-      const res = await routes.get();
+      const res = await routes.get(new Request('http://localhost/api/config'));
       const body = await res.json();
 
       expect(body.success).toBe(true);
@@ -49,9 +50,9 @@ describe('Config routes', () => {
     test('omits API key when not set', async () => {
       const cm = new ConfigManager(makeConfig());
       cm.initialize();
-      const routes = createConfigRoutes(cm);
+      const routes = createConfigRoutes(cm, createMockAuthMiddleware());
 
-      const res = await routes.get();
+      const res = await routes.get(new Request('http://localhost/api/config'));
       const body = await res.json();
 
       expect(body.data.ANTHROPIC_API_KEY).toBeUndefined();
@@ -62,7 +63,7 @@ describe('Config routes', () => {
     test('updates config fields', async () => {
       const cm = new ConfigManager(makeConfig());
       cm.initialize();
-      const routes = createConfigRoutes(cm);
+      const routes = createConfigRoutes(cm, createMockAuthMiddleware());
 
       const req = new Request('http://localhost/api/config', {
         method: 'PUT',
@@ -80,7 +81,7 @@ describe('Config routes', () => {
     test('rejects API key updates with 400', async () => {
       const cm = new ConfigManager(makeConfig());
       cm.initialize();
-      const routes = createConfigRoutes(cm);
+      const routes = createConfigRoutes(cm, createMockAuthMiddleware());
 
       const req = new Request('http://localhost/api/config', {
         method: 'PUT',
@@ -94,7 +95,7 @@ describe('Config routes', () => {
     test('preserves existing config on partial update', async () => {
       const cm = new ConfigManager(makeConfig({ MAX_AGENTS: 10 }));
       cm.initialize();
-      const routes = createConfigRoutes(cm);
+      const routes = createConfigRoutes(cm, createMockAuthMiddleware());
 
       const req = new Request('http://localhost/api/config', {
         method: 'PUT',

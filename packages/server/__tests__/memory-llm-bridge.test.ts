@@ -27,9 +27,7 @@ describe('createMemoryLLMCallback()', () => {
     const result = await handle.callback('Extract facts from this text');
 
     expect(result).toBe('LLM result');
-    expect(backend.spawnedProcesses[0].sentMessages).toEqual([
-      'Extract facts from this text',
-    ]);
+    expect(backend.spawnedProcesses[0].sentMessages).toEqual(['Extract facts from this text']);
   });
 
   test('throws when backend.spawn fails', async () => {

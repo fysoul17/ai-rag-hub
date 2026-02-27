@@ -1,6 +1,9 @@
 'use client';
 
 import type { MemoryEntry } from '@autonomy/shared';
+import { Archive, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,16 +16,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { deleteMemoryEntry, forgetMemory } from '@/lib/api';
-import { Archive, Trash2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 
 interface EntryDetailDialogProps {
   entry: MemoryEntry | null;

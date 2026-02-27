@@ -1,4 +1,9 @@
-import type { AgentId, ConductorDecision, HookRegistryInterface, SessionMessage } from '@autonomy/shared';
+import type {
+  AgentId,
+  ConductorDecision,
+  HookRegistryInterface,
+  SessionMessage,
+} from '@autonomy/shared';
 
 export interface IncomingMessage {
   content: string;
@@ -27,6 +32,8 @@ export interface ConductorOptions {
   systemPrompt?: string;
   /** Optional hook registry for plugin system integration. */
   hookRegistry?: HookRegistryInterface;
+  /** Optional fallback backend when the primary backend fails to spawn. */
+  fallbackBackend?: import('@autonomy/agent-manager').CLIBackend;
 }
 
 export const ConductorEventType = {

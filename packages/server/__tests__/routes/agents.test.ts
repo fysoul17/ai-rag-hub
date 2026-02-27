@@ -4,6 +4,7 @@ import type { Conductor } from '@autonomy/conductor';
 import { AgentOwner } from '@autonomy/shared';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createAgentRoutes } from '../../src/routes/agents.ts';
+import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 import { MockConductor } from '../helpers/mock-conductor.ts';
 import { MockPool, makeDefinition } from '../helpers/mock-pool.ts';
 
@@ -16,12 +17,16 @@ describe('Agent routes', () => {
     conductor = new MockConductor();
     conductor.initialized = true;
     pool = new MockPool();
-    routes = createAgentRoutes(conductor as unknown as Conductor, pool as unknown as AgentPool);
+    routes = createAgentRoutes(
+      conductor as unknown as Conductor,
+      pool as unknown as AgentPool,
+      createMockAuthMiddleware(),
+    );
   });
 
   describe('GET /api/agents (list)', () => {
     test('returns empty array when no agents', async () => {
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/agents'));
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data).toEqual([]);
@@ -29,7 +34,7 @@ describe('Agent routes', () => {
 
     test('returns agents from conductor', async () => {
       await conductor.createAgent({ name: 'A1', role: 'test', systemPrompt: 'test' });
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/agents'));
       const body = await res.json();
       expect(body.data.length).toBe(1);
       expect(body.data[0].name).toBe('A1');

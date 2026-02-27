@@ -1,9 +1,9 @@
 'use client';
 
 import type { MemoryEntry, RAGStrategy } from '@autonomy/shared';
+import { useCallback, useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { searchMemoryWithStrategy } from '@/lib/api';
-import { useCallback, useEffect, useState } from 'react';
 import { EntryDetailDialog } from './entry-detail-dialog';
 import { FileUpload } from './file-upload';
 import { GraphViewer } from './graph-viewer';
@@ -93,11 +93,7 @@ export function MemoryBrowser({ initialEntries }: MemoryBrowserProps) {
         </TabsContent>
       </Tabs>
 
-      <EntryDetailDialog
-        entry={selectedEntry}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      <EntryDetailDialog entry={selectedEntry} open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

@@ -151,11 +151,14 @@ class OllamaProcess implements BackendProcess {
 
         lineBuffer += decoder.decode(value, { stream: true });
 
-        let newlineIdx: number;
-        while ((newlineIdx = lineBuffer.indexOf('\n')) !== -1) {
+        let newlineIdx: number = lineBuffer.indexOf('\n');
+        while (newlineIdx !== -1) {
           const line = lineBuffer.slice(0, newlineIdx).trim();
           lineBuffer = lineBuffer.slice(newlineIdx + 1);
-          if (!line) continue;
+          if (!line) {
+            newlineIdx = lineBuffer.indexOf('\n');
+            continue;
+          }
 
           try {
             const parsed = JSON.parse(line) as {
@@ -183,6 +186,7 @@ class OllamaProcess implements BackendProcess {
           } catch {
             ollamaLogger.debug('Failed to parse Ollama NDJSON line', { line });
           }
+          newlineIdx = lineBuffer.indexOf('\n');
         }
       }
 

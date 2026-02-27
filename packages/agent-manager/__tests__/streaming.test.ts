@@ -2,9 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { StreamEvent } from '../src/backends/types.ts';
 
 /** Collect all events from an async generator into an array. */
-async function collectEvents(
-  gen: AsyncGenerator<StreamEvent>,
-): Promise<StreamEvent[]> {
+async function collectEvents(gen: AsyncGenerator<StreamEvent>): Promise<StreamEvent[]> {
   const events: StreamEvent[] = [];
   for await (const event of gen) {
     events.push(event);
@@ -55,10 +53,7 @@ describe('BackendProcess.sendStreaming()', () => {
   /** Mock streaming process that yields pre-configured events. */
   function createMockStreamingProcess(events: StreamEvent[]) {
     return {
-      async *sendStreaming(
-        _message: string,
-        _signal?: AbortSignal,
-      ): AsyncGenerator<StreamEvent> {
+      async *sendStreaming(_message: string, _signal?: AbortSignal): AsyncGenerator<StreamEvent> {
         for (const event of events) {
           if (_signal?.aborted) {
             yield { type: 'error' as const, error: 'Aborted' };
@@ -73,10 +68,7 @@ describe('BackendProcess.sendStreaming()', () => {
   /** Mock streaming process with async delay between events. */
   function createDelayedStreamingProcess(events: StreamEvent[], delayMs: number) {
     return {
-      async *sendStreaming(
-        _message: string,
-        signal?: AbortSignal,
-      ): AsyncGenerator<StreamEvent> {
+      async *sendStreaming(_message: string, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
         for (const event of events) {
           if (signal?.aborted) {
             yield { type: 'error' as const, error: 'Aborted' };
@@ -156,9 +148,7 @@ describe('BackendProcess.sendStreaming()', () => {
   });
 
   test('stream with error as first event', async () => {
-    const proc = createMockStreamingProcess([
-      { type: 'error', error: 'Connection refused' },
-    ]);
+    const proc = createMockStreamingProcess([{ type: 'error', error: 'Connection refused' }]);
 
     const events = await collectEvents(proc.sendStreaming('test'));
     expect(events).toHaveLength(1);
@@ -194,9 +184,7 @@ describe('BackendProcess.sendStreaming()', () => {
         events.push(event);
       }
 
-      const hasAbortError = events.some(
-        (e) => e.type === 'error' && e.error === 'Aborted',
-      );
+      const hasAbortError = events.some((e) => e.type === 'error' && e.error === 'Aborted');
       expect(hasAbortError).toBe(true);
     });
 
@@ -243,9 +231,7 @@ describe('BackendProcess.sendStreaming()', () => {
         { type: 'complete' },
       ]);
 
-      const events = await collectEvents(
-        proc.sendStreaming('test', controller.signal),
-      );
+      const events = await collectEvents(proc.sendStreaming('test', controller.signal));
 
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('error');
@@ -255,19 +241,17 @@ describe('BackendProcess.sendStreaming()', () => {
 
   describe('security: error sanitization', () => {
     test('error events should not contain file system paths', async () => {
-      const proc = createMockStreamingProcess([
-        { type: 'error', error: 'Backend failed' },
-      ]);
+      const proc = createMockStreamingProcess([{ type: 'error', error: 'Backend failed' }]);
 
       const events = await collectEvents(proc.sendStreaming('test'));
       const errorEvent = events.find((e) => e.type === 'error');
 
       expect(errorEvent).toBeDefined();
       // Error messages must not leak internal file paths
-      expect(errorEvent!.error).not.toMatch(/\/Users\//);
-      expect(errorEvent!.error).not.toMatch(/\/home\//);
-      expect(errorEvent!.error).not.toMatch(/\/opt\//);
-      expect(errorEvent!.error).not.toMatch(/node_modules/);
+      expect(errorEvent?.error).not.toMatch(/\/Users\//);
+      expect(errorEvent?.error).not.toMatch(/\/home\//);
+      expect(errorEvent?.error).not.toMatch(/\/opt\//);
+      expect(errorEvent?.error).not.toMatch(/node_modules/);
     });
 
     test('error events should not contain stack traces', async () => {
@@ -276,16 +260,14 @@ describe('BackendProcess.sendStreaming()', () => {
       // The streaming contract should sanitize errors before yielding
       const sanitizedError = rawError.message; // Implementation should use .message, not .stack
 
-      const proc = createMockStreamingProcess([
-        { type: 'error', error: sanitizedError },
-      ]);
+      const proc = createMockStreamingProcess([{ type: 'error', error: sanitizedError }]);
 
       const events = await collectEvents(proc.sendStreaming('test'));
       const errorEvent = events.find((e) => e.type === 'error');
 
-      expect(errorEvent!.error).not.toContain('at ');
-      expect(errorEvent!.error).not.toContain('.ts:');
-      expect(errorEvent!.error).not.toContain('.js:');
+      expect(errorEvent?.error).not.toContain('at ');
+      expect(errorEvent?.error).not.toContain('.ts:');
+      expect(errorEvent?.error).not.toContain('.js:');
     });
 
     test('error event contains only a user-safe message', async () => {
@@ -296,9 +278,9 @@ describe('BackendProcess.sendStreaming()', () => {
       const events = await collectEvents(proc.sendStreaming('test'));
       const errorEvent = events.find((e) => e.type === 'error');
 
-      expect(typeof errorEvent!.error).toBe('string');
-      expect(errorEvent!.error!.length).toBeGreaterThan(0);
-      expect(errorEvent!.error!.length).toBeLessThan(500); // Bounded error message
+      expect(typeof errorEvent?.error).toBe('string');
+      expect(errorEvent?.error?.length).toBeGreaterThan(0);
+      expect(errorEvent?.error?.length).toBeLessThan(500); // Bounded error message
     });
   });
 

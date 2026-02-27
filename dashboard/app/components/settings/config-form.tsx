@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -56,9 +57,11 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">AI Backend</label>
+          <Label htmlFor="ai-backend" className="text-xs text-muted-foreground">
+            AI Backend
+          </Label>
           <Select value={aiBackend} onValueChange={setAiBackend}>
-            <SelectTrigger>
+            <SelectTrigger id="ai-backend">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -71,8 +74,11 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Max Agents</label>
+          <Label htmlFor="max-agents" className="text-xs text-muted-foreground">
+            Max Agents
+          </Label>
           <Input
+            id="max-agents"
             type="number"
             min={1}
             value={maxAgents}
@@ -81,8 +87,11 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Idle Timeout (ms)</label>
+          <Label htmlFor="idle-timeout" className="text-xs text-muted-foreground">
+            Idle Timeout (ms)
+          </Label>
           <Input
+            id="idle-timeout"
             type="number"
             min={0}
             value={idleTimeout}
@@ -91,9 +100,11 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Vector Provider</label>
+          <Label htmlFor="vector-provider" className="text-xs text-muted-foreground">
+            Vector Provider
+          </Label>
           <Select value={vectorProvider} onValueChange={setVectorProvider}>
-            <SelectTrigger>
+            <SelectTrigger id="vector-provider">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -104,9 +115,11 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Log Level</label>
+          <Label htmlFor="log-level" className="text-xs text-muted-foreground">
+            Log Level
+          </Label>
           <Select value={logLevel} onValueChange={setLogLevel}>
-            <SelectTrigger>
+            <SelectTrigger id="log-level">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

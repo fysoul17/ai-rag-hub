@@ -121,8 +121,9 @@ class GeminiProcess implements BackendProcess {
         stderr: 'pipe',
       });
 
-      const reader = (this._process.stdout as ReadableStream<Uint8Array>)
-        .getReader() as ReadableStreamDefaultReader<Uint8Array>;
+      const reader = (
+        this._process.stdout as ReadableStream<Uint8Array>
+      ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
       const decoder = new TextDecoder();
       let lineBuffer = '';
       let hasContent = false;
@@ -144,11 +145,14 @@ class GeminiProcess implements BackendProcess {
         lineBuffer += decoder.decode(value, { stream: true });
 
         // Process complete NDJSON lines
-        let newlineIdx: number;
-        while ((newlineIdx = lineBuffer.indexOf('\n')) !== -1) {
+        let newlineIdx: number = lineBuffer.indexOf('\n');
+        while (newlineIdx !== -1) {
           const line = lineBuffer.slice(0, newlineIdx).trim();
           lineBuffer = lineBuffer.slice(newlineIdx + 1);
-          if (!line) continue;
+          if (!line) {
+            newlineIdx = lineBuffer.indexOf('\n');
+            continue;
+          }
 
           try {
             const parsed = JSON.parse(line) as Record<string, unknown>;
@@ -173,6 +177,7 @@ class GeminiProcess implements BackendProcess {
               yield { type: 'chunk', content: line };
             }
           }
+          newlineIdx = lineBuffer.indexOf('\n');
         }
         if (streamDone) break;
       }
@@ -217,7 +222,10 @@ class GeminiProcess implements BackendProcess {
               : `Backend process exited with code ${exitCode}`,
           };
         } else if (!hasContent && stderrText.trim()) {
-          yield { type: 'error', error: `Backend produced no output: ${stderrText.trim().slice(0, 500)}` };
+          yield {
+            type: 'error',
+            error: `Backend produced no output: ${stderrText.trim().slice(0, 500)}`,
+          };
         } else {
           yield { type: 'complete' };
         }

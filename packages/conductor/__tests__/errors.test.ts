@@ -1,9 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  ConductorError,
-  ConductorNotInitializedError,
-  DelegationError,
-} from '../src/errors.ts';
+import { ConductorError, ConductorNotInitializedError, DelegationError } from '../src/errors.ts';
 
 describe('ConductorError', () => {
   test('is an instance of Error', () => {

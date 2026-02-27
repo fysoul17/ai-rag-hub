@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { resolve, sep } from 'node:path';
 import type {
   AgentDefinition,
   AgentId,

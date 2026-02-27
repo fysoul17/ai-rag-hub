@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { MemoryInterface } from '@pyx-memory/client';
-import { NotImplementedError, BadRequestError } from '../../src/errors.ts';
+import { BadRequestError, NotImplementedError } from '../../src/errors.ts';
 import { createLifecycleRoutes, isExtended } from '../../src/routes/lifecycle.ts';
-import { MockMemory, MockExtendedMemory } from '../helpers/mock-memory.ts';
+import { MockExtendedMemory, MockMemory } from '../helpers/mock-memory.ts';
 
 describe('isExtended() type guard', () => {
   test('returns false for base MemoryInterface', () => {
@@ -29,9 +29,9 @@ describe('Lifecycle routes — non-extended memory (501)', () => {
   });
 
   test('forget throws NotImplementedError', () => {
-    expect(() =>
-      routes.forget(new Request('http://localhost'), { id: '1' }),
-    ).toThrow(NotImplementedError);
+    expect(() => routes.forget(new Request('http://localhost'), { id: '1' })).toThrow(
+      NotImplementedError,
+    );
   });
 
   test('summarizeSession throws NotImplementedError', () => {
@@ -215,9 +215,7 @@ describe('Lifecycle routes — extended memory', () => {
         throw new Error('delete failed');
       };
       const req = new Request('http://localhost');
-      await expect(routes.deleteBySource(req, { source: 'test' })).rejects.toThrow(
-        'delete failed',
-      );
+      await expect(routes.deleteBySource(req, { source: 'test' })).rejects.toThrow('delete failed');
     });
   });
 });

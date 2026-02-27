@@ -1,11 +1,11 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { deleteApiKey, updateApiKey } from '@/lib/api';
 import type { ApiKey } from '@autonomy/shared';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { deleteApiKey, updateApiKey } from '@/lib/api';
 
 export function ApiKeyCard({ apiKey }: { apiKey: ApiKey }) {
   const router = useRouter();
@@ -51,9 +51,7 @@ export function ApiKeyCard({ apiKey }: { apiKey: ApiKey }) {
           <CardTitle className="text-sm font-medium">{apiKey.name}</CardTitle>
           <span
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              apiKey.enabled
-                ? 'bg-green-500/10 text-green-400'
-                : 'bg-red-500/10 text-red-400'
+              apiKey.enabled ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
             }`}
           >
             {apiKey.enabled ? 'Active' : 'Disabled'}
@@ -65,21 +63,13 @@ export function ApiKeyCard({ apiKey }: { apiKey: ApiKey }) {
           <p>
             <span className="font-mono">{apiKey.keyPrefix}...</span>
           </p>
-          <p className="mt-1">
-            Scopes: {apiKey.scopes.join(', ')}
-          </p>
+          <p className="mt-1">Scopes: {apiKey.scopes.join(', ')}</p>
           {apiKey.lastUsedAt && (
-            <p className="mt-1">
-              Last used: {new Date(apiKey.lastUsedAt).toLocaleDateString()}
-            </p>
+            <p className="mt-1">Last used: {new Date(apiKey.lastUsedAt).toLocaleDateString()}</p>
           )}
-          <p className="mt-1">
-            Created: {new Date(apiKey.createdAt).toLocaleDateString()}
-          </p>
+          <p className="mt-1">Created: {new Date(apiKey.createdAt).toLocaleDateString()}</p>
         </div>
-        {error && (
-          <p className="text-xs text-red-400">{error}</p>
-        )}
+        {error && <p className="text-xs text-red-400">{error}</p>}
         <div className="flex gap-2">
           <Button
             variant="outline"

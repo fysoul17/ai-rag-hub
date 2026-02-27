@@ -1,17 +1,28 @@
+import type { AuthMiddleware } from '@autonomy/control-plane';
+import { getAuthContext } from '@autonomy/control-plane';
 import type { CronManager } from '@autonomy/cron-manager';
-import type { CreateCronRequest, UpdateCronRequest } from '@autonomy/shared';
-import { BadRequestError, NotFoundError } from '../errors.ts';
+import { ApiKeyScope, type CreateCronRequest, type UpdateCronRequest } from '@autonomy/shared';
+import { BadRequestError, NotFoundError, ServerError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 
-export function createCronRoutes(cronManager: CronManager) {
+export function createCronRoutes(cronManager: CronManager, authMiddleware: AuthMiddleware) {
+  function requireScope(req: Request, scope: ApiKeyScope): void {
+    const ctx = getAuthContext(req);
+    if (!authMiddleware.hasScope(ctx, scope)) {
+      throw new ServerError('Insufficient permissions', 403);
+    }
+  }
+
   return {
-    list: async (): Promise<Response> => {
+    list: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.CRONS);
       const crons = cronManager.getStatus();
       return jsonResponse(crons);
     },
 
     logs: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.CRONS);
       const url = new URL(req.url);
       const cronId = url.searchParams.get('cronId') ?? undefined;
       const limitParam = url.searchParams.get('limit');
@@ -29,6 +40,7 @@ export function createCronRoutes(cronManager: CronManager) {
     },
 
     create: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.CRONS);
       const body = await parseJsonBody<CreateCronRequest>(req);
 
       if (!body.name || !body.schedule || !body.workflow) {
@@ -51,6 +63,7 @@ export function createCronRoutes(cronManager: CronManager) {
     },
 
     update: async (req: Request, params: RouteParams): Promise<Response> => {
+      requireScope(req, ApiKeyScope.CRONS);
       const { id } = params;
       if (!id) throw new BadRequestError('Cron id is required');
 
@@ -67,7 +80,8 @@ export function createCronRoutes(cronManager: CronManager) {
       return jsonResponse(updated);
     },
 
-    remove: async (_req: Request, params: RouteParams): Promise<Response> => {
+    remove: async (req: Request, params: RouteParams): Promise<Response> => {
+      requireScope(req, ApiKeyScope.CRONS);
       const { id } = params;
       if (!id) throw new BadRequestError('Cron id is required');
 
@@ -78,7 +92,8 @@ export function createCronRoutes(cronManager: CronManager) {
       return jsonResponse({ deleted: id });
     },
 
-    trigger: async (_req: Request, params: RouteParams): Promise<Response> => {
+    trigger: async (req: Request, params: RouteParams): Promise<Response> => {
+      requireScope(req, ApiKeyScope.CRONS);
       const { id } = params;
       if (!id) throw new BadRequestError('Cron id is required');
 

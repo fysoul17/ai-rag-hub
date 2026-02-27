@@ -68,4 +68,3 @@ describe('HookError', () => {
     expect(err.message).toContain('handler crashed');
   });
 });
-

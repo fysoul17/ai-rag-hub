@@ -1,29 +1,49 @@
 import type { AgentPool } from '@autonomy/agent-manager';
 import type { Conductor } from '@autonomy/conductor';
+import type { AuthMiddleware } from '@autonomy/control-plane';
+import { getAuthContext } from '@autonomy/control-plane';
 import {
   type AgentDefinition,
   AgentOwner,
   AIBackend,
+  ApiKeyScope,
   type CreateAgentRequest,
   type UpdateAgentRequest,
 } from '@autonomy/shared';
 import { nanoid } from 'nanoid';
-import { BadRequestError, NotFoundError } from '../errors.ts';
+import { BadRequestError, NotFoundError, ServerError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 
-export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
+export function createAgentRoutes(
+  conductor: Conductor,
+  pool: AgentPool,
+  authMiddleware: AuthMiddleware,
+) {
+  function requireScope(req: Request, scope: ApiKeyScope): void {
+    const ctx = getAuthContext(req);
+    if (!authMiddleware.hasScope(ctx, scope)) {
+      throw new ServerError('Insufficient permissions', 403);
+    }
+  }
+
   return {
-    list: async (): Promise<Response> => {
+    list: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.AGENTS);
       const agents = conductor.listAgents();
       return jsonResponse(agents);
     },
 
     create: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.AGENTS);
       const body = await parseJsonBody<CreateAgentRequest>(req);
 
       if (!body.name || !body.role || !body.systemPrompt) {
         throw new BadRequestError('name, role, and systemPrompt are required');
+      }
+
+      if (body.systemPrompt.length > 100_000) {
+        throw new ServerError('System prompt exceeds maximum length of 100,000 characters', 400);
       }
 
       const validBackends = Object.values(AIBackend) as string[];
@@ -57,6 +77,7 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
     },
 
     update: async (req: Request, params: RouteParams): Promise<Response> => {
+      requireScope(req, ApiKeyScope.AGENTS);
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
 
@@ -64,6 +85,10 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
       if (!agent) throw new NotFoundError(`Agent "${id}" not found`);
 
       const body = await parseJsonBody<UpdateAgentRequest>(req);
+
+      if (body.systemPrompt && body.systemPrompt.length > 100_000) {
+        throw new ServerError('System prompt exceeds maximum length of 100,000 characters', 400);
+      }
 
       // Validate backend if provided
       if (body.backend) {
@@ -98,7 +123,8 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
       return jsonResponse(updated.toRuntimeInfo());
     },
 
-    remove: async (_req: Request, params: RouteParams): Promise<Response> => {
+    remove: async (req: Request, params: RouteParams): Promise<Response> => {
+      requireScope(req, ApiKeyScope.AGENTS);
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
 
@@ -111,7 +137,8 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
       return jsonResponse({ deleted: id });
     },
 
-    restart: async (_req: Request, params: RouteParams): Promise<Response> => {
+    restart: async (req: Request, params: RouteParams): Promise<Response> => {
+      requireScope(req, ApiKeyScope.AGENTS);
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
 

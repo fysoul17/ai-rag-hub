@@ -57,4 +57,8 @@ export interface EnvironmentConfig {
   CODEX_API_KEY?: string;
   /** API key for Google Gemini CLI. */
   GEMINI_API_KEY?: string;
+  /** Allowed CORS origin (default '*'). */
+  CORS_ORIGIN: string;
+  /** Optional fallback backend when primary AI_BACKEND fails to spawn. */
+  FALLBACK_BACKEND?: AIBackend;
 }

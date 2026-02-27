@@ -97,7 +97,7 @@ export function createLifecycleRoutes(memory: MemoryInterface) {
       const url = new URL(req.url);
       const asOf = url.searchParams.get('asOf');
       if (!asOf) throw new BadRequestError('asOf date parameter is required');
-      if (isNaN(Date.parse(asOf))) {
+      if (Number.isNaN(Date.parse(asOf))) {
         throw new BadRequestError('asOf must be a valid ISO 8601 date');
       }
       const type = validateMemoryType(url.searchParams.get('type'));

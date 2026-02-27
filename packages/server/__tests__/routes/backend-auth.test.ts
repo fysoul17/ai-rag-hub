@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DefaultBackendRegistry } from '@autonomy/agent-manager';
 import { AIBackend, BACKEND_CAPABILITIES, type BackendStatus } from '@autonomy/shared';
 import { createBackendRoutes } from '../../src/routes/backends.ts';
@@ -40,7 +40,7 @@ class MockBackend {
       configured: true,
       authenticated: true,
       authMode: hasApiKey ? 'api_key' : 'cli_login',
-      apiKeyMasked: hasApiKey ? `sk-...${apiKey!.slice(-4)}` : undefined,
+      apiKeyMasked: hasApiKey ? `sk-...${apiKey?.slice(-4)}` : undefined,
       capabilities: this.capabilities,
     };
   }

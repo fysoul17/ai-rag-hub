@@ -1,9 +1,10 @@
 'use client';
 
-import { MessageSquare, Trash2 } from 'lucide-react';
+import { MessageSquare, Sparkles, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { deleteSession } from '@/lib/api';
+import { deleteSession, summarizeSession } from '@/lib/api';
 
 interface SessionCardActionsProps {
   sessionId: string;
@@ -27,6 +28,22 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
   const [showDelete, setShowDelete] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  async function handleSummarize() {
+    setLoading(true);
+    setError('');
+    try {
+      await summarizeSession(sessionId);
+      toast.success('Session summarized');
+      router.refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to summarize';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleDelete() {
     setLoading(true);
@@ -60,6 +77,16 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
           <Link href={`/chat?sessionId=${sessionId}`}>
             <MessageSquare className="h-4 w-4" />
           </Link>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-neon-cyan"
+          aria-label="Summarize session"
+          onClick={handleSummarize}
+          disabled={loading}
+        >
+          <Sparkles className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"

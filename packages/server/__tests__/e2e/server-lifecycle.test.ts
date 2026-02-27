@@ -452,22 +452,18 @@ describe('E2E: Server Lifecycle', () => {
   // ----- Backends -----
 
   describe('Backend endpoints /api/backends', () => {
-    test(
-      'GET /api/backends/status returns all backends',
-      async () => {
-        const res = await fetch(`${baseUrl}/api/backends/status`);
-        expect(res.status).toBe(200);
+    test('GET /api/backends/status returns all backends', async () => {
+      const res = await fetch(`${baseUrl}/api/backends/status`);
+      expect(res.status).toBe(200);
 
-        const data = await parseOk<{
-          defaultBackend: string;
-          backends: Array<{ name: string; capabilities: object }>;
-        }>(res);
-        expect(data.defaultBackend).toBeTruthy();
-        expect(Array.isArray(data.backends)).toBe(true);
-        expect(data.backends.length).toBeGreaterThanOrEqual(1);
-      },
-      30_000,
-    );
+      const data = await parseOk<{
+        defaultBackend: string;
+        backends: Array<{ name: string; capabilities: object }>;
+      }>(res);
+      expect(data.defaultBackend).toBeTruthy();
+      expect(Array.isArray(data.backends)).toBe(true);
+      expect(data.backends.length).toBeGreaterThanOrEqual(1);
+    }, 30_000);
 
     test('GET /api/backends/options returns config options', async () => {
       const res = await fetch(`${baseUrl}/api/backends/options`);
@@ -548,24 +544,20 @@ describe('E2E: Server Lifecycle', () => {
       expect(Array.isArray(data.log)).toBe(true);
     });
 
-    test(
-      'POST /api/memory/consolidate runs consolidation',
-      async () => {
-        const res = await fetch(`${baseUrl}/api/memory/consolidate`, { method: 'POST' });
-        expect(res.status).toBe(200);
-        const data = await parseOk<{
-          entriesProcessed: number;
-          entriesMerged: number;
-          entriesArchived: number;
-          durationMs: number;
-        }>(res);
-        expect(typeof data.entriesProcessed).toBe('number');
-        expect(typeof data.entriesMerged).toBe('number');
-        expect(typeof data.entriesArchived).toBe('number');
-        expect(typeof data.durationMs).toBe('number');
-      },
-      30_000,
-    );
+    test('POST /api/memory/consolidate runs consolidation', async () => {
+      const res = await fetch(`${baseUrl}/api/memory/consolidate`, { method: 'POST' });
+      expect(res.status).toBe(200);
+      const data = await parseOk<{
+        entriesProcessed: number;
+        entriesMerged: number;
+        entriesArchived: number;
+        durationMs: number;
+      }>(res);
+      expect(typeof data.entriesProcessed).toBe('number');
+      expect(typeof data.entriesMerged).toBe('number');
+      expect(typeof data.entriesArchived).toBe('number');
+      expect(typeof data.durationMs).toBe('number');
+    }, 30_000);
 
     test('POST /api/memory/decay archives low-importance entries', async () => {
       const res = await fetch(`${baseUrl}/api/memory/decay`, { method: 'POST' });
@@ -1004,7 +996,7 @@ describe('E2E: Server Lifecycle', () => {
       const parsed = messages.map((m) => JSON.parse(m) as { type: string; message?: string });
       const errorMsg = parsed.find((m) => m.type === 'error');
       expect(errorMsg).toBeDefined();
-      expect(errorMsg!.message).toBe('Invalid JSON');
+      expect(errorMsg?.message).toBe('Invalid JSON');
     });
   });
 

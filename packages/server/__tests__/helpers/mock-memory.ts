@@ -1,4 +1,3 @@
-import type { MemoryInterface, ConsolidationRunResult, ExtendedMemoryInterface } from '@pyx-memory/client';
 import type {
   MemoryEntry,
   MemorySearchParams,
@@ -6,6 +5,11 @@ import type {
   MemoryStats,
 } from '@autonomy/shared';
 import { RAGStrategy } from '@autonomy/shared';
+import type {
+  ConsolidationRunResult,
+  ExtendedMemoryInterface,
+  MemoryInterface,
+} from '@pyx-memory/client';
 
 export class MockMemory implements MemoryInterface {
   clearSessionCalls: string[] = [];

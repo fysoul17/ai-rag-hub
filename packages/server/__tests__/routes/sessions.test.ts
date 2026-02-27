@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import type { MemoryInterface } from '@pyx-memory/client';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createSessionRoutes } from '../../src/routes/sessions.ts';
 import { SessionStore } from '../../src/session-store.ts';
-import { MockMemory, MockExtendedMemory } from '../helpers/mock-memory.ts';
+import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
+import { MockExtendedMemory, MockMemory } from '../helpers/mock-memory.ts';
 
 describe('Session routes', () => {
   let db: Database;
@@ -17,7 +18,11 @@ describe('Session routes', () => {
     db.exec('PRAGMA foreign_keys = ON;');
     store = new SessionStore(db);
     memory = new MockMemory();
-    routes = createSessionRoutes(store, memory as unknown as MemoryInterface);
+    routes = createSessionRoutes(
+      store,
+      memory as unknown as MemoryInterface,
+      createMockAuthMiddleware(),
+    );
   });
 
   describe('GET /api/sessions (list)', () => {
@@ -223,7 +228,11 @@ describe('Session routes — extended memory (summarization)', () => {
     db.exec('PRAGMA foreign_keys = ON;');
     store = new SessionStore(db);
     extMemory = new MockExtendedMemory();
-    routes = createSessionRoutes(store, extMemory as unknown as MemoryInterface);
+    routes = createSessionRoutes(
+      store,
+      extMemory as unknown as MemoryInterface,
+      createMockAuthMiddleware(),
+    );
   });
 
   test('session delete calls summarizeSession when memory supports it', async () => {

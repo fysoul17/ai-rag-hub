@@ -1,10 +1,10 @@
 'use client';
 
 import type { GraphNode } from '@autonomy/shared';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { getGraphData } from '@/lib/api';
 import { useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { getGraphData } from '@/lib/api';
 
 export function GraphViewer() {
   const [nodes, setNodes] = useState<GraphNode[]>([]);
@@ -13,7 +13,7 @@ export function GraphViewer() {
 
   useEffect(() => {
     loadGraph();
-  }, []);
+  }, [loadGraph]);
 
   async function loadGraph() {
     setLoading(true);

@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { consolidateMemory, decayMemory, reindexMemory } from '@/lib/api';
-import { useCallback, useEffect, useState } from 'react';
 
 interface ActionResult {
   message: string;
@@ -70,24 +70,21 @@ export function MemoryMaintenance() {
     return () => clearTimeout(timer);
   }, [result]);
 
-  const runAction = useCallback(
-    async (name: string, action: () => Promise<string>) => {
-      setLoading(name);
-      setResult(null);
-      try {
-        const message = await action();
-        setResult({ message, isError: false });
-      } catch (err) {
-        setResult({
-          message: err instanceof Error ? err.message : 'Operation failed',
-          isError: true,
-        });
-      } finally {
-        setLoading(null);
-      }
-    },
-    [],
-  );
+  const runAction = useCallback(async (name: string, action: () => Promise<string>) => {
+    setLoading(name);
+    setResult(null);
+    try {
+      const message = await action();
+      setResult({ message, isError: false });
+    } catch (err) {
+      setResult({
+        message: err instanceof Error ? err.message : 'Operation failed',
+        isError: true,
+      });
+    } finally {
+      setLoading(null);
+    }
+  }, []);
 
   const executeAction = useCallback(
     (action: PendingAction) => {
@@ -170,12 +167,9 @@ export function MemoryMaintenance() {
       </Card>
 
       {result && (
-        <p
-          role="status"
-          className={`text-xs ${result.isError ? 'text-neon-red' : 'text-neon-green'}`}
-        >
+        <output className={`text-xs block ${result.isError ? 'text-neon-red' : 'text-neon-green'}`}>
           {result.message}
-        </p>
+        </output>
       )}
 
       <AlertDialog open={pendingAction !== null} onOpenChange={() => setPendingAction(null)}>

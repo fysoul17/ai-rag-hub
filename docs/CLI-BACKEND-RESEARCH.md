@@ -134,22 +134,7 @@ claude -p "follow-up" \
   --output-format stream-json
 ```
 
-**Current implementation** (`packages/agent-manager/src/backends/claude.ts`):
-- Spawns `claude -p <message>` per `send()` call
-- Supports `--system-prompt`, `--allowed-tools`, `--dangerously-skip-permissions`
-- Missing: `--session-id`, `--resume`, `--output-format stream-json`
-
-**Needed changes for session support:**
-```typescript
-interface BackendSpawnConfig {
-  agentId: string;
-  systemPrompt: string;
-  tools?: string[];
-  cwd?: string;
-  skipPermissions?: boolean;
-  sessionId?: string;    // NEW: for --session-id / --resume
-}
-```
+**Implementation**: All spawn/resume patterns above are implemented in `packages/agent-manager/src/backends/claude.ts` including `--session-id`, `--resume`, and `--output-format stream-json`.
 
 ---
 
@@ -244,63 +229,21 @@ goose run --resume --name my-agent -i - -q --output-format stream-json
 
 ---
 
-## Capability Matrix Update Needed
+## Current Backend Capabilities
 
-Current `BACKEND_CAPABILITIES` in `packages/shared/src/constants/capabilities.ts`:
+The capability matrix in `packages/shared/src/constants/capabilities.ts` reflects what the template's backend implementations actually support (conservative values — not raw CLI capability):
 
-```typescript
-// CURRENT (inaccurate):
-[AIBackend.CODEX]: {
-  customTools: false,
-  streaming: true,
-  sessionPersistence: false,  // ❌ WRONG — Codex has full session persistence
-  fileAccess: true,
-},
-[AIBackend.GEMINI]: {
-  customTools: false,
-  streaming: false,            // ❌ WRONG — Gemini has stream-json
-  sessionPersistence: false,   // ❌ WRONG — Gemini has --resume
-  fileAccess: false,           // ❌ WRONG — Gemini has file access tools
-},
-```
+| Backend | Custom Tools | Streaming | Session Persistence | File Access |
+|---------|-------------|-----------|-------------------|-------------|
+| Claude | Yes | Yes | Yes | Yes |
+| Codex | No | Yes | Yes | Yes |
+| Gemini | No | Yes | Yes | No |
+| Pi | No | Yes | Yes | No |
+| Ollama | No | Yes | No | No |
 
-**Corrected capabilities:**
+> **Note:** Some CLIs have more raw capabilities than what's exposed here (e.g., Codex and Gemini have tool use). The matrix reflects what's wired up in the template's backend implementations.
 
-```typescript
-// SHOULD BE:
-[AIBackend.CLAUDE]: {
-  customTools: true,
-  streaming: true,
-  sessionPersistence: true,
-  fileAccess: true,
-},
-[AIBackend.CODEX]: {
-  customTools: true,         // Codex has tool use
-  streaming: true,           // --json JSONL stream
-  sessionPersistence: true,  // exec resume <id>
-  fileAccess: true,
-},
-[AIBackend.GEMINI]: {
-  customTools: true,         // Gemini has extensions/tools
-  streaming: true,           // --output-format stream-json
-  sessionPersistence: true,  // --resume
-  fileAccess: true,          // file access tools built-in
-},
-```
-
-**New backends to add to `AIBackend` enum:**
-
-```typescript
-export const AIBackend = {
-  CLAUDE: 'claude',
-  CODEX: 'codex',
-  GEMINI: 'gemini',
-  GOOSE: 'goose',       // NEW — Tier 1, best automation support
-  COPILOT: 'copilot',   // NEW — Tier 2, GitHub-native
-  CLINE: 'cline',       // NEW — Tier 2, no sessions
-  AIDER: 'aider',       // NEW — Tier 2, no stdin
-} as const;
-```
+**Tier 2 candidates (not yet implemented):** Goose, Copilot, Cline, Aider
 
 ---
 
@@ -321,37 +264,45 @@ export const AIBackend = {
 
 ## Implementation Recommendations
 
-### Phase 1: Fix Current Backend (Claude)
+> **Status (2026-02-28):** Phases 1–4 are complete. The template ships with 5 backends:
+> Claude, Codex, Gemini, Pi, and Ollama. Goose was evaluated but not included —
+> Pi (multi-provider gateway) and Ollama (local LLM) were chosen instead for broader
+> coverage without adding a 6th CLI dependency.
 
-Add session support to `ClaudeBackend`:
-- Add `sessionId` to `BackendSpawnConfig`
+### Phase 1: Fix Current Backend (Claude) — ✅ Done
+
+Session support added to `ClaudeBackend`:
+- `sessionId` in `BackendSpawnConfig`
 - First `send()` uses `--session-id <uuid>`
 - Subsequent `send()` calls use `--resume <uuid>`
-- Track `sessionCreated` boolean in `ClaudeProcess`
+- `sessionCreated` boolean tracked in `ClaudeProcess`
 
-### Phase 2: Add Goose Backend
-
-Goose is the highest-priority second backend:
-- Provider-agnostic (use any LLM via env vars)
-- Best-designed automation flags (`-i -`, `-q`, `--output-format stream-json`, `--system`)
-- Named sessions
-- ACP protocol for advanced integration
-
-### Phase 3: Add Codex Backend
+### Phase 2: Add Codex Backend — ✅ Done
 
 - `codex exec --json` for JSONL streaming
 - `exec resume <id>` for session continuity
-- SDK (`@openai/codex-sdk`) as alternative to CLI spawning
 
-### Phase 4: Add Gemini Backend
+### Phase 3: Add Gemini Backend — ✅ Done
 
 - `gemini -p` with `--output-format stream-json`
-- System prompt requires writing temp .md file + setting `GEMINI_SYSTEM_MD` env var
+- System prompt via `GEMINI_SYSTEM_MD` env var
 - `--resume` for session continuity
+
+### Phase 4: Add Pi + Ollama Backends — ✅ Done
+
+- **Pi**: Multi-provider gateway (`PI_API_KEY` + `PI_MODEL`)
+- **Ollama**: Local HTTP-based LLM (`OLLAMA_BASE_URL` + `OLLAMA_MODEL`)
 
 ### Phase 5: Tier 2 Backends (Community)
 
 Copilot, Cline, Aider — implement as community-contributed backends via plugin SDK.
+
+### Not Implemented: Goose
+
+Goose was researched and documented above as a strong Tier 1 candidate. It was not included because:
+- Pi already covers the "provider-agnostic" use case via its multi-provider gateway
+- Ollama covers the "local LLM" use case without external dependencies
+- Adding a 6th backend adds maintenance burden with diminishing returns for a template
 
 ---
 

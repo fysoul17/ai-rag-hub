@@ -1,6 +1,6 @@
 import { Header } from '@/components/layout/header';
-import { getRuntimeConfig } from '@/lib/api-server';
 import { ConfigForm } from '@/components/settings/config-form';
+import { getRuntimeConfig } from '@/lib/api-server';
 
 export const dynamic = 'force-dynamic';
 

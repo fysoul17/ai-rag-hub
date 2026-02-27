@@ -1,5 +1,4 @@
 import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
-import type { MemoryInterface } from '@pyx-memory/client';
 import type { StreamEvent } from '@autonomy/shared';
 import {
   type ActivityEntry,
@@ -17,6 +16,7 @@ import {
   MemoryType,
   RAGStrategy,
 } from '@autonomy/shared';
+import type { MemoryInterface } from '@pyx-memory/client';
 import { nanoid } from 'nanoid';
 import { ActivityLog } from './activity-log.ts';
 import {
@@ -83,6 +83,7 @@ export class Conductor {
   private pool: AgentPool;
   private memory: MemoryInterface;
   private backend?: CLIBackend;
+  private fallbackBackend?: CLIBackend;
   private backendProcess?: BackendProcess;
   /** Per-session backend processes keyed by sessionId. */
   private sessionProcesses = new Map<string, BackendProcess>();
@@ -104,6 +105,7 @@ export class Conductor {
     this.pool = pool;
     this.memory = memory;
     this.backend = backend;
+    this.fallbackBackend = options?.fallbackBackend;
     this.options = options ?? {};
     this.hookRegistry = options?.hookRegistry;
     this.activityLog = new ActivityLog(options?.maxActivityLogSize);
@@ -128,6 +130,27 @@ export class Conductor {
         const detail = getErrorDetail(error);
         conductorLogger.warn('Failed to initialize AI backend', { error: detail });
         this.activityLog.record(ActivityType.ERROR, 'AI backend initialization failed');
+
+        if (this.fallbackBackend) {
+          try {
+            conductorLogger.info('Trying fallback backend', {
+              fallback: this.fallbackBackend.name,
+            });
+            const systemPrompt = this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+            this.backendProcess = await this.fallbackBackend.spawn({
+              agentId: 'conductor',
+              systemPrompt,
+            });
+            this.activityLog.record(
+              ActivityType.MESSAGE,
+              `Conductor AI process initialized via fallback (${this.fallbackBackend.name})`,
+            );
+          } catch (fallbackError) {
+            const fbDetail = getErrorDetail(fallbackError);
+            conductorLogger.warn('Fallback backend also failed', { error: fbDetail });
+            this.activityLog.record(ActivityType.ERROR, 'Fallback backend initialization failed');
+          }
+        }
       }
     }
 
@@ -613,6 +636,30 @@ export class Conductor {
     } catch (error) {
       const detail = getErrorDetail(error);
       conductorLogger.error('Failed to spawn session backend', { sessionId, error: detail });
+
+      if (this.fallbackBackend) {
+        try {
+          conductorLogger.info('Trying fallback backend for session', {
+            sessionId,
+            fallback: this.fallbackBackend.name,
+          });
+          const fallbackConfig = { agentId: 'conductor', systemPrompt: spawnConfig.systemPrompt };
+          const proc = await this.fallbackBackend.spawn(fallbackConfig);
+          this.sessionProcesses.set(sessionId, proc);
+          conductorLogger.info('Session backend spawned via fallback', {
+            sessionId,
+            fallback: this.fallbackBackend.name,
+          });
+          return proc;
+        } catch (fallbackError) {
+          const fbDetail = getErrorDetail(fallbackError);
+          conductorLogger.error('Fallback backend also failed for session', {
+            sessionId,
+            error: fbDetail,
+          });
+        }
+      }
+
       return undefined;
     }
   }

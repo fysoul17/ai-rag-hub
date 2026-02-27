@@ -140,7 +140,7 @@ describe('OllamaBackend', () => {
     expect(events.length).toBeGreaterThanOrEqual(1);
     const errorEvent = events.find((e) => e.type === 'error');
     expect(errorEvent).toBeDefined();
-    expect(errorEvent!.error).toContain('Failed to connect');
+    expect(errorEvent?.error).toContain('Failed to connect');
     await proc.stop();
   });
 

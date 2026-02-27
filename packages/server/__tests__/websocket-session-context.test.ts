@@ -5,9 +5,10 @@
  * so ws.data.sessionId is ALWAYS set. These tests verify that the websocket
  * handler correctly passes the session ID to the conductor and persists messages.
  */
-import { beforeEach, describe, expect, test } from 'bun:test';
+
 import { Database } from 'bun:sqlite';
-import type { Conductor, IncomingMessage } from '@autonomy/conductor';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import type { Conductor } from '@autonomy/conductor';
 import { WSClientMessageType, WSServerMessageType } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import { SessionStore } from '../src/session-store.ts';
@@ -57,11 +58,7 @@ describe('WebSocket session handling', () => {
     db = new Database(':memory:');
     db.exec('PRAGMA foreign_keys = ON;');
     sessionStore = new SessionStore(db);
-    wsHandler = createWebSocketHandler(
-      conductor as unknown as Conductor,
-      undefined,
-      sessionStore,
-    );
+    wsHandler = createWebSocketHandler(conductor as unknown as Conductor, undefined, sessionStore);
   });
 
   test('IncomingMessage.sessionId uses ws.data.sessionId', async () => {
@@ -136,8 +133,8 @@ describe('WebSocket session handling', () => {
 
     const detail = sessionStore.getDetail(session.id);
     expect(detail).not.toBeNull();
-    expect(detail!.messages.length).toBeGreaterThanOrEqual(1);
-    expect(detail!.messages[0].content).toBe('Save this');
+    expect(detail?.messages.length).toBeGreaterThanOrEqual(1);
+    expect(detail?.messages[0].content).toBe('Save this');
   });
 
   test('session_init sent on open when sessionId is set', () => {
@@ -145,9 +142,9 @@ describe('WebSocket session handling', () => {
     const ws = new MockWebSocket('ws-init', session.id);
     wsHandler.handler.open(asWS(ws));
 
-    const sessionInits = ws.allMessages().filter(
-      (m) => m.type === WSServerMessageType.SESSION_INIT,
-    );
+    const sessionInits = ws
+      .allMessages()
+      .filter((m) => m.type === WSServerMessageType.SESSION_INIT);
     expect(sessionInits.length).toBe(1);
     expect(sessionInits[0].sessionId).toBe(session.id);
   });
@@ -164,7 +161,7 @@ describe('WebSocket session handling', () => {
 
     const updated = sessionStore.getById(session.id);
     expect(updated).not.toBeNull();
-    expect(updated!.title).toBe('What is the weather today?');
+    expect(updated?.title).toBe('What is the weather today?');
   });
 
   test('auto-title truncates long messages', async () => {
@@ -179,7 +176,7 @@ describe('WebSocket session handling', () => {
     );
 
     const updated = sessionStore.getById(session.id);
-    expect(updated!.title.length).toBeLessThanOrEqual(60);
-    expect(updated!.title).toEndWith('...');
+    expect(updated?.title.length).toBeLessThanOrEqual(60);
+    expect(updated?.title).toEndWith('...');
   });
 });

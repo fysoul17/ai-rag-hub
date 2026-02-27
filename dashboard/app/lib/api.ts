@@ -222,10 +222,7 @@ export async function consolidateMemory(): Promise<{
   return fetchApi('/api/memory/consolidate', { method: 'POST' });
 }
 
-export async function forgetMemory(
-  id: string,
-  reason?: string,
-): Promise<{ forgotten: boolean }> {
+export async function forgetMemory(id: string, reason?: string): Promise<{ forgotten: boolean }> {
   return fetchApi(`/api/memory/forget/${id}`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
@@ -240,25 +237,19 @@ export async function reindexMemory(): Promise<{ reindexed: boolean }> {
   return fetchApi('/api/memory/reindex', { method: 'POST' });
 }
 
-export async function summarizeSession(
-  sessionId: string,
-): Promise<unknown> {
+export async function summarizeSession(sessionId: string): Promise<unknown> {
   return fetchApi(`/api/memory/sessions/${sessionId}/summarize`, {
     method: 'POST',
   });
 }
 
-export async function deleteBySource(
-  source: string,
-): Promise<{ deletedCount: number }> {
+export async function deleteBySource(source: string): Promise<{ deletedCount: number }> {
   return fetchApi(`/api/memory/source/${encodeURIComponent(source)}`, {
     method: 'DELETE',
   });
 }
 
-export async function getConsolidationLog(
-  limit = 10,
-): Promise<{ log: unknown[] }> {
+export async function getConsolidationLog(limit = 10): Promise<{ log: unknown[] }> {
   return fetchApi(`/api/memory/consolidation-log?limit=${limit}`);
 }
 
@@ -299,9 +290,7 @@ export async function createGraphRelationship(data: {
   });
 }
 
-export async function deleteGraphNode(
-  id: string,
-): Promise<{ deleted: string }> {
+export async function deleteGraphNode(id: string): Promise<{ deleted: string }> {
   return fetchApi(`/api/memory/graph/nodes/${id}`, {
     method: 'DELETE',
   });

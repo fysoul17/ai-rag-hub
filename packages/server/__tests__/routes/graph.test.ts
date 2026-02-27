@@ -142,7 +142,7 @@ describe('Graph routes', () => {
 
   describe('GET /api/memory/graph/edges', () => {
     test('returns graph stats', async () => {
-      const req = new Request('http://localhost/api/memory/graph/edges');
+      const _req = new Request('http://localhost/api/memory/graph/edges');
       const res = await routes.getEdges();
       const body = await res.json();
 
@@ -408,9 +408,7 @@ describe('Graph routes', () => {
       const req = new Request('http://localhost/api/memory/graph/nodes/missing', {
         method: 'DELETE',
       });
-      await expect(routes.deleteNode(req, { id: 'missing' })).rejects.toBeInstanceOf(
-        NotFoundError,
-      );
+      await expect(routes.deleteNode(req, { id: 'missing' })).rejects.toBeInstanceOf(NotFoundError);
     });
 
     test('throws BadRequestError when id param is empty', async () => {

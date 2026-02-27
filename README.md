@@ -94,10 +94,10 @@ The Conductor is a simple AI agent: it searches memory for context, then either 
 ## Features
 
 ### Pluggable AI Backends
-Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, and Pi slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
+Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, Pi, and Ollama slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
 
 ### Persistent Memory (pyx-memory)
-Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), extracted as a standalone repo and consumed via git submodule at `vendor/pyx-memory`. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + three RAG strategies (Naive, Graph, Agentic). Runs **embedded** (in-process, zero-latency) or as a **sidecar** (standalone HTTP service with Neo4j graph store). Memory persists across sessions and agent restarts.
+Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), extracted as a standalone repo and consumed via git submodule at `vendor/pyx-memory`. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + four RAG strategies (Hybrid, Graph, Agentic, Naive). Runs **embedded** (in-process, zero-latency) or as a **sidecar** (standalone HTTP service with Neo4j graph store). Memory persists across sessions and agent restarts.
 
 ### Agent Lifecycle Management
 Full CRUD for AI agents with serial message queues, idle timeout auto-shutdown, configurable pool limits, session persistence (`--resume` flags), and ownership-based permissions (user-created vs conductor-created agents).
@@ -176,20 +176,18 @@ docker compose -f docker/docker-compose.yaml down
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `pi`) |
+| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `pi`, `ollama`) |
+| `FALLBACK_BACKEND` | *(empty)* | Fallback if primary fails to spawn |
 | `ANTHROPIC_API_KEY` | *(empty)* | API key for Claude CLI |
 | `CODEX_API_KEY` | *(empty)* | API key for OpenAI Codex CLI |
 | `GEMINI_API_KEY` | *(empty)* | API key for Google Gemini CLI |
 | `PI_API_KEY` | *(empty)* | API key for Pi backend |
-| `PI_MODEL` | *(empty)* | Model name for Pi backend |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API URL (no key needed) |
 | `MAX_AGENTS` | `10` | Maximum concurrent agents |
-| `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `DASHBOARD_USER` | *(empty)* | Set with `DASHBOARD_PASSWORD` to enable dashboard auth |
 | `DASHBOARD_PASSWORD` | *(empty)* | Dashboard login password |
-| `MEMORY_URL` | *(empty)* | Memory sidecar URL (set automatically in `--profile full`) |
-| `EMBEDDING_PROVIDER` | `stub` | Embedding provider for memory (full profile) |
-| `EMBEDDING_API_KEY` | *(empty)* | API key for embedding provider (full profile) |
-| `NEO4J_PASSWORD` | `password` | Neo4j password (full profile, local container) |
+
+See `.env.example` for all variables, or [`docs/SPEC.md` Section 13](docs/SPEC.md#13-environment-variables) for the full reference.
 
 ### Run Tests
 
@@ -289,48 +287,13 @@ bun run lint:fix             # Auto-fix
 bun run typecheck            # Type checking
 ```
 
-### API Endpoints
+### API & WebSocket
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | System health + uptime |
-| GET | `/api/agents` | List all agents |
-| POST | `/api/agents` | Create agent |
-| PUT | `/api/agents/:id` | Update agent |
-| DELETE | `/api/agents/:id` | Delete agent |
-| POST | `/api/agents/:id/restart` | Restart agent |
-| GET | `/api/memory/search?q=` | Semantic search |
-| POST | `/api/memory/ingest` | Store to memory |
-| POST | `/api/memory/ingest/file` | Upload file to memory |
-| GET | `/api/memory/stats` | Memory statistics |
-| GET | `/api/crons` | List cron jobs |
-| POST | `/api/crons` | Create cron |
-| PUT | `/api/crons/:id` | Update cron |
-| DELETE | `/api/crons/:id` | Delete cron |
-| POST | `/api/crons/:id/trigger` | Trigger cron manually |
-| GET | `/api/activity` | Activity log |
-| GET | `/api/config` | Runtime config |
-| PUT | `/api/config` | Update config |
-| GET | `/api/auth/keys` | List API keys |
-| POST | `/api/auth/keys` | Create API key |
-| PUT | `/api/auth/keys/:id` | Update API key |
-| DELETE | `/api/auth/keys/:id` | Delete API key |
-| GET | `/api/usage/summary` | Usage analytics |
-| GET | `/api/usage/quotas/:keyId` | Get quotas |
-| PUT | `/api/usage/quotas/:keyId` | Update quotas |
-| GET | `/api/instances` | List runtime instances |
-| GET | `/api/sessions` | List sessions |
-| POST | `/api/sessions` | Create session |
-| GET | `/api/sessions/:id` | Get session with messages |
-| PUT | `/api/sessions/:id` | Update session |
-| DELETE | `/api/sessions/:id` | Delete session |
-| POST | `/api/auth/login` | Dashboard login (Next.js) |
-| POST | `/api/auth/logout` | Dashboard logout (Next.js) |
+~40 REST endpoints across 13 route groups: agents, memory (search + lifecycle + graph), sessions, crons, config, backends, auth/keys, usage/quotas, instances, activity, and health.
 
-### WebSocket
+3 WebSocket endpoints: `/ws/chat` (streaming chat), `/ws/debug` (event stream), `/ws/terminal` (PTY-based CLI login).
 
-- **`/ws/chat`** — Chat with streaming responses, conductor status events, agent status broadcasts
-- **`/ws/debug`** — Real-time debug event stream with history replay
+See [`docs/SPEC.md` Section 11-12](docs/SPEC.md#11-rest-api) for the full endpoint reference.
 
 ### Dashboard Pages
 
@@ -339,12 +302,13 @@ bun run typecheck            # Type checking
 | `/` | Home — system health, agent stats, memory stats, instance status |
 | `/agents` | Agent management — CRUD, status badges, backend selection |
 | `/chat` | Real-time chat with streaming + pipeline visualization |
-| `/memory` | Memory browser — search, filter, file upload, graph visualization |
+| `/memory` | Memory browser — search, filter, file upload, graph stats |
 | `/automation` | Cron management — create, edit, trigger scheduled tasks |
 | `/activity` | Debug console — live event stream, filters, search |
+| `/sessions` | Session browser — browse, resume, delete conversations |
 | `/settings` | Runtime configuration — AI backend, max agents, etc. |
 | `/settings/keys` | API key management — create, enable, disable, delete |
-| `/sessions` | Session browser — browse, resume, delete conversations |
+| `/settings/providers` | Backend credential management — API keys, OAuth login/logout |
 | `/settings/usage` | Usage analytics — daily/monthly request tracking |
 | `/login` | Login page — shown when dashboard auth is enabled |
 

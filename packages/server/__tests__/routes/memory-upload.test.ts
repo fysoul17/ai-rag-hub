@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Memory } from '@pyx-memory/core';
 import { BadRequestError } from '../../src/errors.ts';
 import { createMemoryRoutes } from '../../src/routes/memory.ts';
+import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 
 interface MockStoreInput {
   content: string;
@@ -49,7 +50,7 @@ describe('POST /api/memory/ingest/file', () => {
 
   beforeEach(() => {
     memory = new MockMemory();
-    routes = createMemoryRoutes(memory as unknown as Memory);
+    routes = createMemoryRoutes(memory as unknown as Memory, createMockAuthMiddleware());
   });
 
   test('ingests a valid .txt file', async () => {

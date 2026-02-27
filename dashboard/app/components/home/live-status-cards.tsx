@@ -136,7 +136,17 @@ export function LiveStatusCards({ initialHealth, initialMemoryStats }: LiveStatu
                 {health.status}
               </span>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">v{health.version}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {health.backendStatus
+                ? `${health.backendStatus.default}: ${
+                    health.backendStatus.backends.find(
+                      (b) => b.name === health.backendStatus?.default,
+                    )?.authenticated
+                      ? 'connected'
+                      : 'not authenticated'
+                  }`
+                : `v${health.version}`}
+            </p>
           </CardContent>
         </Card>
 

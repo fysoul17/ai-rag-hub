@@ -1,33 +1,51 @@
+import type { AuthMiddleware } from '@autonomy/control-plane';
+import { getAuthContext } from '@autonomy/control-plane';
+import { ApiKeyScope } from '@autonomy/shared';
 import type { ConfigManager, ConfigUpdateError } from '../config-manager.ts';
-import { BadRequestError } from '../errors.ts';
+import { BadRequestError, ServerError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 
-export function createConfigRoutes(configManager: ConfigManager) {
+const SECRET_KEYS = [
+  'ANTHROPIC_API_KEY',
+  'CODEX_API_KEY',
+  'GEMINI_API_KEY',
+  'PI_API_KEY',
+  'AUTH_MASTER_KEY',
+] as const;
+
+function redactSecrets<T extends object>(config: T): T {
+  const redacted = { ...config } as Record<string, unknown>;
+  for (const key of SECRET_KEYS) {
+    if (key in redacted && redacted[key]) {
+      redacted[key] = '***';
+    }
+  }
+  return redacted as T;
+}
+
+export function createConfigRoutes(configManager: ConfigManager, authMiddleware: AuthMiddleware) {
+  function requireScope(req: Request, scope: ApiKeyScope): void {
+    const ctx = getAuthContext(req);
+    if (!authMiddleware.hasScope(ctx, scope)) {
+      throw new ServerError('Insufficient permissions', 403);
+    }
+  }
+
   return {
-    get: async (): Promise<Response> => {
+    get: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.READ);
       const config = configManager.get();
-      const redacted = {
-        ...config,
-        ANTHROPIC_API_KEY: config.ANTHROPIC_API_KEY ? '***' : undefined,
-        CODEX_API_KEY: config.CODEX_API_KEY ? '***' : undefined,
-        GEMINI_API_KEY: config.GEMINI_API_KEY ? '***' : undefined,
-        AUTH_MASTER_KEY: config.AUTH_MASTER_KEY ? '***' : undefined,
-      };
+      const redacted = redactSecrets(config);
       return jsonResponse(redacted);
     },
 
     update: async (req: Request): Promise<Response> => {
+      requireScope(req, ApiKeyScope.ADMIN);
       const body = await parseJsonBody<Record<string, unknown>>(req);
 
       try {
         const updated = configManager.update(body);
-        const redacted = {
-          ...updated,
-          ANTHROPIC_API_KEY: updated.ANTHROPIC_API_KEY ? '***' : undefined,
-          CODEX_API_KEY: updated.CODEX_API_KEY ? '***' : undefined,
-          GEMINI_API_KEY: updated.GEMINI_API_KEY ? '***' : undefined,
-          AUTH_MASTER_KEY: updated.AUTH_MASTER_KEY ? '***' : undefined,
-        };
+        const redacted = redactSecrets(updated);
         return jsonResponse(redacted);
       } catch (error) {
         if ((error as ConfigUpdateError).name === 'ConfigUpdateError') {

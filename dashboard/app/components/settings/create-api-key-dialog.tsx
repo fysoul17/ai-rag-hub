@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,8 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { createApiKey } from '@/lib/api';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 
 const AVAILABLE_SCOPES = ['admin', 'read', 'write', 'agents', 'memory', 'crons'] as const;
 
@@ -39,7 +39,7 @@ export function CreateApiKeyDialog() {
     try {
       const result = await createApiKey({
         name,
-        scopes: scopes as typeof AVAILABLE_SCOPES[number][],
+        scopes: scopes as (typeof AVAILABLE_SCOPES)[number][],
       });
       setRawKey(result.rawKey);
       router.refresh();
@@ -81,9 +81,7 @@ export function CreateApiKeyDialog() {
 
         {rawKey ? (
           <div className="space-y-4">
-            <p className="text-xs text-amber-400">
-              Copy this key now. It will not be shown again.
-            </p>
+            <p className="text-xs text-amber-400">Copy this key now. It will not be shown again.</p>
             <div className="flex gap-2">
               <code className="flex-1 rounded bg-muted p-2 text-xs font-mono break-all">
                 {rawKey}
@@ -99,8 +97,11 @@ export function CreateApiKeyDialog() {
         ) : (
           <div className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Name</label>
+              <label htmlFor="api-key-name" className="text-xs text-muted-foreground">
+                Name
+              </label>
               <Input
+                id="api-key-name"
                 placeholder="My API Key"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -108,7 +109,7 @@ export function CreateApiKeyDialog() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Scopes</label>
+              <span className="text-xs text-muted-foreground">Scopes</span>
               <div className="flex flex-wrap gap-2">
                 {AVAILABLE_SCOPES.map((scope) => (
                   <button

@@ -473,7 +473,7 @@ describe('CronManager', () => {
 
       const nextRun = manager.getNextRun(cron.id);
       expect(nextRun).toBeInstanceOf(Date);
-      expect(nextRun!.getTime()).toBeGreaterThan(Date.now());
+      expect(nextRun?.getTime()).toBeGreaterThan(Date.now());
     });
 
     test('returns null for disabled cron (no scheduled job)', async () => {

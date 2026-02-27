@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { MessageRole, SessionStatus } from '@autonomy/shared';
 import { SessionStore } from '../src/session-store.ts';
 
@@ -51,8 +51,8 @@ describe('SessionStore', () => {
       const created = store.create({ title: 'Test' });
       const found = store.getById(created.id);
       expect(found).not.toBeNull();
-      expect(found!.id).toBe(created.id);
-      expect(found!.title).toBe('Test');
+      expect(found?.id).toBe(created.id);
+      expect(found?.title).toBe('Test');
     });
 
     test('returns null for non-existent id', () => {
@@ -65,8 +65,8 @@ describe('SessionStore', () => {
       const created = store.create({ title: 'Detail Test' });
       const detail = store.getDetail(created.id);
       expect(detail).not.toBeNull();
-      expect(detail!.messages).toEqual([]);
-      expect(detail!.title).toBe('Detail Test');
+      expect(detail?.messages).toEqual([]);
+      expect(detail?.title).toBe('Detail Test');
     });
 
     test('returns session with messages in chronological order', () => {
@@ -75,11 +75,11 @@ describe('SessionStore', () => {
       store.addMessage(created.id, MessageRole.ASSISTANT, 'Hi there');
 
       const detail = store.getDetail(created.id);
-      expect(detail!.messages.length).toBe(2);
-      expect(detail!.messages[0].role).toBe(MessageRole.USER);
-      expect(detail!.messages[0].content).toBe('Hello');
-      expect(detail!.messages[1].role).toBe(MessageRole.ASSISTANT);
-      expect(detail!.messages[1].content).toBe('Hi there');
+      expect(detail?.messages.length).toBe(2);
+      expect(detail?.messages[0].role).toBe(MessageRole.USER);
+      expect(detail?.messages[0].content).toBe('Hello');
+      expect(detail?.messages[1].role).toBe(MessageRole.ASSISTANT);
+      expect(detail?.messages[1].content).toBe('Hi there');
     });
 
     test('returns null for non-existent id', () => {
@@ -167,14 +167,14 @@ describe('SessionStore', () => {
       const created = store.create({ title: 'Original' });
       const updated = store.update(created.id, { title: 'Renamed' });
       expect(updated).not.toBeNull();
-      expect(updated!.title).toBe('Renamed');
+      expect(updated?.title).toBe('Renamed');
     });
 
     test('sets updated_at on update', () => {
       const created = store.create({});
       const updated = store.update(created.id, { title: 'Changed' });
-      expect(updated!.updatedAt).toBeDefined();
-      expect(typeof updated!.updatedAt).toBe('string');
+      expect(updated?.updatedAt).toBeDefined();
+      expect(typeof updated?.updatedAt).toBe('string');
     });
 
     test('returns null for non-existent id', () => {
@@ -184,7 +184,7 @@ describe('SessionStore', () => {
     test('no-op update when no fields provided', () => {
       const created = store.create({ title: 'Keep' });
       const updated = store.update(created.id, {});
-      expect(updated!.title).toBe('Keep');
+      expect(updated?.title).toBe('Keep');
     });
   });
 
@@ -207,7 +207,9 @@ describe('SessionStore', () => {
       store.delete(session.id);
 
       // Verify messages are gone
-      const rows = db.query('SELECT COUNT(*) as count FROM session_messages WHERE session_id = ?').get(session.id) as { count: number };
+      const rows = db
+        .query('SELECT COUNT(*) as count FROM session_messages WHERE session_id = ?')
+        .get(session.id) as { count: number };
       expect(rows.count).toBe(0);
     });
   });
@@ -245,17 +247,17 @@ describe('SessionStore', () => {
       store.addMessage(session.id, MessageRole.ASSISTANT, 'msg2');
 
       const updated = store.getById(session.id);
-      expect(updated!.messageCount).toBe(2);
+      expect(updated?.messageCount).toBe(2);
     });
 
     test('updates session updated_at', () => {
       const session = store.create({});
-      const originalUpdated = session.updatedAt;
+      const _originalUpdated = session.updatedAt;
 
       store.addMessage(session.id, MessageRole.USER, 'new msg');
       const updated = store.getById(session.id);
       // updatedAt should change (or at least be set)
-      expect(updated!.updatedAt).toBeDefined();
+      expect(updated?.updatedAt).toBeDefined();
     });
 
     test('message without agentId has undefined agentId', () => {
