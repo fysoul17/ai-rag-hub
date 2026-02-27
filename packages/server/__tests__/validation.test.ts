@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { MemoryType, RAGStrategy } from '@autonomy/shared';
+import { EntityType, RelationType } from '@pyx-memory/core';
 import { BadRequestError } from '../src/errors.ts';
 import {
+  validateEntityType,
   validateMemoryType,
-  validateRAGStrategy,
   validatePositiveInt,
+  validateRAGStrategy,
+  validateRelationType,
 } from '../src/validation.ts';
 
 describe('validateMemoryType()', () => {
@@ -107,6 +110,44 @@ describe('validatePositiveInt()', () => {
     } catch (e) {
       expect((e as BadRequestError).message).toContain('limit');
       expect((e as BadRequestError).message).toContain('positive integer');
+    }
+  });
+});
+
+describe('validateEntityType()', () => {
+  test.each(Object.values(EntityType))('accepts valid entity type "%s"', (type) => {
+    expect(validateEntityType(type)).toBe(type);
+  });
+
+  test('throws BadRequestError for invalid type', () => {
+    expect(() => validateEntityType('INVALID')).toThrow(BadRequestError);
+  });
+
+  test('error message lists valid types', () => {
+    try {
+      validateEntityType('BOGUS');
+    } catch (e) {
+      expect((e as BadRequestError).message).toContain('Invalid entity type');
+      expect((e as BadRequestError).message).toContain('PERSON');
+    }
+  });
+});
+
+describe('validateRelationType()', () => {
+  test.each(Object.values(RelationType))('accepts valid relation type "%s"', (type) => {
+    expect(validateRelationType(type)).toBe(type);
+  });
+
+  test('throws BadRequestError for invalid type', () => {
+    expect(() => validateRelationType('INVALID')).toThrow(BadRequestError);
+  });
+
+  test('error message lists valid types', () => {
+    try {
+      validateRelationType('BOGUS');
+    } catch (e) {
+      expect((e as BadRequestError).message).toContain('Invalid relation type');
+      expect((e as BadRequestError).message).toContain('USES');
     }
   });
 });

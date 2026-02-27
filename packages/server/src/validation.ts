@@ -1,8 +1,11 @@
 import { MemoryType, RAGStrategy } from '@autonomy/shared';
+import { EntityType, RelationType } from '@pyx-memory/core';
 import { BadRequestError } from './errors.ts';
 
 const VALID_MEMORY_TYPES = new Set<string>(Object.values(MemoryType));
 const VALID_RAG_STRATEGIES = new Set<string>(Object.values(RAGStrategy));
+const VALID_ENTITY_TYPES = new Set<string>(Object.values(EntityType));
+const VALID_RELATION_TYPES = new Set<string>(Object.values(RelationType));
 
 export function validateMemoryType(value: string | null | undefined): MemoryType | undefined {
   if (value == null) return undefined;
@@ -22,6 +25,24 @@ export function validateRAGStrategy(value: string | null | undefined): RAGStrate
     );
   }
   return value as RAGStrategy;
+}
+
+export function validateEntityType(value: string): typeof EntityType[keyof typeof EntityType] {
+  if (!VALID_ENTITY_TYPES.has(value)) {
+    throw new BadRequestError(
+      `Invalid entity type: must be one of ${[...VALID_ENTITY_TYPES].join(', ')}`,
+    );
+  }
+  return value as typeof EntityType[keyof typeof EntityType];
+}
+
+export function validateRelationType(value: string): typeof RelationType[keyof typeof RelationType] {
+  if (!VALID_RELATION_TYPES.has(value)) {
+    throw new BadRequestError(
+      `Invalid relation type: must be one of ${[...VALID_RELATION_TYPES].join(', ')}`,
+    );
+  }
+  return value as typeof RelationType[keyof typeof RelationType];
 }
 
 export function validatePositiveInt(

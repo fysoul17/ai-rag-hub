@@ -807,7 +807,7 @@ describe('E2E: Server Lifecycle', () => {
       expect(res.status).toBe(400);
     });
 
-    test('POST /api/memory/graph/relationships with non-existent source returns 400', async () => {
+    test('POST /api/memory/graph/relationships with non-existent source returns 404', async () => {
       const res = await fetch(`${baseUrl}/api/memory/graph/relationships`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -817,7 +817,7 @@ describe('E2E: Server Lifecycle', () => {
           type: 'RELATED_TO',
         }),
       });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       const err = await parseErr(res);
       expect(err).toContain('not found');
     });

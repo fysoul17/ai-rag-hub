@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { BadRequestError } from '../../src/errors.ts';
+import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createGraphRoutes } from '../../src/routes/graph.ts';
 
 function makeNode(id: string, name: string, type = 'entity') {
@@ -49,9 +49,35 @@ class MockGraphStore {
   }
 
   async initialize() {}
-  async addNode() { return makeNode('new', 'New'); }
-  async addRelationship() { return makeEdge('new', 'n1', 'n2'); }
-  async deleteNode() { return true; }
+  addNodeCalls: Array<Record<string, unknown>> = [];
+  addRelationshipCalls: Array<Record<string, unknown>> = [];
+  deleteNodeCalls: string[] = [];
+  private _deleteNodeResult = true;
+
+  getNodesByIds?: (ids: string[]) => Promise<ReturnType<typeof makeNode>[]>;
+
+  enableGetNodesByIds() {
+    this.getNodesByIds = async (ids: string[]) => {
+      return this._nodes.filter((n) => ids.includes(n.id));
+    };
+  }
+
+  setDeleteNodeResult(result: boolean) {
+    this._deleteNodeResult = result;
+  }
+
+  async addNode(data: Record<string, unknown>) {
+    this.addNodeCalls.push(data);
+    return makeNode('new', data.name as string, data.type as string);
+  }
+  async addRelationship(data: Record<string, unknown>) {
+    this.addRelationshipCalls.push(data);
+    return makeEdge('new', data.sourceId as string, data.targetId as string, data.type as string);
+  }
+  async deleteNode(id: string) {
+    this.deleteNodeCalls.push(id);
+    return this._deleteNodeResult;
+  }
   async shutdown() {}
 }
 
@@ -215,6 +241,183 @@ describe('Graph routes', () => {
       await routes.query(req);
 
       expect(store.getNeighborsCalls[0].depth).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('POST /api/memory/graph/nodes (createNode)', () => {
+    test('creates a node with valid data', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Test Entity', type: 'CONCEPT' }),
+      });
+      const res = await routes.createNode(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(body.success).toBe(true);
+      expect(body.data.name).toBe('Test Entity');
+      expect(store.addNodeCalls).toHaveLength(1);
+      expect(store.addNodeCalls[0].name).toBe('Test Entity');
+      expect(store.addNodeCalls[0].type).toBe('CONCEPT');
+    });
+
+    test('defaults properties and memoryEntryIds', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Test', type: 'TOOL' }),
+      });
+      await routes.createNode(req);
+
+      expect(store.addNodeCalls[0].properties).toEqual({});
+      expect(store.addNodeCalls[0].memoryEntryIds).toEqual([]);
+    });
+
+    test('throws BadRequestError when name is missing', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'CONCEPT' }),
+      });
+      await expect(routes.createNode(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when type is missing', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Test' }),
+      });
+      await expect(routes.createNode(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError for invalid entity type', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Test', type: 'INVALID' }),
+      });
+      await expect(routes.createNode(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when name exceeds 500 chars', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'x'.repeat(501), type: 'CONCEPT' }),
+      });
+      await expect(routes.createNode(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('accepts name with exactly 500 chars', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'x'.repeat(500), type: 'CONCEPT' }),
+      });
+      const res = await routes.createNode(req);
+      expect(res.status).toBe(201);
+    });
+  });
+
+  describe('POST /api/memory/graph/relationships (createRelationship)', () => {
+    test('creates a relationship with valid data', async () => {
+      store.enableGetNodesByIds();
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'n1', targetId: 'n2', type: 'RELATED_TO' }),
+      });
+      const res = await routes.createRelationship(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(body.success).toBe(true);
+      expect(store.addRelationshipCalls).toHaveLength(1);
+    });
+
+    test('throws BadRequestError when sourceId is missing', async () => {
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ targetId: 'n2', type: 'RELATED_TO' }),
+      });
+      await expect(routes.createRelationship(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when targetId is missing', async () => {
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'n1', type: 'RELATED_TO' }),
+      });
+      await expect(routes.createRelationship(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError when type is missing', async () => {
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'n1', targetId: 'n2' }),
+      });
+      await expect(routes.createRelationship(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws BadRequestError for invalid relation type', async () => {
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'n1', targetId: 'n2', type: 'INVALID' }),
+      });
+      await expect(routes.createRelationship(req)).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    test('throws NotFoundError when source node does not exist', async () => {
+      store.enableGetNodesByIds();
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'missing', targetId: 'n2', type: 'RELATED_TO' }),
+      });
+      await expect(routes.createRelationship(req)).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    test('throws NotFoundError when target node does not exist', async () => {
+      store.enableGetNodesByIds();
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'n1', targetId: 'missing', type: 'RELATED_TO' }),
+      });
+      await expect(routes.createRelationship(req)).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    test('skips node existence check when getNodesByIds is unavailable', async () => {
+      // getNodesByIds is not enabled — validation is skipped
+      const req = new Request('http://localhost/api/memory/graph/relationships', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'any', targetId: 'any', type: 'RELATED_TO' }),
+      });
+      const res = await routes.createRelationship(req);
+      expect(res.status).toBe(201);
+    });
+  });
+
+  describe('DELETE /api/memory/graph/nodes/:id (deleteNode)', () => {
+    test('deletes an existing node', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes/n1', {
+        method: 'DELETE',
+      });
+      const res = await routes.deleteNode(req, { id: 'n1' });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.data.deleted).toBe('n1');
+      expect(store.deleteNodeCalls).toEqual(['n1']);
+    });
+
+    test('throws NotFoundError when node does not exist', async () => {
+      store.setDeleteNodeResult(false);
+      const req = new Request('http://localhost/api/memory/graph/nodes/missing', {
+        method: 'DELETE',
+      });
+      await expect(routes.deleteNode(req, { id: 'missing' })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+    });
+
+    test('throws BadRequestError when id param is empty', async () => {
+      const req = new Request('http://localhost/api/memory/graph/nodes/', {
+        method: 'DELETE',
+      });
+      await expect(routes.deleteNode(req, {})).rejects.toBeInstanceOf(BadRequestError);
     });
   });
 });

@@ -177,6 +177,27 @@ export async function getInstances(): Promise<InstanceInfo[]> {
   return fetchApi<InstanceInfo[]>('/api/instances');
 }
 
+// --- Memory Lifecycle (server-side reads) ---
+
+export async function getConsolidationLog(
+  limit = 10,
+): Promise<{ log: unknown[] }> {
+  return fetchApi<{ log: unknown[] }>(`/api/memory/consolidation-log?limit=${limit}`);
+}
+
+export async function queryAsOf(
+  asOf: string,
+  options?: { type?: string; agentId?: string; limit?: number },
+): Promise<{ entries: unknown[]; totalCount: number }> {
+  const params = new URLSearchParams({ asOf });
+  if (options?.type) params.set('type', options.type);
+  if (options?.agentId) params.set('agentId', options.agentId);
+  if (options?.limit) params.set('limit', String(options.limit));
+  return fetchApi<{ entries: unknown[]; totalCount: number }>(
+    `/api/memory/query-as-of?${params}`,
+  );
+}
+
 // --- Sessions ---
 
 export async function getSessions(): Promise<SessionListResponse> {
