@@ -4,7 +4,6 @@ import type { Conductor } from '@autonomy/conductor';
 import { AgentOwner } from '@autonomy/shared';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createAgentRoutes } from '../../src/routes/agents.ts';
-import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 import { MockConductor } from '../helpers/mock-conductor.ts';
 import { MockPool, makeDefinition } from '../helpers/mock-pool.ts';
 
@@ -17,11 +16,7 @@ describe('Agent routes', () => {
     conductor = new MockConductor();
     conductor.initialized = true;
     pool = new MockPool();
-    routes = createAgentRoutes(
-      conductor as unknown as Conductor,
-      pool as unknown as AgentPool,
-      createMockAuthMiddleware(),
-    );
+    routes = createAgentRoutes(conductor as unknown as Conductor, pool as unknown as AgentPool);
   });
 
   describe('GET /api/agents (list)', () => {

@@ -6,7 +6,7 @@ import type {
   MemoryType,
 } from '@autonomy/shared';
 import { RAGStrategy } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { MemoryInterface, MemoryListParams, MemoryListResult } from '@pyx-memory/client';
 
 export class MockMemory implements MemoryInterface {
   private entries = new Map<string, MemoryEntry>();
@@ -54,6 +54,17 @@ export class MockMemory implements MemoryInterface {
     if (this._shouldThrow) throw new Error('Mock memory search error');
     this.searchCalls.push(params);
     return this._searchResults;
+  }
+
+  async list(params?: MemoryListParams): Promise<MemoryListResult> {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 20;
+    return {
+      entries: Array.from(this.entries.values()).slice(0, limit),
+      totalCount: this.entries.size,
+      page,
+      limit,
+    };
   }
 
   async get(id: string): Promise<MemoryEntry | null> {

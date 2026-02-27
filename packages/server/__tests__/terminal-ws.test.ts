@@ -59,7 +59,6 @@ describe('buildPtyEnv', () => {
     'DISPLAY',
     'TERM',
     'ANTHROPIC_API_KEY',
-    'AUTH_MASTER_KEY',
     'DASHBOARD_PASSWORD',
     'OPENAI_API_KEY',
     'CODEX_API_KEY',
@@ -99,7 +98,6 @@ describe('buildPtyEnv', () => {
 
   test('excludes server secrets', () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-secret';
-    process.env.AUTH_MASTER_KEY = 'master-secret';
     process.env.DASHBOARD_PASSWORD = 'dashboard-secret';
     process.env.OPENAI_API_KEY = 'sk-openai-secret';
     process.env.CODEX_API_KEY = 'codex-secret';
@@ -109,7 +107,6 @@ describe('buildPtyEnv', () => {
     const env = buildPtyEnv();
 
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
-    expect(env.AUTH_MASTER_KEY).toBeUndefined();
     expect(env.DASHBOARD_PASSWORD).toBeUndefined();
     expect(env.OPENAI_API_KEY).toBeUndefined();
     expect(env.CODEX_API_KEY).toBeUndefined();
@@ -645,7 +642,6 @@ describe('Security invariants', () => {
     // Set every known secret, then verify the PTY child cannot see any of them
     const secrets: Record<string, string> = {
       ANTHROPIC_API_KEY: 'sk-ant-secret-test',
-      AUTH_MASTER_KEY: 'master-secret-test',
       DASHBOARD_PASSWORD: 'dashboard-secret-test',
       OPENAI_API_KEY: 'sk-openai-secret-test',
       CODEX_API_KEY: 'codex-secret-test',

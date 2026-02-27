@@ -1,13 +1,6 @@
-import type { AuthMiddleware } from '@autonomy/control-plane';
-import { getAuthContext } from '@autonomy/control-plane';
-import {
-  ApiKeyScope,
-  type CreateSessionRequest,
-  Logger,
-  type UpdateSessionRequest,
-} from '@autonomy/shared';
+import { type CreateSessionRequest, Logger, type UpdateSessionRequest } from '@autonomy/shared';
 import type { MemoryInterface } from '@pyx-memory/client';
-import { BadRequestError, NotFoundError, ServerError } from '../errors.ts';
+import { BadRequestError, NotFoundError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 import type { SessionStore } from '../session-store.ts';
@@ -15,21 +8,9 @@ import { isExtended } from './lifecycle.ts';
 
 const logger = new Logger({ context: { source: 'sessions' } });
 
-export function createSessionRoutes(
-  store: SessionStore,
-  memory: MemoryInterface,
-  authMiddleware: AuthMiddleware,
-) {
-  function requireScope(req: Request, scope: ApiKeyScope): void {
-    const ctx = getAuthContext(req);
-    if (!authMiddleware.hasScope(ctx, scope)) {
-      throw new ServerError('Insufficient permissions', 403);
-    }
-  }
-
+export function createSessionRoutes(store: SessionStore, memory: MemoryInterface) {
   return {
     list: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.READ);
       const url = new URL(req.url);
       const agentId = url.searchParams.get('agentId') ?? undefined;
       const pageRaw = url.searchParams.get('page');
@@ -42,14 +23,12 @@ export function createSessionRoutes(
     },
 
     create: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.WRITE);
       const body = await parseJsonBody<CreateSessionRequest>(req);
       const session = store.create(body);
       return jsonResponse(session, 201);
     },
 
-    get: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.READ);
+    get: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Session id is required');
 
@@ -60,7 +39,6 @@ export function createSessionRoutes(
     },
 
     update: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.WRITE);
       const { id } = params;
       if (!id) throw new BadRequestError('Session id is required');
 
@@ -75,8 +53,7 @@ export function createSessionRoutes(
       return jsonResponse(session);
     },
 
-    remove: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.WRITE);
+    remove: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Session id is required');
 

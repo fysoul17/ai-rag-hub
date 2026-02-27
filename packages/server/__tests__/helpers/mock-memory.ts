@@ -9,6 +9,8 @@ import type {
   ConsolidationRunResult,
   ExtendedMemoryInterface,
   MemoryInterface,
+  MemoryListParams,
+  MemoryListResult,
 } from '@pyx-memory/client';
 
 export class MockMemory implements MemoryInterface {
@@ -35,6 +37,12 @@ export class MockMemory implements MemoryInterface {
 
   async search(_params: MemorySearchParams): Promise<MemorySearchResult> {
     return { entries: [], totalCount: 0, strategy: RAGStrategy.NAIVE };
+  }
+
+  async list(params?: MemoryListParams): Promise<MemoryListResult> {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 20;
+    return { entries: [], totalCount: 0, page, limit };
   }
 
   async get(_id: string): Promise<MemoryEntry | null> {

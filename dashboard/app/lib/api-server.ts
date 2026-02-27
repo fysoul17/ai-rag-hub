@@ -1,7 +1,6 @@
 import type {
   ActivityEntry,
   AgentRuntimeInfo,
-  ApiKey,
   ApiResponse,
   BackendConfigOption,
   BackendStatusResponse,
@@ -10,29 +9,22 @@ import type {
   EnvironmentConfig,
   GraphNode,
   HealthCheckResponse,
-  InstanceInfo,
   MemoryEntry,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
   SessionDetail,
   SessionListResponse,
-  UsageSummary,
 } from '@autonomy/shared';
 import { DashboardClient } from '@pyx-memory/dashboard';
 
 const RUNTIME_URL = process.env.RUNTIME_URL ?? 'http://localhost:7820';
-const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY ?? '';
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string>),
   };
-
-  if (RUNTIME_API_KEY) {
-    headers.Authorization = `Bearer ${RUNTIME_API_KEY}`;
-  }
 
   const res = await fetch(`${RUNTIME_URL}${path}`, {
     ...options,
@@ -129,9 +121,6 @@ export async function getGraphNodes(options?: {
   if (options?.type) params.set('type', options.type);
   if (options?.limit) params.set('limit', String(options.limit));
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (RUNTIME_API_KEY) {
-    headers.Authorization = `Bearer ${RUNTIME_API_KEY}`;
-  }
   const res = await fetch(`${baseUrl}/api/memory/graph/nodes?${params}`, {
     headers,
   });
@@ -148,8 +137,6 @@ export async function getGraphEdges(): Promise<{
   return dashboardClient.graphEdges();
 }
 
-// --- Control Plane Server APIs ---
-
 export async function getRuntimeConfig(): Promise<EnvironmentConfig> {
   return fetchApi<EnvironmentConfig>('/api/config');
 }
@@ -163,18 +150,6 @@ export async function getBackendOptions(): Promise<{
   options: BackendConfigOption[];
 }> {
   return fetchApi<{ backend: string; options: BackendConfigOption[] }>('/api/backends/options');
-}
-
-export async function getApiKeys(): Promise<ApiKey[]> {
-  return fetchApi<ApiKey[]>('/api/auth/keys');
-}
-
-export async function getUsageSummary(period: 'day' | 'month' = 'day'): Promise<UsageSummary[]> {
-  return fetchApi<UsageSummary[]>(`/api/usage/summary?period=${period}`);
-}
-
-export async function getInstances(): Promise<InstanceInfo[]> {
-  return fetchApi<InstanceInfo[]>('/api/instances');
 }
 
 // --- Memory Lifecycle (server-side reads) ---

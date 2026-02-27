@@ -12,16 +12,6 @@ import {
   PiBackend,
 } from '@autonomy/agent-manager';
 import { Conductor } from '@autonomy/conductor';
-import {
-  AgentStore,
-  AuthMiddleware,
-  AuthStore,
-  InstanceRegistry,
-  QuotaManager,
-  setAuthContext,
-  UsageStore,
-  UsageTracker,
-} from '@autonomy/control-plane';
 import { CronManager } from '@autonomy/cron-manager';
 import { HookRegistry, PluginManager } from '@autonomy/plugin-system';
 import { DebugEventCategory, DebugEventLevel, Logger } from '@autonomy/shared';
@@ -34,6 +24,7 @@ import {
   SQLiteGraphStore,
 } from '@pyx-memory/core';
 import type { ServerWebSocket } from 'bun';
+import { AgentStore } from './agent-store.ts';
 import { parseEnvConfig } from './config.ts';
 import { ConfigManager } from './config-manager.ts';
 import { DebugBus, makeDebugEvent } from './debug-bus.ts';
@@ -43,17 +34,14 @@ import { RateLimiter } from './rate-limiter.ts';
 import { Router } from './router.ts';
 import { createActivityRoute } from './routes/activity.ts';
 import { createAgentRoutes } from './routes/agents.ts';
-import { createAuthRoutes } from './routes/auth.ts';
 import { createBackendRoutes } from './routes/backends.ts';
 import { createConfigRoutes } from './routes/config.ts';
 import { createCronRoutes } from './routes/crons.ts';
 import { createGraphRoutes } from './routes/graph.ts';
 import { createHealthRoute } from './routes/health.ts';
-import { createInstanceRoutes } from './routes/instances.ts';
 import { createLifecycleRoutes, isExtended } from './routes/lifecycle.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
-import { createUsageRoutes } from './routes/usage.ts';
 import { SecretStore } from './secret-store.ts';
 import { runSeeds } from './seeds/index.ts';
 import { SessionStore } from './session-store.ts';
@@ -84,17 +72,14 @@ export { RateLimiter, type RateLimiterConfig, type RateLimitResult } from './rat
 export { type RouteHandler, type RouteParams, Router } from './router.ts';
 export { createActivityRoute } from './routes/activity.ts';
 export { createAgentRoutes } from './routes/agents.ts';
-export { createAuthRoutes } from './routes/auth.ts';
 export { createBackendRoutes } from './routes/backends.ts';
 export { createConfigRoutes } from './routes/config.ts';
 export { createCronRoutes } from './routes/crons.ts';
 export { createGraphRoutes } from './routes/graph.ts';
 export { createHealthRoute } from './routes/health.ts';
-export { createInstanceRoutes } from './routes/instances.ts';
 export { createLifecycleRoutes } from './routes/lifecycle.ts';
 export { createMemoryRoutes } from './routes/memory.ts';
 export { createSessionRoutes } from './routes/sessions.ts';
-export { createUsageRoutes } from './routes/usage.ts';
 export { SecretStore } from './secret-store.ts';
 export { SessionStore } from './session-store.ts';
 export { createWebSocketHandler, type WSData } from './websocket.ts';
@@ -131,7 +116,7 @@ async function main() {
     }),
   );
 
-  // Initialize Control Plane (SQLite DB for auth, usage, instances)
+  // Initialize Runtime Database (SQLite for sessions, agents)
   const { mkdirSync, existsSync } = await import('node:fs');
   if (!existsSync(config.DATA_DIR)) {
     mkdirSync(config.DATA_DIR, { recursive: true });
@@ -143,23 +128,11 @@ async function main() {
       mkdirSync(cliConfigDir, { recursive: true });
     }
   }
-  const controlPlaneDb = new Database(join(config.DATA_DIR, 'control-plane.sqlite'));
-  controlPlaneDb.exec('PRAGMA journal_mode = WAL;');
-  const authStore = new AuthStore(controlPlaneDb);
-  const sessionStore = new SessionStore(controlPlaneDb);
-  const agentStore = new AgentStore(controlPlaneDb);
-  const usageStore = new UsageStore(controlPlaneDb);
-  const authMiddleware = new AuthMiddleware(authStore, {
-    enabled: config.AUTH_ENABLED,
-    masterKey: config.AUTH_MASTER_KEY,
-  });
-  const quotaManager = new QuotaManager(usageStore);
-  const usageTracker = new UsageTracker(usageStore);
-  const instanceRegistry = new InstanceRegistry(controlPlaneDb, {
-    heartbeatIntervalMs: 30_000,
-    staleThresholdMs: 90_000,
-  });
-  logger.info('Control plane initialized', { auth: config.AUTH_ENABLED });
+  const runtimeDb = new Database(join(config.DATA_DIR, 'runtime.sqlite'));
+  runtimeDb.exec('PRAGMA journal_mode = WAL;');
+  const sessionStore = new SessionStore(runtimeDb);
+  const agentStore = new AgentStore(runtimeDb);
+  logger.info('Runtime database initialized');
 
   // Initialize Backend Registry (before memory so LLM callback is available)
   const registry = new DefaultBackendRegistry(config.AI_BACKEND);
@@ -368,18 +341,6 @@ async function main() {
     logger.info('Memory lifecycle timers registered (consolidation: 30m, decay: 24h)');
   }
 
-  // Register instance with live heartbeat callback
-  instanceRegistry.register(config.PORT, '0.0.0', async () => {
-    let memoryStatus = 'ok';
-    try {
-      await memory.stats();
-    } catch {
-      memoryStatus = 'error';
-    }
-    return { agentCount: pool.list().length, memoryStatus };
-  });
-  logger.info('Instance registered');
-
   // Initialize Rate Limiter
   const rateLimiter = new RateLimiter({
     maxRequests: config.RATE_LIMIT_MAX,
@@ -410,18 +371,15 @@ async function main() {
   const router = new Router(config.CORS_ORIGIN);
 
   const healthRoute = createHealthRoute(conductor, memory, startTime, registry);
-  const agentRoutes = createAgentRoutes(conductor, pool, authMiddleware);
-  const memoryRoutes = createMemoryRoutes(memory, authMiddleware);
+  const agentRoutes = createAgentRoutes(conductor, pool);
+  const memoryRoutes = createMemoryRoutes(memory);
   const lifecycleRoutes = createLifecycleRoutes(memory);
   const graphRoutes = createGraphRoutes(graphStore);
-  const cronRoutes = createCronRoutes(cronManager, authMiddleware);
+  const cronRoutes = createCronRoutes(cronManager);
   const activityRoute = createActivityRoute(conductor);
-  const configRoutes = createConfigRoutes(configManager, authMiddleware);
+  const configRoutes = createConfigRoutes(configManager);
   const backendRoutes = createBackendRoutes(registry, secretStore);
-  const authRoutes = createAuthRoutes(authStore, authMiddleware);
-  const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
-  const instanceRoutes = createInstanceRoutes(instanceRegistry, authMiddleware);
-  const sessionRoutes = createSessionRoutes(sessionStore, memory, authMiddleware);
+  const sessionRoutes = createSessionRoutes(sessionStore, memory);
 
   router.get('/health', healthRoute);
 
@@ -481,22 +439,6 @@ async function main() {
     backendRoutes.logout(params.name!),
   );
 
-  // Auth routes
-  router.get('/api/auth/keys', authRoutes.listKeys);
-  router.post('/api/auth/keys', authRoutes.createKey);
-  router.get('/api/auth/keys/:id', authRoutes.getKey);
-  router.put('/api/auth/keys/:id', authRoutes.updateKey);
-  router.delete('/api/auth/keys/:id', authRoutes.deleteKey);
-
-  // Usage routes
-  router.get('/api/usage/summary', usageRoutes.summary);
-  router.get('/api/usage/quotas/:keyId', usageRoutes.getQuota);
-  router.put('/api/usage/quotas/:keyId', usageRoutes.setQuota);
-
-  // Instance routes
-  router.get('/api/instances', instanceRoutes.list);
-  router.delete('/api/instances/:id', instanceRoutes.remove);
-
   // Session routes
   router.get('/api/sessions', sessionRoutes.list);
   router.post('/api/sessions', sessionRoutes.create);
@@ -532,18 +474,12 @@ async function main() {
     async fetch(req, server) {
       const url = new URL(req.url);
 
-      // Rate limit check (before auth, applies to all paths except /health)
+      // Rate limit check (applies to all paths except /health)
       const rlResult = rateLimiter.check(req, server);
       if (!rlResult.allowed) return rateLimiter.toResponse(rlResult);
 
-      // Chat WebSocket upgrade (with auth support via query token)
+      // Chat WebSocket upgrade
       if (url.pathname === '/ws/chat') {
-        // Auth for WS: check token query param if auth enabled
-        if (config.AUTH_ENABLED) {
-          const wsAuthResult = authMiddleware.authenticate(req);
-          if (wsAuthResult instanceof Response) return wsAuthResult;
-        }
-
         // Session support: parse ?sessionId= from URL
         // If no sessionId, session is created lazily on first message (see websocket.ts)
         const sessionId = url.searchParams.get('sessionId') ?? undefined;
@@ -564,10 +500,6 @@ async function main() {
 
       // Terminal WebSocket upgrade (for PTY-based CLI login)
       if (url.pathname === '/ws/terminal') {
-        if (config.AUTH_ENABLED) {
-          const wsAuthResult = authMiddleware.authenticate(req);
-          if (wsAuthResult instanceof Response) return wsAuthResult;
-        }
         const backend = url.searchParams.get('backend') ?? 'claude';
         const upgraded = server.upgrade(req, {
           data: { id: crypto.randomUUID(), type: 'terminal' as const, backend },
@@ -581,19 +513,8 @@ async function main() {
         return handleDebugUpgrade(req, server, url) as Response;
       }
 
-      // Auth → Quota → Route → Usage tracking
-      const authResult = authMiddleware.authenticate(req);
-      if (authResult instanceof Response) return authResult;
-
-      const quotaResult = quotaManager.check(authResult);
-      if (quotaResult) return quotaResult;
-
-      setAuthContext(req, authResult);
-
-      const start = performance.now();
+      // Route → Response
       const response = await router.handle(req);
-      usageTracker.track(req, response, authResult, performance.now() - start);
-
       return rateLimiter.addHeaders(response, rlResult);
     },
 
@@ -651,7 +572,6 @@ async function main() {
       }),
     );
     for (const interval of lifecycleIntervals) clearInterval(interval);
-    instanceRegistry.deregister();
     ws.shutdown();
     debugWs.shutdown();
     await pluginManager.shutdown();
@@ -660,7 +580,7 @@ async function main() {
     if (memoryLLMShutdown) await memoryLLMShutdown();
     await pool.shutdown();
     await memory.shutdown();
-    controlPlaneDb.close();
+    runtimeDb.close();
     server.stop();
     logger.info('Shutdown complete');
     process.exit(0);

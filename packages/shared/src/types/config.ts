@@ -37,10 +37,6 @@ export interface EnvironmentConfig {
   LOG_LEVEL: LogLevel;
   MODE: RuntimeMode;
   MEMORY_URL?: string;
-  /** Enable API key authentication (opt-in). */
-  AUTH_ENABLED: boolean;
-  /** Optional bootstrap admin key for initial setup. */
-  AUTH_MASTER_KEY?: string;
   /** Max requests per rate limit window per IP. */
   RATE_LIMIT_MAX: number;
   /** Rate limit window duration in milliseconds. */

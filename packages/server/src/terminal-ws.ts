@@ -42,7 +42,7 @@ const CLAUDE_LOGIN_INJECT_DELAY_MS = 2000;
  * Env vars allowlisted for the PTY login process.
  *
  * Only forward what the CLI needs to function and open the browser for OAuth.
- * Server-side secrets (ANTHROPIC_API_KEY, AUTH_MASTER_KEY, etc.) are excluded.
+ * Server-side secrets (ANTHROPIC_API_KEY, etc.) are excluded.
  */
 const PTY_ENV_ALLOWLIST = [
   'PATH',

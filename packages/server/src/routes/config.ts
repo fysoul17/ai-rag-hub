@@ -1,17 +1,8 @@
-import type { AuthMiddleware } from '@autonomy/control-plane';
-import { getAuthContext } from '@autonomy/control-plane';
-import { ApiKeyScope } from '@autonomy/shared';
 import type { ConfigManager, ConfigUpdateError } from '../config-manager.ts';
-import { BadRequestError, ServerError } from '../errors.ts';
+import { BadRequestError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 
-const SECRET_KEYS = [
-  'ANTHROPIC_API_KEY',
-  'CODEX_API_KEY',
-  'GEMINI_API_KEY',
-  'PI_API_KEY',
-  'AUTH_MASTER_KEY',
-] as const;
+const SECRET_KEYS = ['ANTHROPIC_API_KEY', 'CODEX_API_KEY', 'GEMINI_API_KEY', 'PI_API_KEY'] as const;
 
 function redactSecrets<T extends object>(config: T): T {
   const redacted = { ...config } as Record<string, unknown>;
@@ -23,24 +14,15 @@ function redactSecrets<T extends object>(config: T): T {
   return redacted as T;
 }
 
-export function createConfigRoutes(configManager: ConfigManager, authMiddleware: AuthMiddleware) {
-  function requireScope(req: Request, scope: ApiKeyScope): void {
-    const ctx = getAuthContext(req);
-    if (!authMiddleware.hasScope(ctx, scope)) {
-      throw new ServerError('Insufficient permissions', 403);
-    }
-  }
-
+export function createConfigRoutes(configManager: ConfigManager) {
   return {
-    get: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.READ);
+    get: async (_req: Request): Promise<Response> => {
       const config = configManager.get();
       const redacted = redactSecrets(config);
       return jsonResponse(redacted);
     },
 
     update: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.ADMIN);
       const body = await parseJsonBody<Record<string, unknown>>(req);
 
       try {

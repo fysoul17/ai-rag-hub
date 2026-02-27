@@ -44,8 +44,6 @@
       "@autonomy/cron-manager/*": ["./packages/cron-manager/src/*"],
       "@autonomy/server": ["./packages/server/src/index.ts"],
       "@autonomy/server/*": ["./packages/server/src/*"],
-      "@autonomy/control-plane": ["./packages/control-plane/src/index.ts"],
-      "@autonomy/control-plane/*": ["./packages/control-plane/src/*"],
       "@autonomy/plugin-system": ["./packages/plugin-system/src/index.ts"],
       "@autonomy/plugin-system/*": ["./packages/plugin-system/src/*"]
     }

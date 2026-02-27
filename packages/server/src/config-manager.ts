@@ -14,8 +14,6 @@ const REJECTED_FIELDS = new Set([
   'PI_MODEL',
   'QDRANT_URL',
   'MEMORY_URL',
-  'AUTH_ENABLED',
-  'AUTH_MASTER_KEY',
 ]);
 
 /** Fields that are valid for runtime updates. */

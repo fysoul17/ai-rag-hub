@@ -17,7 +17,6 @@ COPY vendor/pyx-memory/packages/core/package.json ./vendor/pyx-memory/packages/c
 COPY packages/conductor/package.json ./packages/conductor/
 COPY packages/cron-manager/package.json ./packages/cron-manager/
 COPY packages/server/package.json ./packages/server/
-COPY packages/control-plane/package.json ./packages/control-plane/
 COPY packages/plugin-system/package.json ./packages/plugin-system/
 COPY dashboard/package.json ./dashboard/
 

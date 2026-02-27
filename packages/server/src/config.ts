@@ -42,8 +42,6 @@ export function parseEnvConfig(): EnvironmentConfig {
     DEFAULTS.LOG_LEVEL) as (typeof LogLevel)[keyof typeof LogLevel];
   const mode = (env.MODE ?? DEFAULTS.MODE) as (typeof RuntimeMode)[keyof typeof RuntimeMode];
 
-  const authEnabled = env.AUTH_ENABLED === 'true';
-
   const rateLimitMax = parseIntEnv(
     env.RATE_LIMIT_MAX,
     DEFAULTS.RATE_LIMIT_MAX,
@@ -77,8 +75,6 @@ export function parseEnvConfig(): EnvironmentConfig {
     LOG_LEVEL: logLevel,
     MODE: mode,
     MEMORY_URL: env.MEMORY_URL,
-    AUTH_ENABLED: authEnabled,
-    AUTH_MASTER_KEY: env.AUTH_MASTER_KEY,
     RATE_LIMIT_MAX: rateLimitMax,
     RATE_LIMIT_WINDOW_MS: rateLimitWindowMs,
     TRUST_PROXY: trustProxy,

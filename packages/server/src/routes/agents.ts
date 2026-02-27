@@ -1,12 +1,9 @@
 import type { AgentPool } from '@autonomy/agent-manager';
 import type { Conductor } from '@autonomy/conductor';
-import type { AuthMiddleware } from '@autonomy/control-plane';
-import { getAuthContext } from '@autonomy/control-plane';
 import {
   type AgentDefinition,
   AgentOwner,
   AIBackend,
-  ApiKeyScope,
   type CreateAgentRequest,
   type UpdateAgentRequest,
 } from '@autonomy/shared';
@@ -15,27 +12,14 @@ import { BadRequestError, NotFoundError, ServerError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 
-export function createAgentRoutes(
-  conductor: Conductor,
-  pool: AgentPool,
-  authMiddleware: AuthMiddleware,
-) {
-  function requireScope(req: Request, scope: ApiKeyScope): void {
-    const ctx = getAuthContext(req);
-    if (!authMiddleware.hasScope(ctx, scope)) {
-      throw new ServerError('Insufficient permissions', 403);
-    }
-  }
-
+export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
   return {
-    list: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.AGENTS);
+    list: async (_req: Request): Promise<Response> => {
       const agents = conductor.listAgents();
       return jsonResponse(agents);
     },
 
     create: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.AGENTS);
       const body = await parseJsonBody<CreateAgentRequest>(req);
 
       if (!body.name || !body.role || !body.systemPrompt) {
@@ -77,7 +61,6 @@ export function createAgentRoutes(
     },
 
     update: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.AGENTS);
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
 
@@ -123,8 +106,7 @@ export function createAgentRoutes(
       return jsonResponse(updated.toRuntimeInfo());
     },
 
-    remove: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.AGENTS);
+    remove: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
 
@@ -137,8 +119,7 @@ export function createAgentRoutes(
       return jsonResponse({ deleted: id });
     },
 
-    restart: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.AGENTS);
+    restart: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
 

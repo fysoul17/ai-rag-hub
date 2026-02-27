@@ -1,12 +1,9 @@
 import type {
   ActivityEntry,
   AgentRuntimeInfo,
-  ApiKey,
   ApiResponse,
   BackendStatusResponse,
   CreateAgentRequest,
-  CreateApiKeyRequest,
-  CreateApiKeyResponse,
   CreateCronRequest,
   CreateSessionRequest,
   CronEntry,
@@ -16,21 +13,17 @@ import type {
   GraphNode,
   GraphTraversalResult,
   HealthCheckResponse,
-  InstanceInfo,
   MemoryIngestRequest,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
-  QuotaConfig,
   RAGStrategy,
   Session,
   SessionDetail,
   SessionListResponse,
   UpdateAgentRequest,
-  UpdateApiKeyRequest,
   UpdateCronRequest,
   UpdateSessionRequest,
-  UsageSummary,
 } from '@autonomy/shared';
 
 const RUNTIME_URL =
@@ -38,18 +31,11 @@ const RUNTIME_URL =
     ? (process.env.NEXT_PUBLIC_RUNTIME_URL ?? 'http://localhost:7820')
     : 'http://localhost:7820';
 
-const RUNTIME_API_KEY =
-  typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_RUNTIME_API_KEY ?? '') : '';
-
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string>),
   };
-
-  if (RUNTIME_API_KEY) {
-    headers.Authorization = `Bearer ${RUNTIME_API_KEY}`;
-  }
 
   const res = await fetch(`${RUNTIME_URL}${path}`, {
     ...options,
@@ -193,15 +179,9 @@ export async function uploadFile(file: File): Promise<unknown> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const headers: Record<string, string> = {};
-  if (RUNTIME_API_KEY) {
-    headers.Authorization = `Bearer ${RUNTIME_API_KEY}`;
-  }
-
   const res = await fetch(`${RUNTIME_URL}/api/memory/ingest/file`, {
     method: 'POST',
     body: formData,
-    headers,
   });
 
   const body = (await res.json()) as ApiResponse<unknown>;
@@ -343,64 +323,6 @@ export async function updateBackendApiKey(
 export async function logoutBackend(backendName: string): Promise<BackendStatusResponse> {
   return fetchApi<BackendStatusResponse>(`/api/backends/${backendName}/logout`, {
     method: 'POST',
-  });
-}
-
-// --- API Keys ---
-
-export async function getApiKeys(): Promise<ApiKey[]> {
-  return fetchApi<ApiKey[]>('/api/auth/keys');
-}
-
-export async function createApiKey(data: CreateApiKeyRequest): Promise<CreateApiKeyResponse> {
-  return fetchApi<CreateApiKeyResponse>('/api/auth/keys', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateApiKey(id: string, data: UpdateApiKeyRequest): Promise<ApiKey> {
-  return fetchApi<ApiKey>(`/api/auth/keys/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteApiKey(id: string): Promise<{ deleted: string }> {
-  return fetchApi<{ deleted: string }>(`/api/auth/keys/${id}`, {
-    method: 'DELETE',
-  });
-}
-
-// --- Usage ---
-
-export async function getUsageSummary(period: 'day' | 'month' = 'day'): Promise<UsageSummary[]> {
-  return fetchApi<UsageSummary[]>(`/api/usage/summary?period=${period}`);
-}
-
-export async function getQuota(keyId: string): Promise<QuotaConfig | null> {
-  return fetchApi<QuotaConfig | null>(`/api/usage/quotas/${keyId}`);
-}
-
-export async function setQuota(
-  keyId: string,
-  data: Omit<QuotaConfig, 'apiKeyId'>,
-): Promise<QuotaConfig> {
-  return fetchApi<QuotaConfig>(`/api/usage/quotas/${keyId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-// --- Instances ---
-
-export async function getInstances(): Promise<InstanceInfo[]> {
-  return fetchApi<InstanceInfo[]>('/api/instances');
-}
-
-export async function deleteInstance(id: string): Promise<{ deleted: string }> {
-  return fetchApi<{ deleted: string }>(`/api/instances/${id}`, {
-    method: 'DELETE',
   });
 }
 

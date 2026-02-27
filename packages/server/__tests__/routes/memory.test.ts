@@ -3,7 +3,6 @@ import { RAGStrategy } from '@autonomy/shared';
 import type { Memory } from '@pyx-memory/core';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createMemoryRoutes } from '../../src/routes/memory.ts';
-import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 
 interface MockStoreInput {
   content: string;
@@ -86,6 +85,15 @@ class MockMemory {
     return 3;
   }
 
+  async list(params: { page?: number; limit?: number; type?: string; agentId?: string } = {}) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(100, Math.max(1, params.limit ?? 20));
+    const all = [...this.entries.values()];
+    const offset = (page - 1) * limit;
+    const entries = all.slice(offset, offset + limit);
+    return { entries, totalCount: all.length, page, limit };
+  }
+
   async stats() {
     return { totalEntries: 5, storageUsedBytes: 2048, vectorCount: 3, recentAccessCount: 2 };
   }
@@ -97,7 +105,7 @@ describe('Memory routes', () => {
 
   beforeEach(() => {
     memory = new MockMemory();
-    routes = createMemoryRoutes(memory as unknown as Memory, createMockAuthMiddleware());
+    routes = createMemoryRoutes(memory as unknown as Memory);
   });
 
   describe('GET /api/memory/search', () => {
@@ -256,20 +264,6 @@ describe('Memory routes', () => {
       // page=2 limit=2 means slice [2,4) from results
       expect(body.data.entries.length).toBe(2);
       expect(body.data.entries[0].id).toBe('e3');
-    });
-
-    test('passes query to search when provided', async () => {
-      const req = new Request('http://localhost/api/memory/entries?query=hello');
-      await routes.entries(req);
-
-      expect(memory.searchCalls.at(-1)?.query).toBe('hello');
-    });
-
-    test('uses wildcard query when no query param', async () => {
-      const req = new Request('http://localhost/api/memory/entries');
-      await routes.entries(req);
-
-      expect(memory.searchCalls.at(-1)?.query).toBe('*');
     });
 
     test('throws BadRequestError for invalid page', async () => {

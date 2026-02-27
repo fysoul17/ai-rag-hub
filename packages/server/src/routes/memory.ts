@@ -1,31 +1,16 @@
-import type { AuthMiddleware } from '@autonomy/control-plane';
-import { getAuthContext } from '@autonomy/control-plane';
-import {
-  ApiKeyScope,
-  type MemoryIngestRequest,
-  type MemorySearchParams,
-  MemoryType,
-} from '@autonomy/shared';
+import { type MemoryIngestRequest, type MemorySearchParams, MemoryType } from '@autonomy/shared';
 import type { MemoryInterface } from '@pyx-memory/client';
 import { getSupportedExtensions, IngestionPipeline } from '@pyx-memory/core';
-import { BadRequestError, NotFoundError, ServerError } from '../errors.ts';
+import { BadRequestError, NotFoundError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 import { validateMemoryType, validatePositiveInt, validateRAGStrategy } from '../validation.ts';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
-export function createMemoryRoutes(memory: MemoryInterface, authMiddleware: AuthMiddleware) {
-  function requireScope(req: Request, scope: ApiKeyScope): void {
-    const ctx = getAuthContext(req);
-    if (!authMiddleware.hasScope(ctx, scope)) {
-      throw new ServerError('Insufficient permissions', 403);
-    }
-  }
-
+export function createMemoryRoutes(memory: MemoryInterface) {
   return {
     search: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
       const url = new URL(req.url);
       const query = url.searchParams.get('query');
       if (!query) throw new BadRequestError('query parameter is required');
@@ -47,7 +32,6 @@ export function createMemoryRoutes(memory: MemoryInterface, authMiddleware: Auth
     },
 
     ingest: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
       const body = await parseJsonBody<MemoryIngestRequest>(req);
 
       if (!body.content) {
@@ -63,40 +47,29 @@ export function createMemoryRoutes(memory: MemoryInterface, authMiddleware: Auth
       return jsonResponse(entry, 201);
     },
 
-    stats: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
+    stats: async (_req: Request): Promise<Response> => {
       const stats = await memory.stats();
       return jsonResponse(stats);
     },
 
     entries: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
       const url = new URL(req.url);
       const page = Math.min(100, validatePositiveInt(url.searchParams.get('page'), 'page', 1));
       const limit = Math.min(100, validatePositiveInt(url.searchParams.get('limit'), 'limit', 20));
-      const query = url.searchParams.get('query') ?? undefined;
+      const type = validateMemoryType(url.searchParams.get('type'));
+      const agentId = url.searchParams.get('agentId') ?? undefined;
 
-      // MemorySearchParams doesn't support offset — fetch enough results to
-      // cover the requested page and slice. Capped at 1000 to bound the
-      // vector search cost. A dedicated list() method on MemoryInterface
-      // would be better for large-scale pagination.
-      const fetchLimit = Math.min(1000, page * limit);
-      const startIdx = (page - 1) * limit;
-
-      const searchQuery = query ?? '*';
-      const results = await memory.search({ query: searchQuery, limit: fetchLimit });
-      const paged = results.entries.slice(startIdx, startIdx + limit);
+      const result = await memory.list({ page, limit, type, agentId });
 
       return jsonResponse({
-        entries: paged,
-        page,
-        limit,
-        totalCount: results.totalCount,
+        entries: result.entries,
+        page: result.page,
+        limit: result.limit,
+        totalCount: result.totalCount,
       });
     },
 
-    getEntry: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
+    getEntry: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Entry id is required');
       const entry = await memory.get(id);
@@ -104,8 +77,7 @@ export function createMemoryRoutes(memory: MemoryInterface, authMiddleware: Auth
       return jsonResponse(entry);
     },
 
-    deleteEntry: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
+    deleteEntry: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Entry id is required');
       const deleted = await memory.delete(id);
@@ -113,8 +85,7 @@ export function createMemoryRoutes(memory: MemoryInterface, authMiddleware: Auth
       return jsonResponse({ deleted: id });
     },
 
-    clearSession: async (req: Request, params: RouteParams): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
+    clearSession: async (_req: Request, params: RouteParams): Promise<Response> => {
       const { sessionId } = params;
       if (!sessionId) throw new BadRequestError('sessionId is required');
       const count = await memory.clearSession(sessionId);
@@ -122,7 +93,6 @@ export function createMemoryRoutes(memory: MemoryInterface, authMiddleware: Auth
     },
 
     ingestFile: async (req: Request): Promise<Response> => {
-      requireScope(req, ApiKeyScope.MEMORY);
       const contentType = req.headers.get('content-type') ?? '';
       if (!contentType.includes('multipart/form-data')) {
         throw new BadRequestError('Content-Type must be multipart/form-data');

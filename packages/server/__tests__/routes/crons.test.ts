@@ -8,7 +8,6 @@ import type {
 } from '@autonomy/shared';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createCronRoutes } from '../../src/routes/crons.ts';
-import { createMockAuthMiddleware } from '../helpers/mock-auth.ts';
 
 let idCounter = 0;
 
@@ -129,7 +128,7 @@ describe('Cron routes', () => {
   beforeEach(() => {
     idCounter = 0;
     cronManager = new MockCronManager();
-    routes = createCronRoutes(cronManager as unknown as CronManager, createMockAuthMiddleware());
+    routes = createCronRoutes(cronManager as unknown as CronManager);
   });
 
   describe('GET /api/crons (list)', () => {

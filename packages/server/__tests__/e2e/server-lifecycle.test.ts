@@ -7,7 +7,6 @@
  * Environment:
  *   - Random available port (PORT=0 lets Bun pick one)
  *   - Temp DATA_DIR (cleaned up in afterAll)
- *   - AUTH_ENABLED=false (no API keys needed)
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -88,7 +87,6 @@ beforeAll(async () => {
       ...process.env,
       PORT: '0',
       DATA_DIR: dataDir,
-      AUTH_ENABLED: 'false',
       LOG_LEVEL: 'info',
       ENABLE_DEBUG_WS: 'false',
     },
@@ -409,43 +407,6 @@ describe('E2E: Server Lifecycle', () => {
       const config = await parseOk<{ AI_BACKEND: string; MAX_AGENTS: number }>(res);
       expect(config.AI_BACKEND).toBeTruthy();
       expect(typeof config.MAX_AGENTS).toBe('number');
-    });
-  });
-
-  // ----- Instances -----
-
-  describe('Instance endpoints /api/instances', () => {
-    test('GET /api/instances lists registered instances', async () => {
-      const res = await fetch(`${baseUrl}/api/instances`);
-      expect(res.status).toBe(200);
-
-      const instances = await parseOk<Array<{ id: string; status: string }>>(res);
-      expect(Array.isArray(instances)).toBe(true);
-      expect(instances.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  // ----- Auth keys (auth disabled) -----
-
-  describe('Auth endpoints /api/auth (auth disabled)', () => {
-    test('GET /api/auth/keys returns key list', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/keys`);
-      expect(res.status).toBe(200);
-
-      const keys = await parseOk<unknown[]>(res);
-      expect(Array.isArray(keys)).toBe(true);
-    });
-  });
-
-  // ----- Usage -----
-
-  describe('Usage endpoints /api/usage', () => {
-    test('GET /api/usage/summary returns usage data', async () => {
-      const res = await fetch(`${baseUrl}/api/usage/summary`);
-      expect(res.status).toBe(200);
-
-      const usage = await parseOk<unknown[]>(res);
-      expect(Array.isArray(usage)).toBe(true);
     });
   });
 

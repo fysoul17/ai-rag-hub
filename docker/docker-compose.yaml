@@ -49,9 +49,6 @@ services:
       - RUNTIME_URL=http://runtime:7820
       - NODE_ENV=production
       - MEMORY_URL=${MEMORY_URL:-}
-      - DASHBOARD_USER=${DASHBOARD_USER:-}
-      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
-      - DASHBOARD_SECRET=${DASHBOARD_SECRET:-}
     depends_on:
       runtime:
         condition: service_healthy

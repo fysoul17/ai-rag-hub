@@ -17,7 +17,6 @@
   "dependencies": {
     "@autonomy/agent-manager": "workspace:*",
     "@autonomy/conductor": "workspace:*",
-    "@autonomy/control-plane": "workspace:*",
     "@autonomy/cron-manager": "workspace:*",
     "@pyx-memory/core": "workspace:*",
     "@pyx-memory/client": "workspace:*",

@@ -22,7 +22,6 @@ An open-source **runtime template** that wraps CLI AI tools (`claude -p`, Codex 
 - **Persistent Memory** via [pyx-memory](https://github.com/fysoul17/pyx-memory-v1) — vector search (LanceDB), structured storage (SQLite), Graph RAG (Neo4j), and file ingestion. Runs embedded or as a sidecar.
 - A real-time **Cyberpunk Dashboard** with streaming chat, agent management, and debug console
 - **Scheduled tasks** via Cron Manager
-- **Control Plane** with API key auth, usage tracking, quotas, and instance registry
 
 **This is not a product. It's the engine.** Fork it, add your agent definitions and domain data, ship your product.
 
@@ -103,7 +102,7 @@ Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), ex
 Full CRUD for AI agents with serial message queues, idle timeout auto-shutdown, configurable pool limits, session persistence (`--resume` flags), and ownership-based permissions (user-created vs conductor-created agents).
 
 ### Real-time Dashboard
-Cyberpunk-themed Next.js dashboard with glass-morphism cards, neon accents, and scanline effects. SSR for initial load, WebSocket for live updates. Includes streaming chat, agent cards with backend/status badges, and a full debug console. Optional username/password authentication via env vars — disabled by default for frictionless local dev, one line to enable for shared networks.
+Cyberpunk-themed Next.js dashboard with glass-morphism cards, neon accents, and scanline effects. SSR for initial load, WebSocket for live updates. Includes streaming chat, agent cards with backend/status badges, and a full debug console.
 
 ### Observability Built In
 DebugBus (ring buffer + pub/sub) streams events across 5 categories (conductor, agent, memory, websocket, system) to a filterable debug console with pause/resume, search, and JSON expansion.
@@ -184,10 +183,8 @@ docker compose -f docker/docker-compose.yaml down
 | `PI_API_KEY` | *(empty)* | API key for Pi backend |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API URL (no key needed) |
 | `MAX_AGENTS` | `10` | Maximum concurrent agents |
-| `DASHBOARD_USER` | *(empty)* | Set with `DASHBOARD_PASSWORD` to enable dashboard auth |
-| `DASHBOARD_PASSWORD` | *(empty)* | Dashboard login password |
 
-See `.env.example` for all variables, or [`docs/SPEC.md` Section 13](docs/SPEC.md#13-environment-variables) for the full reference.
+See `.env.example` for all variables, or [`docs/SPEC.md` Section 12](docs/SPEC.md#12-environment-variables) for the full reference.
 
 ### Run Tests
 
@@ -224,9 +221,8 @@ agent-forge/
 │   ├── agent-manager/   # CLIBackend, AgentProcess, AgentPool, BackendRegistry
 │   ├── conductor/       # Simple AI agent with memory + delegation
 │   ├── cron-manager/    # Scheduled tasks
-│   ├── control-plane/   # API key auth, usage tracking, quotas, instance registry
 │   ├── plugin-system/   # Event hooks, middleware pipeline, plugin manager
-│   └── server/          # Bun.serve HTTP + WebSocket + routes
+│   └── server/          # Bun.serve HTTP + WebSocket + routes + agent store
 ├── vendor/
 │   └── pyx-memory/      # Git submodule → fysoul17/pyx-memory-v1
 │       └── packages/
@@ -252,12 +248,12 @@ agent-forge/
        │                            │
        ├──▶ @autonomy/conductor ────┘ (uses @pyx-memory/client)
        ├──▶ @autonomy/cron-manager
-       ├──▶ @autonomy/control-plane (auth, usage, quotas)
        └──▶ @autonomy/plugin-system (hooks, middleware)
                     │
                     ▼
              @autonomy/server  ◀── uses @pyx-memory/core (embedded)
                     │                  or @pyx-memory/client (sidecar)
+                    │                  + AgentStore (bun:sqlite)
                     ▼
                dashboard (HTTP + WS)
 ```
@@ -289,17 +285,17 @@ bun run typecheck            # Type checking
 
 ### API & WebSocket
 
-~40 REST endpoints across 13 route groups: agents, memory (search + lifecycle + graph), sessions, crons, config, backends, auth/keys, usage/quotas, instances, activity, and health.
+REST endpoints across route groups: agents, memory (search + lifecycle + graph + paginated listing), sessions, crons, config, backends, activity, and health.
 
 3 WebSocket endpoints: `/ws/chat` (streaming chat), `/ws/debug` (event stream), `/ws/terminal` (PTY-based CLI login).
 
-See [`docs/SPEC.md` Section 11-12](docs/SPEC.md#11-rest-api) for the full endpoint reference.
+See [`docs/SPEC.md` Section 10-11](docs/SPEC.md#10-rest-api) for the full endpoint reference.
 
 ### Dashboard Pages
 
 | Path | Description |
 |------|-------------|
-| `/` | Home — system health, agent stats, memory stats, instance status |
+| `/` | Home — system health, agent stats, memory stats |
 | `/agents` | Agent management — CRUD, status badges, backend selection |
 | `/chat` | Real-time chat with streaming + pipeline visualization |
 | `/memory` | Memory browser — search, filter, file upload, graph stats |
@@ -307,10 +303,7 @@ See [`docs/SPEC.md` Section 11-12](docs/SPEC.md#11-rest-api) for the full endpoi
 | `/activity` | Debug console — live event stream, filters, search |
 | `/sessions` | Session browser — browse, resume, delete conversations |
 | `/settings` | Runtime configuration — AI backend, max agents, etc. |
-| `/settings/keys` | API key management — create, enable, disable, delete |
 | `/settings/providers` | Backend credential management — API keys, OAuth login/logout |
-| `/settings/usage` | Usage analytics — daily/monthly request tracking |
-| `/login` | Login page — shown when dashboard auth is enabled |
 
 ---
 
@@ -326,23 +319,22 @@ See [`docs/SPEC.md` Section 11-12](docs/SPEC.md#11-rest-api) for the full endpoi
 - [x] **Dashboard** — Cyberpunk UI with chat, agents, debug console
 - [x] **Backend Registry** — Per-agent backend selection, session support
 
-### Infrastructure (Steps 8-11) ✅
+### Infrastructure (Steps 8-10) ✅
 
 - [x] **Step 8: Cron Manager** — CronManager class, workflow executor, server routes, dashboard Automation page
 - [x] **Step 9: Docker** — Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
 - [x] **Step 10: Advanced Memory** — Extracted to [pyx-memory-v1](https://github.com/fysoul17/pyx-memory-v1). Pluggable embeddings, Graph/Agentic RAG, file ingestion, Neo4j graph store, memory browser UI. Runs embedded or as sidecar.
-- [x] **Step 11: Control Plane** — API key auth, usage tracking, quotas, instance registry, settings UI
 
-### Extensibility (Steps 12-14) ✅
+### Extensibility (Steps 11-13) ✅
 
-- [x] **Step 12: Plugin System** — Event hooks, middleware pipeline, `onMessage`/`onResponse`/`onAgentCreate` hooks
-- [x] **Step 13: Sessions** — Conversation history API, session browse/resume/delete, dashboard sessions UI
-- [x] **Step 14: Dashboard Enhancements** — File upload, dashboard auth (login/logout), live health widget
+- [x] **Step 11: Plugin System** — Event hooks, middleware pipeline, `onMessage`/`onResponse`/`onAgentCreate` hooks
+- [x] **Step 12: Sessions** — Conversation history API, session browse/resume/delete, dashboard sessions UI
+- [x] **Step 13: Dashboard Enhancements** — File upload, live health widget
 
-### Production & CI/CD (Steps 15-16) ✅
+### Production & CI/CD (Steps 14-15) ✅
 
-- [x] **Step 15: Production Hardening** — IP rate limiting, structured JSON logging, standardized streaming contract
-- [x] **Step 16: CI/CD Pipeline** — 3-job GitHub Actions (quality/e2e/docker), 27 E2E integration tests
+- [x] **Step 14: Production Hardening** — IP rate limiting, structured JSON logging, standardized streaming contract
+- [x] **Step 15: CI/CD Pipeline** — 3-job GitHub Actions (quality/e2e/docker), 27 E2E integration tests
 
 ### Extension Points
 

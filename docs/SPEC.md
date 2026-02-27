@@ -15,7 +15,7 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
 - Agent definitions (roles, prompts)
 - Domain-specific data (ingest into memory)
 - Custom conductor logic (routing, permissions, personality)
-- Channel adapters (Telegram, Discord, Slack) _(planned — see Section 16)_
+- Channel adapters (Telegram, Discord, Slack) _(planned — see Section 15)_
 - Branding / additional UI
 
 **Template = Game Engine. Product = Game built on the engine.**
@@ -66,7 +66,7 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
 │  └────────────┬───────────────────────────────────────────────┘  │
 │               │                                                   │
 │  ┌────────────┴───────────────────────────────────────────────┐  │
-│  │  Rate Limiter │ Auth Middleware │ Usage Tracker             │  │
+│  │  Rate Limiter                                              │  │
 │  └────────────┬───────────────────────────────────────────────┘  │
 │               │                                                   │
 │               ▼                                                   │
@@ -118,11 +118,11 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
 │  │  └── Fact extraction                                      │    │
 │  └──────────────────────────────────────────────────────────┘    │
 │                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ Cron Manager  │  │ Control Plane │  │   Plugin System      │   │
-│  │ (scheduled    │  │ (auth, usage, │  │   (8 hook points,    │   │
-│  │  workflows)   │  │  quotas)      │  │    middleware)        │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
+│  ┌──────────────┐  ┌──────────────────────┐                      │
+│  │ Cron Manager  │  │   Plugin System      │                      │
+│  │ (scheduled    │  │   (8 hook points,    │                      │
+│  │  workflows)   │  │    middleware)        │                      │
+│  └──────────────┘  └──────────────────────┘                      │
 │                                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
 │  │ DebugBus     │  │ ActivityLog  │  │ SecretStore           │   │
@@ -133,8 +133,7 @@ A template runtime that turns CLI AI tools (`claude -p`, Codex CLI, Gemini CLI, 
 │  /data volume (persistent)                                       │
 │  ├── agents/           # agent definitions + registry            │
 │  ├── crons.json        # scheduled task definitions              │
-│  ├── config.json       # runtime config                          │
-│  └── control-plane.sqlite  # auth, usage, sessions, agents       │
+│  └── config.json       # runtime config                          │
 └──────────────────────────────────────────────────────────────────┘
 
 Dashboard (Next.js 16.1, separate service in docker-compose)  :7821
@@ -155,13 +154,11 @@ MINIMAL (docker-compose up) — default
   │  │  Agent Manager   │  │  Next.js 16.1         │  │
   │  │  Conductor       │←─│  (standalone output)  │  │
   │  │  Memory (embed.) │  │                       │  │
-  │  │  Control Plane   │  │  connects to          │  │
-  │  │  Cron Manager    │  │  http://runtime:7820  │  │
-  │  │  Plugin System   │  │                       │  │
+  │  │  Cron Manager    │  │  connects to          │  │
+  │  │  Plugin System   │  │  http://runtime:7820  │  │
   │  │  /data volume    │  │                       │  │
   │  └─────────────────┘  └───────────────────────┘  │
   │                                                   │
-  │  Auth: API key + optional dashboard login          │
   │  DB: bun:sqlite + LanceDB (embedded, zero config)  │
   └──────────────────────────────────────────────────┘
 
@@ -203,7 +200,6 @@ agent-forge/
 │   ├── agent-manager/           # CLI AI process lifecycle
 │   │   └── src/backends/        # Pluggable backends (claude, codex, gemini, pi, ollama)
 │   ├── conductor/               # AI orchestrator with 7-step pipeline
-│   ├── control-plane/           # Auth, usage tracking, quotas, instance registry
 │   ├── cron-manager/            # Scheduled task workflows
 │   ├── plugin-system/           # Event hooks, middleware pipeline, plugin manager
 │   └── server/                  # Bun.serve — wires everything, HTTP + WebSocket + routes
@@ -219,12 +215,10 @@ agent-forge/
 │
 ├── dashboard/                   # Next.js 16.1 (built-in cyberpunk UI)
 │   └── app/
-│       ├── (auth)/login/        # Dashboard authentication
 │       ├── (dashboard)/         # Home, Agents, Chat, Memory, Automation, Activity, Sessions, Settings
-│       ├── api/                 # Next.js API routes (login/logout)
 │       ├── components/          # UI components organized by feature
 │       ├── hooks/               # Custom React hooks (useWebSocket, etc.)
-│       └── lib/                 # api-server.ts (SSR fetch), auth.ts
+│       └── lib/                 # api-server.ts (SSR fetch), api.ts (client fetch)
 │
 ├── docker/
 │   ├── Dockerfile.runtime
@@ -390,32 +384,14 @@ Automated background processes manage memory health:
 
 ---
 
-## 8. Control Plane
-
-The control plane (`@autonomy/control-plane`) provides production-grade access control and observability, all backed by SQLite (`control-plane.sqlite`).
-
-### Components
-
-| Component          | Purpose                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| `AuthStore`        | API key management (create, validate, enable/disable, expire). Keys use `ak_` prefix + SHA-256 hashing. |
-| `AuthMiddleware`   | Reads `Authorization: Bearer <key>` or `?token=<key>`. Master key bypass for admin ops. |
-| `UsageStore`       | Per-key request tracking (endpoint, duration, status)            |
-| `UsageTracker`     | Fire-and-forget tracking after each HTTP response                |
-| `QuotaManager`     | Per-key daily/monthly request limits                             |
-| `InstanceRegistry` | Multi-instance registry with heartbeat (30s) and stale detection (90s) |
-| `AgentStore`       | SQLite persistence for `AgentDefinition` objects. Used by `AgentPool` to restore agents across restarts. |
-
----
-
-## 9. Dashboard (Built-in UI)
+## 8. Dashboard (Built-in UI)
 
 Next.js 16.1, App Router, standalone output. Separate service in docker-compose. Cyberpunk-themed with glass-morphism cards, neon accents, and scanline effects.
 
 ```
 Dashboard Pages:
 
-├── 🏠 Home              — System health, agent stats, memory stats, instance status (SSR)
+├── 🏠 Home              — System health, agent stats, memory stats (SSR)
 │
 ├── 🤖 Agents             — Agent management
 │   ├── Agent list        — Cards: name, role, status, owner, backend badge
@@ -452,25 +428,18 @@ Dashboard Pages:
 │   ├── Resume session    — Continue a previous conversation
 │   └── Delete session    — Remove conversation history
 │
-├── ⚙️ Settings            — Runtime configuration
-│   ├── Config            — AI backend, max agents, timeouts, etc.
-│   ├── API Keys          — Create, enable, disable, delete API keys
-│   ├── Usage             — Daily/monthly request analytics per key
-│   └── Backends          — Backend status, API key management, logout
-│
-└── 🔐 Login               — Dashboard authentication (env-var toggle)
-    ├── Username/password  — Via DASHBOARD_USER + DASHBOARD_PASSWORD env vars
-    ├── HMAC session token — Signed cookie, no server-side session store
-    └── Disabled by default — Zero friction for local dev
+└── ⚙️ Settings            — Runtime configuration
+    ├── Config            — AI backend, max agents, timeouts, etc.
+    └── Backends          — Backend status, API key management, logout
 ```
 
 ---
 
-## 10. Data Storage
+## 9. Data Storage
 
-### Agent Definitions (SQLite via `AgentStore`)
+### Agent Definitions
 
-Agents are stored in `control-plane.sqlite` via `AgentStore` (part of `@autonomy/control-plane`). Created through the Dashboard UI or REST API (`POST /api/agents`). The `AgentPool` restores agents from the store across restarts.
+Agents are created through the Dashboard UI or REST API (`POST /api/agents`). The `AgentPool` restores agents from the store across restarts.
 
 Fields: id, name, role, systemPrompt, tools (allowed tool list), backend, owner (user|conductor|system), createdAt, updatedAt.
 
@@ -484,7 +453,7 @@ Runtime config overrides. Empty `{}` uses defaults from `DEFAULTS` constant.
 
 ---
 
-## 11. REST API
+## 10. REST API
 
 ### Core Routes
 
@@ -559,20 +528,6 @@ Runtime config overrides. Empty `{}` uses defaults from `DEFAULTS` constant.
 | `PUT`    | `/api/sessions/:id`       | Update session                   |
 | `DELETE` | `/api/sessions/:id`       | Delete session                   |
 
-### Auth & Control Plane Routes
-
-| Method   | Path                        | Description                            |
-| -------- | --------------------------- | -------------------------------------- |
-| `GET`    | `/api/auth/keys`            | List API keys                          |
-| `POST`   | `/api/auth/keys`            | Create API key                         |
-| `PUT`    | `/api/auth/keys/:id`        | Update API key                         |
-| `DELETE` | `/api/auth/keys/:id`        | Delete API key                         |
-| `GET`    | `/api/usage/summary`        | Usage analytics                        |
-| `GET`    | `/api/usage/quotas/:keyId`  | Get quotas for a key                   |
-| `PUT`    | `/api/usage/quotas/:keyId`  | Update quotas for a key                |
-| `GET`    | `/api/instances`            | List runtime instances                 |
-| `DELETE` | `/api/instances/:id`        | Remove instance                        |
-
 ### Backend Routes
 
 | Method   | Path                          | Description                   |
@@ -582,18 +537,9 @@ Runtime config overrides. Empty `{}` uses defaults from `DEFAULTS` constant.
 | `PUT`    | `/api/backends/:name/api-key` | Update backend API key        |
 | `POST`   | `/api/backends/:name/logout`  | Logout from backend           |
 
-### Dashboard Auth (Next.js API Routes)
-
-| Method   | Path                      | Description                  |
-| -------- | ------------------------- | ---------------------------- |
-| `POST`   | `/api/auth/login`         | Validate credentials, set session cookie |
-| `POST`   | `/api/auth/logout`        | Clear session cookie         |
-
-These are Next.js API routes (dashboard-side), not runtime routes. Auth is disabled by default — enabled when both `DASHBOARD_USER` and `DASHBOARD_PASSWORD` env vars are set. Session tokens are HMAC-signed cookies (no server-side session store).
-
 ---
 
-## 12. WebSocket Protocol
+## 11. WebSocket Protocol
 
 ### Endpoints
 
@@ -640,7 +586,7 @@ The `StreamBuffer` accumulates streamed content per session. When a client recon
 
 ---
 
-## 13. Environment Variables
+## 12. Environment Variables
 
 | Variable               | Required  | Default                  | Description                |
 | ---------------------- | --------- | ------------------------ | -------------------------- |
@@ -662,14 +608,10 @@ The `StreamBuffer` accumulates streamed content per session. When a client recon
 | `STREAM_TIMEOUT_MS`    | No        | `300000`                 | Max stream duration for AI responses (ms) |
 | `OLLAMA_BASE_URL`      | No        | `http://localhost:11434` | Ollama API base URL                  |
 | `OLLAMA_MODEL`         | No        | `llama3.2`               | Default Ollama model                 |
-| `DASHBOARD_USER`       | No        | —                        | Dashboard login username (auth disabled if unset) |
-| `DASHBOARD_PASSWORD`   | No        | —                        | Dashboard login password (auth disabled if unset) |
-| `DASHBOARD_SECRET`     | No        | (uses `DASHBOARD_PASSWORD`) | Separate HMAC signing key for session tokens |
-| `DASHBOARD_SESSION_TTL`| No        | `86400`                  | Session duration in seconds (24h) |
 
 ---
 
-## 14. Plugin System
+## 13. Plugin System
 
 The plugin system (`@autonomy/plugin-system`) provides event hooks and a middleware pipeline so products can customize behavior without modifying core source files.
 
@@ -731,17 +673,17 @@ const myPlugin: PluginDefinition = {
 
 ---
 
-## 15. Extension Interface
+## 14. Extension Interface
 
 How products customize this template:
 
 1. **Fork the repo**
 2. **Add agent definitions** in `/data/agents/` — or users create via Dashboard UI
-3. **Register plugin hooks** — `BEFORE_MESSAGE`, `AFTER_RESPONSE`, `BEFORE_AGENT_CREATE`, `BEFORE_MEMORY_STORE` etc. (see Section 14)
+3. **Register plugin hooks** — `BEFORE_MESSAGE`, `AFTER_RESPONSE`, `BEFORE_AGENT_CREATE`, `BEFORE_MEMORY_STORE` etc. (see Section 13)
 4. **Extend Conductor** — add routing logic, permissions, personality, pending question tracking
 5. **Ingest domain data** into Memory via Dashboard UI (file upload) or API
 6. **Add packages** to monorepo for product-specific logic
-7. **Add channel adapters** by implementing webhook handlers on the server _(see Section 16 for planned adapters)_
+7. **Add channel adapters** by implementing webhook handlers on the server _(see Section 15 for planned adapters)_
 8. **Customize Dashboard** — add product-specific pages/sections
 9. **Customize Dockerfile** — add product dependencies
 
@@ -766,7 +708,7 @@ How products customize this template:
 
 ---
 
-## 16. Planned / Future
+## 15. Planned / Future
 
 Items not yet implemented but part of the vision:
 
@@ -794,7 +736,7 @@ YAML-based agent team definitions for pre-configuring multi-agent setups.
 
 ---
 
-## 17. Build History
+## 16. Build History
 
 Implementation sequence (all complete):
 
@@ -809,12 +751,11 @@ Implementation sequence (all complete):
 | 7    | backends          | BackendRegistry, 5 backends (claude, codex, gemini, pi, ollama), session support                               | ✅ Done    |
 | 8    | cron-manager      | CronManager class, workflow executor, concurrent guard, server routes, dashboard UI                             | ✅ Done    |
 | 9    | docker            | Dockerfile.runtime, Dockerfile.dashboard, docker-compose (minimal + full profiles)                              | ✅ Done    |
-| 10   | control-plane     | API key auth (SHA-256), usage tracking, quotas, instance registry, settings UI                                  | ✅ Done    |
-| 11   | plugin-system     | HookRegistry (8 hooks), PluginManager, waterfall + fire-and-forget                                             | ✅ Done    |
-| 12   | sessions          | SessionStore (SQLite), conversation history API, session browse/resume/delete, dashboard UI                     | ✅ Done    |
-| 13   | dashboard-enhance | File upload in memory page, dashboard auth (login/logout), live health widget                                   | ✅ Done    |
-| 14   | production        | IP rate limiting, structured JSON logging with redaction, standardized streaming contract                       | ✅ Done    |
-| 15   | ci-cd             | GitHub Actions 3-job workflow (quality/e2e/docker), E2E integration tests                                       | ✅ Done    |
+| 10   | plugin-system     | HookRegistry (8 hooks), PluginManager, waterfall + fire-and-forget                                             | ✅ Done    |
+| 11   | sessions          | SessionStore (SQLite), conversation history API, session browse/resume/delete, dashboard UI                     | ✅ Done    |
+| 12   | dashboard-enhance | File upload in memory page, live health widget                                                                   | ✅ Done    |
+| 13   | production        | IP rate limiting, structured JSON logging with redaction, standardized streaming contract                       | ✅ Done    |
+| 14   | ci-cd             | GitHub Actions 3-job workflow (quality/e2e/docker), E2E integration tests                                       | ✅ Done    |
 
 ### Remaining Work
 
