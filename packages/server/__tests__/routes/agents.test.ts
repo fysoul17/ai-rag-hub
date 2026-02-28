@@ -21,7 +21,7 @@ describe('Agent routes', () => {
 
   describe('GET /api/agents (list)', () => {
     test('returns empty array when no agents', async () => {
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/agents'));
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data).toEqual([]);
@@ -29,7 +29,7 @@ describe('Agent routes', () => {
 
     test('returns agents from conductor', async () => {
       await conductor.createAgent({ name: 'A1', role: 'test', systemPrompt: 'test' });
-      const res = await routes.list();
+      const res = await routes.list(new Request('http://localhost/api/agents'));
       const body = await res.json();
       expect(body.data.length).toBe(1);
       expect(body.data[0].name).toBe('A1');

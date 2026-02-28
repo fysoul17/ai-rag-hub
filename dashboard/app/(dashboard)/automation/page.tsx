@@ -7,9 +7,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function AutomationPage() {
   let crons: Awaited<ReturnType<typeof getCrons>> = [];
+  let fetchError = false;
   try {
     crons = await getCrons();
   } catch {
+    fetchError = true;
     crons = [];
   }
 
@@ -26,6 +28,11 @@ export default async function AutomationPage() {
           </div>
           <CreateCronDialog />
         </div>
+        {fetchError && (
+          <div className="mb-4 rounded-lg border border-neon-red/30 bg-neon-red/10 p-3 text-sm text-neon-red">
+            Failed to load data. The runtime server may be unavailable.
+          </div>
+        )}
         <CronList crons={crons} />
       </div>
     </>

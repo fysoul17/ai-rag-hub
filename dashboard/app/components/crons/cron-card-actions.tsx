@@ -1,7 +1,7 @@
 'use client';
 
 import type { CronEntryWithStatus } from '@autonomy/shared';
-import { FileText, MoreVertical, Pause, Play, Trash2, Zap } from 'lucide-react';
+import { FileText, MoreVertical, Pause, Pencil, Play, Trash2, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -23,10 +23,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { deleteCron, triggerCron, updateCron } from '@/lib/api';
 import { CronLogsDialog } from './cron-logs-dialog';
+import { EditCronDialog } from './edit-cron-dialog';
 
 export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -107,6 +109,10 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setShowEdit(true)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={handleTrigger} disabled={loading}>
             <Zap className="mr-2 h-4 w-4" />
             Trigger Now
@@ -163,6 +169,8 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
         open={showLogs}
         onOpenChange={setShowLogs}
       />
+
+      <EditCronDialog cron={cron} open={showEdit} onOpenChange={setShowEdit} />
     </>
   );
 }

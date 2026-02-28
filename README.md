@@ -7,7 +7,7 @@
 Turn any CLI AI tool into an autonomous agent system.<br>
 Persistent memory. Pluggable backends. Cyberpunk dashboard.
 
-[Quick Start](#quick-start) &bull; [Architecture](#architecture) &bull; [Features](#features) &bull; [Development](#development) &bull; [Roadmap](#roadmap)
+[Quick Start](#quick-start) &bull; [Architecture](#architecture) &bull; [Features](#features) &bull; [Development](#development)
 
 </div>
 
@@ -19,10 +19,9 @@ An open-source **runtime template** that wraps CLI AI tools (`claude -p`, Codex 
 
 - A **Conductor** — AI agent that responds to messages, searches memory for context, and delegates to specialist agents
 - An **Agent Pool** of AI agents with pluggable backends (per-agent backend selection)
-- **Persistent Memory** with vector search (LanceDB) and structured storage (SQLite)
+- **Persistent Memory** via [pyx-memory](https://github.com/fysoul17/pyx-memory-v1) — vector search (LanceDB), structured storage (SQLite), Graph RAG (Neo4j), and file ingestion. Runs embedded or as a sidecar.
 - A real-time **Cyberpunk Dashboard** with streaming chat, agent management, and debug console
 - **Scheduled tasks** via Cron Manager
-- **Control Plane** with API key auth, usage tracking, quotas, and instance registry
 
 **This is not a product. It's the engine.** Fork it, add your agent definitions and domain data, ship your product.
 
@@ -58,9 +57,9 @@ An open-source **runtime template** that wraps CLI AI tools (`claude -p`, Codex 
 │                        │  ┌─────────────┐     ┌──────────────┐    │  │
 │                        │  │ Agent Pool  │     │    Memory     │    │  │
 │                        │  │             │     │              │    │  │
-│                        │  │ Agent #1    │     │ bun:sqlite   │    │  │
-│                        │  │ Agent #2    │     │ LanceDB      │    │  │
-│                        │  │ Agent #N    │     │ Naive RAG    │    │  │
+│                        │  │ Agent #1    │     │ pyx-memory   │    │  │
+│                        │  │ Agent #2    │     │ (embedded or │    │  │
+│                        │  │ Agent #N    │     │   sidecar)   │    │  │
 │                        │  └─────────────┘     └──────────────┘    │  │
 │                        └──────────────────────────────────────────┘  │
 │                                                                      │
@@ -94,16 +93,16 @@ The Conductor is a simple AI agent: it searches memory for context, then either 
 ## Features
 
 ### Pluggable AI Backends
-Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, and Ollama (local LLM server) slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
+Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, Pi, and Ollama slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry.
 
-### Persistent Dual-Storage Memory
-Structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB. Naive RAG engine: embed query, vector search, hydrate from SQLite. Memory persists across sessions and agent restarts.
+### Persistent Memory (pyx-memory)
+Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), extracted as a standalone repo and consumed via git submodule at `vendor/pyx-memory`. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + four RAG strategies (Hybrid, Graph, Agentic, Naive). Runs **embedded** (in-process, zero-latency) or as a **sidecar** (standalone HTTP service with Neo4j graph store). Memory persists across sessions and agent restarts.
 
 ### Agent Lifecycle Management
 Full CRUD for AI agents with serial message queues, idle timeout auto-shutdown, configurable pool limits, session persistence (`--resume` flags), and ownership-based permissions (user-created vs conductor-created agents).
 
 ### Real-time Dashboard
-Cyberpunk-themed Next.js dashboard with glass-morphism cards, neon accents, and scanline effects. SSR for initial load, WebSocket for live updates. Includes streaming chat, agent cards with backend/status badges, and a full debug console. Optional username/password authentication via env vars — disabled by default for frictionless local dev, one line to enable for shared networks.
+Cyberpunk-themed Next.js dashboard with glass-morphism cards, neon accents, and scanline effects. SSR for initial load, WebSocket for live updates. Includes streaming chat, agent cards with backend/status badges, and a full debug console.
 
 ### Observability Built In
 DebugBus (ring buffer + pub/sub) streams events across 5 categories (conductor, agent, memory, websocket, system) to a filterable debug console with pause/resume, search, and JSON expansion.
@@ -135,9 +134,12 @@ IP-based rate limiting (configurable window + max), structured JSON logging with
 ### Development Mode
 
 ```bash
-# Clone
-git clone https://github.com/fysoul17/agent-forge.git
+# Clone (include submodules for pyx-memory)
+git clone --recurse-submodules https://github.com/fysoul17/agent-forge.git
 cd agent-forge
+
+# Or if already cloned without submodules:
+git submodule update --init --recursive
 
 # Install dependencies
 bun install
@@ -173,23 +175,21 @@ docker compose -f docker/docker-compose.yaml down
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `ollama`) |
+| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `pi`, `ollama`) |
+| `FALLBACK_BACKEND` | *(empty)* | Fallback if primary fails to spawn |
+| `ANTHROPIC_API_KEY` | *(empty)* | API key for Claude CLI |
 | `CODEX_API_KEY` | *(empty)* | API key for OpenAI Codex CLI |
 | `GEMINI_API_KEY` | *(empty)* | API key for Google Gemini CLI |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `llama3.2` | Default Ollama model |
+| `PI_API_KEY` | *(empty)* | API key for Pi backend |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API URL (no key needed) |
 | `MAX_AGENTS` | `10` | Maximum concurrent agents |
-| `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
-| `DASHBOARD_USER` | *(empty)* | Set with `DASHBOARD_PASSWORD` to enable dashboard auth |
-| `DASHBOARD_PASSWORD` | *(empty)* | Dashboard login password |
-| `EMBEDDING_PROVIDER` | `stub` | Embedding provider for memory (full profile) |
-| `EMBEDDING_API_KEY` | *(empty)* | API key for embedding provider (full profile) |
-| `NEO4J_PASSWORD` | `password` | Neo4j password (full profile, local container) |
+
+See `.env.example` for all variables, or [`docs/SPEC.md` Section 12](docs/SPEC.md#12-environment-variables) for the full reference.
 
 ### Run Tests
 
 ```bash
-bun run test           # All packages (925 tests)
+bun run test           # All packages
 bun run typecheck      # TypeScript checking
 bun run lint           # Biome linting
 ```
@@ -219,17 +219,18 @@ agent-forge/
 ├── packages/
 │   ├── shared/          # Types, interfaces, constants
 │   ├── agent-manager/   # CLIBackend, AgentProcess, AgentPool, BackendRegistry
-│   ├── memory/          # SQLite + LanceDB + Naive/Graph/Agentic RAG + embeddings + ingestion
-│   ├── memory-server/   # Standalone memory sidecar (:7822) — optional
 │   ├── conductor/       # Simple AI agent with memory + delegation
 │   ├── cron-manager/    # Scheduled tasks
-│   ├── control-plane/   # API key auth, usage tracking, quotas, instance registry
 │   ├── plugin-system/   # Event hooks, middleware pipeline, plugin manager
-│   └── server/          # Bun.serve HTTP + WebSocket + routes
+│   └── server/          # Bun.serve HTTP + WebSocket + routes + agent store
+├── vendor/
+│   └── pyx-memory/      # Git submodule → fysoul17/pyx-memory-v1
+│       └── packages/
+│           ├── shared/  # Memory types (@pyx-memory/shared)
+│           ├── client/  # MemoryInterface + HTTP client (@pyx-memory/client)
+│           └── core/    # SQLite + LanceDB + RAG + embeddings (@pyx-memory/core)
 ├── dashboard/           # Next.js 16.1 cyberpunk dashboard
-├── docs/
-│   ├── SPEC.md          # Full specification (single source of truth)
-│   └── CLI-BACKEND-RESEARCH.md  # Backend capabilities research
+├── docker/              # Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
 ├── package.json         # Monorepo root
 ├── turbo.json           # Turborepo config
 └── biome.json           # Linter config
@@ -238,21 +239,23 @@ agent-forge/
 ### Package Dependencies
 
 ```
-@autonomy/shared
-       │
-       ├──▶ @autonomy/agent-manager
-       ├──▶ @autonomy/memory
-       │         │
-       │         └──▶ @autonomy/memory-server (optional sidecar :7822)
+@autonomy/shared             @pyx-memory/shared
+       │                            │
+       ├──▶ @autonomy/agent-manager │
+       │                     @pyx-memory/client ◀── MemoryInterface contract
+       │                            │
+       │                     @pyx-memory/core   ◀── Memory, RAG, embeddings
+       │                            │
+       ├──▶ @autonomy/conductor ────┘ (uses @pyx-memory/client)
        ├──▶ @autonomy/cron-manager
-       ├──▶ @autonomy/control-plane (auth, usage, quotas)
        └──▶ @autonomy/plugin-system (hooks, middleware)
                     │
                     ▼
-            @autonomy/conductor
-                    │
+             @autonomy/server  ◀── uses @pyx-memory/core (embedded)
+                    │                  or @pyx-memory/client (sidecar)
+                    │                  + AgentStore (bun:sqlite)
                     ▼
-             @autonomy/server  ◀──  dashboard (HTTP + WS)
+               dashboard (HTTP + WS)
 ```
 
 ---
@@ -280,100 +283,37 @@ bun run lint:fix             # Auto-fix
 bun run typecheck            # Type checking
 ```
 
-### API Endpoints
+### API & WebSocket
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | System health + uptime |
-| GET | `/api/agents` | List all agents |
-| POST | `/api/agents` | Create agent |
-| PUT | `/api/agents/:id` | Update agent |
-| DELETE | `/api/agents/:id` | Delete agent |
-| POST | `/api/agents/:id/restart` | Restart agent |
-| GET | `/api/memory/search?q=` | Semantic search |
-| POST | `/api/memory/ingest` | Store to memory |
-| POST | `/api/memory/ingest/file` | Upload file to memory |
-| GET | `/api/memory/stats` | Memory statistics |
-| GET | `/api/crons` | List cron jobs |
-| POST | `/api/crons` | Create cron |
-| PUT | `/api/crons/:id` | Update cron |
-| DELETE | `/api/crons/:id` | Delete cron |
-| POST | `/api/crons/:id/trigger` | Trigger cron manually |
-| GET | `/api/activity` | Activity log |
-| GET | `/api/config` | Runtime config |
-| PUT | `/api/config` | Update config |
-| GET | `/api/auth/keys` | List API keys |
-| POST | `/api/auth/keys` | Create API key |
-| PUT | `/api/auth/keys/:id` | Update API key |
-| DELETE | `/api/auth/keys/:id` | Delete API key |
-| GET | `/api/usage/summary` | Usage analytics |
-| GET | `/api/usage/quotas/:keyId` | Get quotas |
-| PUT | `/api/usage/quotas/:keyId` | Update quotas |
-| GET | `/api/instances` | List runtime instances |
-| GET | `/api/sessions` | List sessions |
-| POST | `/api/sessions` | Create session |
-| GET | `/api/sessions/:id` | Get session with messages |
-| PUT | `/api/sessions/:id` | Update session |
-| DELETE | `/api/sessions/:id` | Delete session |
-| POST | `/api/auth/login` | Dashboard login (Next.js) |
-| POST | `/api/auth/logout` | Dashboard logout (Next.js) |
+REST endpoints across route groups: agents, memory (search + lifecycle + graph + paginated listing), sessions, crons, config, backends, activity, and health.
 
-### WebSocket
+3 WebSocket endpoints: `/ws/chat` (streaming chat), `/ws/debug` (event stream), `/ws/terminal` (PTY-based CLI login).
 
-- **`/ws/chat`** — Chat with streaming responses, conductor status events, agent status broadcasts
-- **`/ws/debug`** — Real-time debug event stream with history replay
+See [`docs/SPEC.md` Section 10-11](docs/SPEC.md#10-rest-api) for the full endpoint reference.
 
 ### Dashboard Pages
 
 | Path | Description |
 |------|-------------|
-| `/` | Home — system health, agent stats, memory stats, instance status |
+| `/` | Home — system health, agent stats, memory stats |
 | `/agents` | Agent management — CRUD, status badges, backend selection |
 | `/chat` | Real-time chat with streaming + pipeline visualization |
-| `/memory` | Memory browser — search, filter, file upload, graph visualization |
+| `/memory` | Memory browser — search, filter, file upload, graph stats |
 | `/automation` | Cron management — create, edit, trigger scheduled tasks |
 | `/activity` | Debug console — live event stream, filters, search |
-| `/settings` | Runtime configuration — AI backend, max agents, etc. |
-| `/settings/keys` | API key management — create, enable, disable, delete |
 | `/sessions` | Session browser — browse, resume, delete conversations |
-| `/settings/usage` | Usage analytics — daily/monthly request tracking |
-| `/login` | Login page — shown when dashboard auth is enabled |
+| `/settings` | Runtime configuration — AI backend, max agents, etc. |
+| `/settings/providers` | Backend credential management — API keys, OAuth login/logout |
 
 ---
 
-## Roadmap
+## Future
 
-### Core Template (Steps 1-7) ✅
+Community extension points — not part of the core template:
 
-- [x] **Monorepo scaffold** — Bun workspaces + Turborepo + Biome
-- [x] **Agent Manager** — CLIBackend abstraction, process lifecycle, pool management
-- [x] **Memory System** — SQLite + LanceDB + Naive RAG
-- [x] **Conductor** — AI agent with memory search + delegation
-- [x] **Server** — REST API + WebSocket + graceful shutdown
-- [x] **Dashboard** — Cyberpunk UI with chat, agents, debug console
-- [x] **Backend Registry** — Per-agent backend selection, session support
-
-### Infrastructure (Steps 8-11) ✅
-
-- [x] **Step 8: Cron Manager** — CronManager class, workflow executor, server routes, dashboard Automation page
-- [x] **Step 9: Docker** — Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
-- [x] **Step 10: Advanced Memory** — Memory-server sidecar, pluggable embeddings, Graph/Agentic RAG, file ingestion, Neo4j graph, memory browser UI
-- [x] **Step 11: Control Plane** — API key auth, usage tracking, quotas, instance registry, settings UI
-
-### Extensibility (Steps 12-14) ✅
-
-- [x] **Step 12: Plugin System** — Event hooks, middleware pipeline, `onMessage`/`onResponse`/`onAgentCreate` hooks
-- [x] **Step 13: Sessions** — Conversation history API, session browse/resume/delete, dashboard sessions UI
-- [x] **Step 14: Dashboard Enhancements** — File upload, dashboard auth (login/logout), live health widget
-
-### Production & CI/CD (Steps 15-16) ✅
-
-- [x] **Step 15: Production Hardening** — IP rate limiting, structured JSON logging, standardized streaming contract
-- [x] **Step 16: CI/CD Pipeline** — 3-job GitHub Actions (quality/e2e/docker), 27 E2E integration tests
-
-### Extension Points
-
-- [ ] **Channel Adapters** — Telegram, Discord, Slack (extension point)
+- **Channel Adapters** — Telegram, Discord, Slack webhook handlers
+- **Community Backends** — Copilot, Cline, Aider via the `CLIBackend` interface
+- **Organization Templates** — YAML-based agent team definitions
 
 ---
 
@@ -408,7 +348,7 @@ bun run test && bun run lint
 
 ## License
 
-TBD
+MIT
 
 ---
 

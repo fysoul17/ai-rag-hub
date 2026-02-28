@@ -10,12 +10,11 @@ export {
   DelegationError,
   QueueFullError,
 } from './errors.ts';
+export { SessionProcessPool } from './session-process-pool.ts';
 export type {
   ConductorEvent,
   ConductorOptions,
   ConductorResponse,
-  DelegationPipelineResult,
-  DelegationStep,
   IncomingMessage,
   OnConductorEvent,
 } from './types.ts';

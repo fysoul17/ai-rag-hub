@@ -14,8 +14,6 @@ const REJECTED_FIELDS = new Set([
   'PI_MODEL',
   'QDRANT_URL',
   'MEMORY_URL',
-  'AUTH_ENABLED',
-  'AUTH_MASTER_KEY',
 ]);
 
 /** Fields that are valid for runtime updates. */
@@ -69,7 +67,10 @@ export class ConfigManager {
         continue; // skip unknown fields silently
       }
       // Validate enum fields
-      if (key === 'AI_BACKEND' && (typeof value !== 'string' || !VALID_AI_BACKENDS.has(value))) {
+      if (
+        key === 'AI_BACKEND' &&
+        (typeof value !== 'string' || !(VALID_AI_BACKENDS as Set<string>).has(value))
+      ) {
         throw new ConfigUpdateError(
           `Invalid AI_BACKEND: "${String(value)}". Valid: ${[...VALID_AI_BACKENDS].join(', ')}`,
         );

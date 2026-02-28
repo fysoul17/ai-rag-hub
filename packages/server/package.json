@@ -17,9 +17,10 @@
   "dependencies": {
     "@autonomy/agent-manager": "workspace:*",
     "@autonomy/conductor": "workspace:*",
-    "@autonomy/control-plane": "workspace:*",
     "@autonomy/cron-manager": "workspace:*",
-    "@autonomy/memory": "workspace:*",
+    "@pyx-memory/core": "workspace:*",
+    "@pyx-memory/client": "workspace:*",
+    "@pyx-memory/shared": "workspace:*",
     "@autonomy/plugin-system": "workspace:*",
     "@autonomy/shared": "workspace:*",
     "nanoid": "^5.1.6"

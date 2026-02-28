@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { DEFAULTS, type EnvironmentConfig } from '@autonomy/shared';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEFAULTS, type EnvironmentConfig } from '@autonomy/shared';
 import { ConfigManager } from '../../src/config-manager.ts';
 import { createConfigRoutes } from '../../src/routes/config.ts';
 
@@ -38,7 +38,7 @@ describe('Config routes', () => {
       cm.initialize();
       const routes = createConfigRoutes(cm);
 
-      const res = await routes.get();
+      const res = await routes.get(new Request('http://localhost/api/config'));
       const body = await res.json();
 
       expect(body.success).toBe(true);
@@ -51,7 +51,7 @@ describe('Config routes', () => {
       cm.initialize();
       const routes = createConfigRoutes(cm);
 
-      const res = await routes.get();
+      const res = await routes.get(new Request('http://localhost/api/config'));
       const body = await res.json();
 
       expect(body.data.ANTHROPIC_API_KEY).toBeUndefined();

@@ -11,10 +11,11 @@ export default async function SessionsPage() {
     page: 1,
     limit: 50,
   };
+  let fetchError = false;
   try {
     sessions = await getSessions();
   } catch {
-    // fallback to empty
+    fetchError = true;
   }
 
   return (
@@ -27,6 +28,11 @@ export default async function SessionsPage() {
             {sessions.total} session{sessions.total !== 1 ? 's' : ''} total
           </p>
         </div>
+        {fetchError && (
+          <div className="mb-4 rounded-lg border border-neon-red/30 bg-neon-red/10 p-3 text-sm text-neon-red">
+            Failed to load data. The runtime server may be unavailable.
+          </div>
+        )}
         <SessionList sessions={sessions.sessions} />
       </div>
     </>

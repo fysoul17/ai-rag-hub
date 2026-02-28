@@ -426,7 +426,7 @@ describe('ClaudeBackend.getStatus() — auth detection', () => {
       expect(spawnMock).toHaveBeenCalled();
       const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
       expect(spawnOpts?.env).toBeDefined();
-      const env = spawnOpts!.env as Record<string, string>;
+      const env = spawnOpts?.env as Record<string, string>;
       expect(env.CLAUDE_CONFIG_DIR).toBe('/data/cli-config/claude');
     });
 
@@ -444,7 +444,7 @@ describe('ClaudeBackend.getStatus() — auth detection', () => {
       expect(spawnMock).toHaveBeenCalled();
       const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
       expect(spawnOpts?.env).toBeDefined();
-      const env = spawnOpts!.env as Record<string, string>;
+      const env = spawnOpts?.env as Record<string, string>;
       expect(env.CLAUDE_DATA_DIR).toBe('/data/cli-config/claude-data');
     });
 
@@ -469,7 +469,7 @@ describe('ClaudeBackend.getStatus() — auth detection', () => {
       expect(spawnMock).toHaveBeenCalled();
       const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
       expect(spawnOpts?.env).toBeDefined();
-      const env = spawnOpts!.env as Record<string, string>;
+      const env = spawnOpts?.env as Record<string, string>;
       expect(env).not.toHaveProperty('AUTH_MASTER_KEY');
       expect(env).not.toHaveProperty('DASHBOARD_PASSWORD');
       expect(env).not.toHaveProperty('OPENAI_API_KEY');

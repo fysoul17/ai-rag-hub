@@ -45,12 +45,22 @@ function createExitCodeMockSpawn(exitCode: number, stdout = '', stderr = '') {
 }
 
 /** Create a mock spawn that never resolves (simulates timeout). */
-function createHangingMockSpawn() {
+function _createHangingMockSpawn() {
   return mock((..._args: unknown[]) => {
     return {
-      stdout: new ReadableStream({ start() { /* never closes */ } }),
-      stderr: new ReadableStream({ start(c) { c.close(); } }),
-      exited: new Promise<number>(() => { /* never resolves */ }),
+      stdout: new ReadableStream({
+        start() {
+          /* never closes */
+        },
+      }),
+      stderr: new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      }),
+      exited: new Promise<number>(() => {
+        /* never resolves */
+      }),
       exitCode: null,
       kill: mock(() => {}),
     };
@@ -365,7 +375,7 @@ describe('GeminiBackend.getStatus() — auth detection', () => {
       expect(spawnMock).toHaveBeenCalled();
       const spawnOpts = spawnMock.mock.calls[0][1] as Record<string, unknown> | undefined;
       expect(spawnOpts?.env).toBeDefined();
-      const env = spawnOpts!.env as Record<string, string>;
+      const env = spawnOpts?.env as Record<string, string>;
       expect(env.GEMINI_CLI_HOME).toBe('/data/cli-config/gemini');
     });
   });

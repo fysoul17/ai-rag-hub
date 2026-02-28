@@ -15,9 +15,10 @@
  *
  * These tests will FAIL until the fix is implemented.
  */
-import { beforeEach, describe, expect, test } from 'bun:test';
+
 import { Database } from 'bun:sqlite';
-import type { Conductor, IncomingMessage } from '@autonomy/conductor';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import type { Conductor } from '@autonomy/conductor';
 import { MessageRole, WSClientMessageType, WSServerMessageType } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import { SessionStore } from '../src/session-store.ts';
@@ -72,11 +73,7 @@ describe('WebSocket conversation history injection', () => {
     db = new Database(':memory:');
     db.exec('PRAGMA foreign_keys = ON;');
     sessionStore = new SessionStore(db);
-    wsHandler = createWebSocketHandler(
-      conductor as unknown as Conductor,
-      undefined,
-      sessionStore,
-    );
+    wsHandler = createWebSocketHandler(conductor as unknown as Conductor, undefined, sessionStore);
   });
 
   // ──────────────────────────────────────────────
@@ -89,7 +86,8 @@ describe('WebSocket conversation history injection', () => {
     wsHandler.handler.open(asWS(ws));
 
     // Send first message — conductor mock replies with default response
-    conductor.responseContent = 'Here are your options:\n1. Option A\n2. Option B\n3. Option C\n4. Option D';
+    conductor.responseContent =
+      'Here are your options:\n1. Option A\n2. Option B\n3. Option C\n4. Option D';
     await wsHandler.handler.message(
       asWS(ws),
       JSON.stringify({ type: WSClientMessageType.MESSAGE, content: 'Show me the options' }),
@@ -146,7 +144,10 @@ describe('WebSocket conversation history injection', () => {
     conductor.responseContent = 'The capital of France is Paris.';
     await wsHandler.handler.message(
       asWS(ws),
-      JSON.stringify({ type: WSClientMessageType.MESSAGE, content: 'What is the capital of France?' }),
+      JSON.stringify({
+        type: WSClientMessageType.MESSAGE,
+        content: 'What is the capital of France?',
+      }),
     );
 
     conductor.responseContent = 'Paris has about 2.1 million people.';
@@ -172,8 +173,7 @@ describe('WebSocket conversation history injection', () => {
 
     // Second entry should be assistant response
     const assistantMsg = history.find(
-      (m) =>
-        m.role === MessageRole.ASSISTANT && m.content === 'The capital of France is Paris.',
+      (m) => m.role === MessageRole.ASSISTANT && m.content === 'The capital of France is Paris.',
     );
     expect(assistantMsg).toBeDefined();
   });
@@ -319,11 +319,7 @@ describe('WebSocket conversation history — edge cases', () => {
     db = new Database(':memory:');
     db.exec('PRAGMA foreign_keys = ON;');
     sessionStore = new SessionStore(db);
-    wsHandler = createWebSocketHandler(
-      conductor as unknown as Conductor,
-      undefined,
-      sessionStore,
-    );
+    wsHandler = createWebSocketHandler(conductor as unknown as Conductor, undefined, sessionStore);
   });
 
   test('no sessionId — works without history', async () => {
@@ -402,11 +398,11 @@ describe('WebSocket conversation history — edge cases', () => {
     expect(history).toBeDefined();
     // History should be capped at MAX_HISTORY_MESSAGES (20). With 30 turns (60 messages)
     // sent before the final message, only the last 20 messages should be included.
-    expect(history!.length).toBeLessThanOrEqual(20);
-    expect(history!.length).toBeGreaterThan(0);
+    expect(history?.length).toBeLessThanOrEqual(20);
+    expect(history?.length).toBeGreaterThan(0);
 
     // The most recent messages should be preserved (not oldest)
-    const lastHistoryMsg = history![history!.length - 1];
+    const lastHistoryMsg = history?.[history?.length - 1];
     // The last message in history should be the assistant response from the 30th turn
     // (the 31st user message "Final message" is the current message, not in history)
     expect(lastHistoryMsg.role).toBe(MessageRole.ASSISTANT);
@@ -516,9 +512,7 @@ describe('WebSocket conversation history — edge cases', () => {
 
     // Both configOverrides and conversationHistory should coexist
     expect(secondCall.metadata?.configOverrides).toBeDefined();
-    expect((secondCall.metadata?.configOverrides as Record<string, string>).model).toBe(
-      'sonnet',
-    );
+    expect((secondCall.metadata?.configOverrides as Record<string, string>).model).toBe('sonnet');
     expect(secondCall.conversationHistory).toBeDefined();
   });
 });
@@ -539,11 +533,7 @@ describe('Conductor prompt with conversation history', () => {
     db = new Database(':memory:');
     db.exec('PRAGMA foreign_keys = ON;');
     sessionStore = new SessionStore(db);
-    wsHandler = createWebSocketHandler(
-      conductor as unknown as Conductor,
-      undefined,
-      sessionStore,
-    );
+    wsHandler = createWebSocketHandler(conductor as unknown as Conductor, undefined, sessionStore);
   });
 
   test('IncomingMessage with conversationHistory reaches conductor', async () => {

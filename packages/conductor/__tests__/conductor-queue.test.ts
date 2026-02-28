@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { AgentPool } from '@autonomy/agent-manager';
-import type { Memory } from '@autonomy/memory';
 import { type AgentDefinition, type AgentRuntimeInfo, AgentStatus } from '@autonomy/shared';
+import type { Memory } from '@pyx-memory/core';
 import { Conductor } from '../src/conductor.ts';
 import { QueueFullError } from '../src/errors.ts';
 import { ConductorEventType, type OnConductorEvent } from '../src/types.ts';

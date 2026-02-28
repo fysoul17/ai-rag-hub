@@ -8,13 +8,13 @@ import {
   type UpdateAgentRequest,
 } from '@autonomy/shared';
 import { nanoid } from 'nanoid';
-import { BadRequestError, NotFoundError } from '../errors.ts';
+import { BadRequestError, NotFoundError, ServerError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 
 export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
   return {
-    list: async (): Promise<Response> => {
+    list: async (_req: Request): Promise<Response> => {
       const agents = conductor.listAgents();
       return jsonResponse(agents);
     },
@@ -24,6 +24,10 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
 
       if (!body.name || !body.role || !body.systemPrompt) {
         throw new BadRequestError('name, role, and systemPrompt are required');
+      }
+
+      if (body.systemPrompt.length > 100_000) {
+        throw new ServerError('System prompt exceeds maximum length of 100,000 characters', 400);
       }
 
       const validBackends = Object.values(AIBackend) as string[];
@@ -56,6 +60,7 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
       return jsonResponse(process.toRuntimeInfo(), 201);
     },
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: update handler validates many optional fields
     update: async (req: Request, params: RouteParams): Promise<Response> => {
       const { id } = params;
       if (!id) throw new BadRequestError('Agent id is required');
@@ -64,6 +69,10 @@ export function createAgentRoutes(conductor: Conductor, pool: AgentPool) {
       if (!agent) throw new NotFoundError(`Agent "${id}" not found`);
 
       const body = await parseJsonBody<UpdateAgentRequest>(req);
+
+      if (body.systemPrompt && body.systemPrompt.length > 100_000) {
+        throw new ServerError('System prompt exceeds maximum length of 100,000 characters', 400);
+      }
 
       // Validate backend if provided
       if (body.backend) {

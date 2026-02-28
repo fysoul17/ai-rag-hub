@@ -1,13 +1,14 @@
 'use client';
 
 import type { MemoryEntry, RAGStrategy } from '@autonomy/shared';
+import { useCallback, useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { searchMemoryWithStrategy } from '@/lib/api';
-import { useCallback, useEffect, useState } from 'react';
 import { EntryDetailDialog } from './entry-detail-dialog';
 import { FileUpload } from './file-upload';
 import { GraphViewer } from './graph-viewer';
 import { MemoryEntryList } from './memory-entry-list';
+import { MemoryMaintenance } from './memory-maintenance';
 import { MemorySearch } from './memory-search';
 
 interface MemoryBrowserProps {
@@ -72,6 +73,7 @@ export function MemoryBrowser({ initialEntries }: MemoryBrowserProps) {
           </TabsTrigger>
           <TabsTrigger value="graph">Graph</TabsTrigger>
           <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="entries" className="mt-4">
@@ -85,13 +87,13 @@ export function MemoryBrowser({ initialEntries }: MemoryBrowserProps) {
         <TabsContent value="upload" className="mt-4">
           <FileUpload />
         </TabsContent>
+
+        <TabsContent value="maintenance" className="mt-4">
+          <MemoryMaintenance />
+        </TabsContent>
       </Tabs>
 
-      <EntryDetailDialog
-        entry={selectedEntry}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      <EntryDetailDialog entry={selectedEntry} open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

@@ -1,4 +1,9 @@
-import type { AgentId, ConductorDecision, HookRegistryInterface, SessionMessage } from '@autonomy/shared';
+import type {
+  AgentId,
+  ConductorDecision,
+  HookRegistryInterface,
+  SessionMessage,
+} from '@autonomy/shared';
 
 export interface IncomingMessage {
   content: string;
@@ -27,6 +32,8 @@ export interface ConductorOptions {
   systemPrompt?: string;
   /** Optional hook registry for plugin system integration. */
   hookRegistry?: HookRegistryInterface;
+  /** Optional fallback backend when the primary backend fails to spawn. */
+  fallbackBackend?: import('@autonomy/agent-manager').CLIBackend;
 }
 
 export const ConductorEventType = {
@@ -59,20 +66,3 @@ export interface ConductorEvent {
 }
 
 export type OnConductorEvent = (event: ConductorEvent) => void;
-
-export interface DelegationStep {
-  agentId: AgentId;
-  task: string;
-  context?: string;
-}
-
-export interface DelegationPipelineResult {
-  steps: Array<{
-    agentId: AgentId;
-    result: string;
-    success: boolean;
-    error?: string;
-  }>;
-  finalResult: string;
-  success: boolean;
-}

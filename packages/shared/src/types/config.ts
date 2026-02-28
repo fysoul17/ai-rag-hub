@@ -2,26 +2,22 @@ import type { AIBackend } from './a2a.ts';
 import type { LogLevel } from './base.ts';
 import type { VectorProvider } from './memory.ts';
 
-export type ProviderApiKeys = Record<string, string>;
-
 export const RuntimeMode = {
   STANDALONE: 'standalone',
   MANAGED: 'managed',
 } as const;
 export type RuntimeMode = (typeof RuntimeMode)[keyof typeof RuntimeMode];
 
-export interface MemoryProviderConfig {
-  vectorProvider: VectorProvider;
-  qdrantUrl?: string;
-}
-
 export interface PlatformConfig {
   backend: AIBackend;
-  apiKeys: ProviderApiKeys;
+  apiKeys: Record<string, string>;
   defaultModel?: string;
   idleTimeoutMs: number;
   maxAgents: number;
-  memory: MemoryProviderConfig;
+  memory: {
+    vectorProvider: VectorProvider;
+    qdrantUrl?: string;
+  };
 }
 
 export interface EnvironmentConfig {
@@ -37,10 +33,6 @@ export interface EnvironmentConfig {
   LOG_LEVEL: LogLevel;
   MODE: RuntimeMode;
   MEMORY_URL?: string;
-  /** Enable API key authentication (opt-in). */
-  AUTH_ENABLED: boolean;
-  /** Optional bootstrap admin key for initial setup. */
-  AUTH_MASTER_KEY?: string;
   /** Max requests per rate limit window per IP. */
   RATE_LIMIT_MAX: number;
   /** Rate limit window duration in milliseconds. */
@@ -57,4 +49,12 @@ export interface EnvironmentConfig {
   CODEX_API_KEY?: string;
   /** API key for Google Gemini CLI. */
   GEMINI_API_KEY?: string;
+  /** Allowed CORS origin (default '*'). */
+  CORS_ORIGIN: string;
+  /** Optional fallback backend when primary AI_BACKEND fails to spawn. */
+  FALLBACK_BACKEND?: AIBackend;
+  /** Enable the terminal WebSocket endpoint (default: true, opt-out with 'false'). */
+  ENABLE_TERMINAL_WS: boolean;
+  /** Enable advanced memory lifecycle routes (default: true, opt-out with 'false'). */
+  ENABLE_ADVANCED_MEMORY: boolean;
 }

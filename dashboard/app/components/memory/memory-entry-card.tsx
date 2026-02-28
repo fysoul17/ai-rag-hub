@@ -31,7 +31,12 @@ export function MemoryEntryCard({ entry, onSelect }: MemoryEntryCardProps) {
     <Card
       className={`card-hover accent-line-top cursor-pointer transition-all ${glow}`}
       onClick={() => onSelect?.(entry)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(entry); } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect?.(entry);
+        }
+      }}
       tabIndex={0}
       role="button"
       aria-label={`Memory entry: ${entry.content.slice(0, 50)}`}

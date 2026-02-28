@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { resolve, sep } from 'node:path';
 import type {
   AgentDefinition,
   AgentId,
@@ -200,6 +200,7 @@ export class AgentPool {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const def = definitions[i];
+      if (!result || !def) continue;
       if (result.status === 'fulfilled') {
         const agent = result.value;
         this.agents.set(def.id, agent);

@@ -16,8 +16,8 @@ export function MemoryStatsCards({ stats, graphStats }: MemoryStatsCardsProps) {
   if (!stats) {
     return (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
+        {['total', 'short', 'long', 'episodic'].map((id) => (
+          <Card key={id}>
             <CardContent className="py-3">
               <div className="h-4 w-16 animate-pulse rounded bg-muted" />
               <div className="mt-1 h-6 w-10 animate-pulse rounded bg-muted" />

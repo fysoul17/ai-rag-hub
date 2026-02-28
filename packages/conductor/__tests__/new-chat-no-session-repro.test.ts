@@ -20,8 +20,8 @@ import type {
   BackendSpawnConfig,
   CLIBackend,
 } from '@autonomy/agent-manager';
-import type { Memory } from '@autonomy/memory';
 import { AIBackend } from '@autonomy/shared';
+import type { Memory } from '@pyx-memory/core';
 import { Conductor } from '../src/conductor.ts';
 import { makeMessage } from './helpers/fixtures.ts';
 import { MockMemory } from './helpers/mock-memory.ts';

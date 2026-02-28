@@ -6,8 +6,9 @@ import type {
   MemoryType,
 } from '@autonomy/shared';
 import { RAGStrategy } from '@autonomy/shared';
+import type { MemoryInterface, MemoryListParams, MemoryListResult } from '@pyx-memory/client';
 
-export class MockMemory {
+export class MockMemory implements MemoryInterface {
   private entries = new Map<string, MemoryEntry>();
   private _searchResults: MemorySearchResult = {
     entries: [],
@@ -55,15 +56,26 @@ export class MockMemory {
     return this._searchResults;
   }
 
-  get(id: string): MemoryEntry | null {
+  async list(params?: MemoryListParams): Promise<MemoryListResult> {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 20;
+    return {
+      entries: Array.from(this.entries.values()).slice(0, limit),
+      totalCount: this.entries.size,
+      page,
+      limit,
+    };
+  }
+
+  async get(id: string): Promise<MemoryEntry | null> {
     return this.entries.get(id) ?? null;
   }
 
-  delete(id: string): boolean {
+  async delete(id: string): Promise<boolean> {
     return this.entries.delete(id);
   }
 
-  clearSession(_sessionId: string): number {
+  async clearSession(_sessionId: string): Promise<number> {
     return 0;
   }
 

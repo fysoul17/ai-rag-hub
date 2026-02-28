@@ -1,12 +1,12 @@
 'use client';
 
+import { Upload } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { uploadFile } from '@/lib/api';
-import { Upload } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
 
 const ACCEPTED_TYPES = ['.txt', '.md', '.csv', '.pdf', '.docx'];
 
@@ -18,25 +18,28 @@ export function FileUpload() {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const handleFile = useCallback(async (file: File) => {
-    setError('');
-    setResult(null);
-    setUploading(true);
-    setProgress(30);
+  const handleFile = useCallback(
+    async (file: File) => {
+      setError('');
+      setResult(null);
+      setUploading(true);
+      setProgress(30);
 
-    try {
-      setProgress(60);
-      const data = await uploadFile(file) as { filename: string; chunks: number };
-      setProgress(100);
-      setResult(`Ingested "${data.filename}" — ${data.chunks} chunks created`);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-      setTimeout(() => setProgress(0), 1000);
-    }
-  }, [router]);
+      try {
+        setProgress(60);
+        const data = (await uploadFile(file)) as { filename: string; chunks: number };
+        setProgress(100);
+        setResult(`Ingested "${data.filename}" — ${data.chunks} chunks created`);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Upload failed');
+      } finally {
+        setUploading(false);
+        setTimeout(() => setProgress(0), 1000);
+      }
+    },
+    [router],
+  );
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -67,9 +70,7 @@ export function FileUpload() {
         <CardContent className="flex flex-col items-center gap-3 py-8">
           <Upload className="h-8 w-8 text-muted-foreground" />
           <div className="text-center">
-            <p className="text-sm font-medium">
-              Drag and drop a file here, or click to select
-            </p>
+            <p className="text-sm font-medium">Drag and drop a file here, or click to select</p>
             <p className="text-xs text-muted-foreground">
               Supported: {ACCEPTED_TYPES.join(', ')} (max 50MB)
             </p>
@@ -89,17 +90,11 @@ export function FileUpload() {
         </CardContent>
       </Card>
 
-      {uploading && (
-        <Progress value={progress} className="h-2" />
-      )}
+      {uploading && <Progress value={progress} className="h-2" />}
 
-      {result && (
-        <p className="text-sm text-primary">{result}</p>
-      )}
+      {result && <p className="text-sm text-primary">{result}</p>}
 
-      {error && (
-        <p className="text-sm text-status-red">{error}</p>
-      )}
+      {error && <p className="text-sm text-status-red">{error}</p>}
     </div>
   );
 }

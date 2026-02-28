@@ -1,45 +1,37 @@
-# Dockerfile.memory — Bun-based memory server sidecar
-# Runs the memory server (HTTP API for memory storage, search, and graph)
+# Dockerfile.memory — Standalone pyx-memory sidecar service
+# Used for --profile full (Graph RAG with Neo4j)
+# Context: repo root (for CI builds). Docker-compose uses vendor/pyx-memory context instead.
 
 FROM oven/bun:1.2.16
 
 WORKDIR /app
 
 # Install dependencies
-# All workspace package.json files must be present for bun to resolve the lockfile.
-# When adding a new workspace, update all 3 Dockerfiles (runtime, dashboard, memory).
-COPY package.json bun.lock* ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/memory/package.json ./packages/memory/
-COPY packages/memory-server/package.json ./packages/memory-server/
-COPY packages/agent-manager/package.json ./packages/agent-manager/
-COPY packages/conductor/package.json ./packages/conductor/
-COPY packages/cron-manager/package.json ./packages/cron-manager/
-COPY packages/server/package.json ./packages/server/
-COPY packages/control-plane/package.json ./packages/control-plane/
-COPY packages/plugin-system/package.json ./packages/plugin-system/
-COPY dashboard/package.json ./dashboard/
+# All pyx-memory workspace package.json files must be present for bun to resolve the lockfile.
+COPY vendor/pyx-memory/package.json vendor/pyx-memory/bun.lock* ./
+COPY vendor/pyx-memory/packages/shared/package.json ./packages/shared/
+COPY vendor/pyx-memory/packages/core/package.json ./packages/core/
+COPY vendor/pyx-memory/packages/client/package.json ./packages/client/
+COPY vendor/pyx-memory/packages/server/package.json ./packages/server/
 
 RUN bun install --frozen-lockfile || bun install
 
 # Copy source (Bun runs TS directly — no build step)
-COPY tsconfig.base.json ./
-COPY packages/shared/ ./packages/shared/
-COPY packages/memory/ ./packages/memory/
-COPY packages/memory-server/ ./packages/memory-server/
+COPY vendor/pyx-memory/tsconfig.base.json ./
+COPY vendor/pyx-memory/packages/ ./packages/
 
 # Create data directory
 RUN mkdir -p /data && chown -R bun:bun /data
 
 # Runtime config
 ENV DATA_DIR=/data
-ENV PORT=3002
+ENV MEMORY_SERVER_PORT=7822
 
 USER bun
 
-EXPOSE 3002
+EXPOSE 7822
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
-  CMD bun -e "fetch('http://localhost:3002/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+  CMD bun -e "fetch('http://localhost:7822/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["bun", "packages/memory-server/src/index.ts"]
+CMD ["bun", "packages/server/src/index.ts"]

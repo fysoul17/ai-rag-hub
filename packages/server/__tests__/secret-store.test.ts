@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { SecretStore } from '../src/secret-store.ts';
 
 let testDir: string;
 
 beforeEach(() => {
-  testDir = join(tmpdir(), `secret-store-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  testDir = join(
+    tmpdir(),
+    `secret-store-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   mkdirSync(testDir, { recursive: true });
 });
 
@@ -80,10 +83,7 @@ describe('SecretStore.initialize', () => {
   });
 
   test('skips empty string values', () => {
-    writeFileSync(
-      join(testDir, 'secrets.json'),
-      JSON.stringify({ ANTHROPIC_API_KEY: '' }),
-    );
+    writeFileSync(join(testDir, 'secrets.json'), JSON.stringify({ ANTHROPIC_API_KEY: '' }));
 
     const store = new SecretStore(testDir);
     store.initialize();
@@ -189,10 +189,7 @@ describe('SecretStore.set', () => {
 
 describe('SecretStore.removeBackendKeys', () => {
   test('removes primary key from secrets.json', () => {
-    writeFileSync(
-      join(testDir, 'secrets.json'),
-      JSON.stringify({ CODEX_API_KEY: 'sk-codex-key' }),
-    );
+    writeFileSync(join(testDir, 'secrets.json'), JSON.stringify({ CODEX_API_KEY: 'sk-codex-key' }));
 
     const store = new SecretStore(testDir);
     store.removeBackendKeys('CODEX_API_KEY');

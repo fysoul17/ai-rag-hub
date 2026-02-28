@@ -15,6 +15,10 @@ export interface HealthCheckResponse {
   agentCount: number;
   memoryStatus: string;
   version: string;
+  backendStatus?: {
+    default: string;
+    backends: { name: string; available: boolean; authenticated: boolean }[];
+  };
 }
 
 export interface CreateAgentRequest {

@@ -1,11 +1,13 @@
 import {
-  type AIBackend,
+  AIBackend,
   DEFAULTS,
   type EnvironmentConfig,
   type LogLevel,
   type RuntimeMode,
   type VectorProvider,
 } from '@autonomy/shared';
+
+const VALID_BACKENDS = new Set<string>(Object.values(AIBackend));
 
 function parseIntEnv(
   value: string | undefined,
@@ -40,8 +42,6 @@ export function parseEnvConfig(): EnvironmentConfig {
     DEFAULTS.LOG_LEVEL) as (typeof LogLevel)[keyof typeof LogLevel];
   const mode = (env.MODE ?? DEFAULTS.MODE) as (typeof RuntimeMode)[keyof typeof RuntimeMode];
 
-  const authEnabled = env.AUTH_ENABLED === 'true';
-
   const rateLimitMax = parseIntEnv(
     env.RATE_LIMIT_MAX,
     DEFAULTS.RATE_LIMIT_MAX,
@@ -75,8 +75,6 @@ export function parseEnvConfig(): EnvironmentConfig {
     LOG_LEVEL: logLevel,
     MODE: mode,
     MEMORY_URL: env.MEMORY_URL,
-    AUTH_ENABLED: authEnabled,
-    AUTH_MASTER_KEY: env.AUTH_MASTER_KEY,
     RATE_LIMIT_MAX: rateLimitMax,
     RATE_LIMIT_WINDOW_MS: rateLimitWindowMs,
     TRUST_PROXY: trustProxy,
@@ -85,5 +83,19 @@ export function parseEnvConfig(): EnvironmentConfig {
     PI_MODEL: env.PI_MODEL,
     CODEX_API_KEY: env.CODEX_API_KEY,
     GEMINI_API_KEY: env.GEMINI_API_KEY,
+    CORS_ORIGIN: env.CORS_ORIGIN ?? 'http://localhost:7821',
+    FALLBACK_BACKEND: parseFallbackBackend(env.FALLBACK_BACKEND),
+    ENABLE_TERMINAL_WS: env.ENABLE_TERMINAL_WS !== 'false',
+    ENABLE_ADVANCED_MEMORY: env.ENABLE_ADVANCED_MEMORY !== 'false',
   };
+}
+
+function parseFallbackBackend(value: string | undefined): AIBackend | undefined {
+  if (!value) return undefined;
+  if (!VALID_BACKENDS.has(value)) {
+    throw new Error(
+      `Invalid FALLBACK_BACKEND: "${value}". Valid values: ${[...VALID_BACKENDS].join(', ')}`,
+    );
+  }
+  return value as AIBackend;
 }

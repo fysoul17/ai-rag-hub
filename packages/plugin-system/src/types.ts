@@ -6,24 +6,12 @@
 
 // ---- Hook Types ----
 
-export const HookType = {
-  /** Fires before conductor processes a message. Waterfall: can transform the message. */
-  ON_MESSAGE: 'onMessage',
-  /** Fires after conductor generates a response. Waterfall: can transform the response. */
-  ON_RESPONSE: 'onResponse',
-  /** Fires before an agent is created. Waterfall: can modify the definition. */
-  ON_AGENT_CREATE: 'onAgentCreate',
-  /** Fires after an agent is deleted. Fire-and-forget notification. */
-  ON_AGENT_DELETE: 'onAgentDelete',
-  /** Fires before data is stored to memory. Waterfall: can transform the data. */
-  ON_MEMORY_STORE: 'onMemoryStore',
-  /** Fires when an agent process starts. Fire-and-forget notification. */
-  ON_AGENT_START: 'onAgentStart',
-  /** Fires when an agent process stops. Fire-and-forget notification. */
-  ON_AGENT_STOP: 'onAgentStop',
-  /** Fires when an agent process encounters an error. Fire-and-forget notification. */
-  ON_AGENT_ERROR: 'onAgentError',
-} as const;
+// Re-export HookName from shared as HookType.
+// This ensures plugins register with the same string values that the
+// conductor and agent-pool emit, so hooks actually fire.
+import { HookName } from '@autonomy/shared';
+
+export const HookType = HookName;
 export type HookType = (typeof HookType)[keyof typeof HookType];
 
 // Re-export shared types so consumers can import from plugin-system

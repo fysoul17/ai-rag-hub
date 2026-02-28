@@ -8,41 +8,40 @@ import {
   CodexBackend,
   DefaultBackendRegistry,
   GeminiBackend,
+  OllamaBackend,
   PiBackend,
 } from '@autonomy/agent-manager';
 import { Conductor } from '@autonomy/conductor';
-import {
-  AgentStore,
-  AuthMiddleware,
-  AuthStore,
-  InstanceRegistry,
-  QuotaManager,
-  setAuthContext,
-  UsageStore,
-  UsageTracker,
-} from '@autonomy/control-plane';
 import { CronManager } from '@autonomy/cron-manager';
-import { createMemory, StubEmbeddingProvider } from '@autonomy/memory';
 import { HookRegistry, PluginManager } from '@autonomy/plugin-system';
 import { DebugEventCategory, DebugEventLevel, Logger } from '@autonomy/shared';
+import {
+  createMemory,
+  HybridRAGEngine,
+  LLMReranker,
+  LocalEmbeddingProvider,
+  registerRAGEngine,
+  SQLiteGraphStore,
+} from '@pyx-memory/core';
 import type { ServerWebSocket } from 'bun';
+import { AgentStore } from './agent-store.ts';
 import { parseEnvConfig } from './config.ts';
 import { ConfigManager } from './config-manager.ts';
 import { DebugBus, makeDebugEvent } from './debug-bus.ts';
 import { createDebugWebSocketHandler, type DebugWSData } from './debug-websocket.ts';
+import { createMemoryLLMCallback } from './memory-llm-bridge.ts';
 import { RateLimiter } from './rate-limiter.ts';
 import { Router } from './router.ts';
 import { createActivityRoute } from './routes/activity.ts';
 import { createAgentRoutes } from './routes/agents.ts';
-import { createAuthRoutes } from './routes/auth.ts';
 import { createBackendRoutes } from './routes/backends.ts';
 import { createConfigRoutes } from './routes/config.ts';
 import { createCronRoutes } from './routes/crons.ts';
+import { createGraphRoutes } from './routes/graph.ts';
 import { createHealthRoute } from './routes/health.ts';
-import { createInstanceRoutes } from './routes/instances.ts';
+import { createLifecycleRoutes, isExtended } from './routes/lifecycle.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
-import { createUsageRoutes } from './routes/usage.ts';
 import { SecretStore } from './secret-store.ts';
 import { runSeeds } from './seeds/index.ts';
 import { SessionStore } from './session-store.ts';
@@ -54,7 +53,14 @@ export { ConfigManager, ConfigUpdateError } from './config-manager.ts';
 export { DebugBus, makeDebugEvent } from './debug-bus.ts';
 export { createDebugWebSocketHandler, type DebugWSData } from './debug-websocket.ts';
 // --- Exports for library use ---
-export { BadRequestError, InternalError, NotFoundError, ServerError } from './errors.ts';
+export {
+  BadRequestError,
+  InternalError,
+  NotFoundError,
+  NotImplementedError,
+  ServerError,
+} from './errors.ts';
+export { createMemoryLLMCallback } from './memory-llm-bridge.ts';
 export {
   corsHeaders,
   errorResponse,
@@ -66,23 +72,19 @@ export { RateLimiter, type RateLimiterConfig, type RateLimitResult } from './rat
 export { type RouteHandler, type RouteParams, Router } from './router.ts';
 export { createActivityRoute } from './routes/activity.ts';
 export { createAgentRoutes } from './routes/agents.ts';
-export { createAuthRoutes } from './routes/auth.ts';
 export { createBackendRoutes } from './routes/backends.ts';
 export { createConfigRoutes } from './routes/config.ts';
 export { createCronRoutes } from './routes/crons.ts';
+export { createGraphRoutes } from './routes/graph.ts';
 export { createHealthRoute } from './routes/health.ts';
-export { createInstanceRoutes } from './routes/instances.ts';
+export { createLifecycleRoutes } from './routes/lifecycle.ts';
 export { createMemoryRoutes } from './routes/memory.ts';
 export { createSessionRoutes } from './routes/sessions.ts';
-export { createUsageRoutes } from './routes/usage.ts';
 export { SecretStore } from './secret-store.ts';
 export { SessionStore } from './session-store.ts';
 export { createWebSocketHandler, type WSData } from './websocket.ts';
 
 // --- Bootstrap (only when run directly) ---
-
-const stubProvider = new StubEmbeddingProvider();
-const stubEmbedder = (texts: string[]) => stubProvider.embed(texts);
 
 // --- Combined WS data type for Bun.serve ---
 
@@ -114,7 +116,7 @@ async function main() {
     }),
   );
 
-  // Initialize Control Plane (SQLite DB for auth, usage, instances)
+  // Initialize Runtime Database (SQLite for sessions, agents)
   const { mkdirSync, existsSync } = await import('node:fs');
   if (!existsSync(config.DATA_DIR)) {
     mkdirSync(config.DATA_DIR, { recursive: true });
@@ -126,42 +128,73 @@ async function main() {
       mkdirSync(cliConfigDir, { recursive: true });
     }
   }
-  const controlPlaneDb = new Database(join(config.DATA_DIR, 'control-plane.sqlite'));
-  controlPlaneDb.exec('PRAGMA journal_mode = WAL;');
-  const authStore = new AuthStore(controlPlaneDb);
-  const sessionStore = new SessionStore(controlPlaneDb);
-  const agentStore = new AgentStore(controlPlaneDb);
-  const usageStore = new UsageStore(controlPlaneDb);
-  const authMiddleware = new AuthMiddleware(authStore, {
-    enabled: config.AUTH_ENABLED,
-    masterKey: config.AUTH_MASTER_KEY,
-  });
-  const quotaManager = new QuotaManager(usageStore);
-  const usageTracker = new UsageTracker(usageStore);
-  const instanceRegistry = new InstanceRegistry(controlPlaneDb, {
-    heartbeatIntervalMs: 30_000,
-    staleThresholdMs: 90_000,
-  });
-  logger.info('Control plane initialized', { auth: config.AUTH_ENABLED });
+  const runtimeDb = new Database(join(config.DATA_DIR, 'runtime.sqlite'));
+  runtimeDb.exec('PRAGMA journal_mode = WAL;');
+  const sessionStore = new SessionStore(runtimeDb);
+  const agentStore = new AgentStore(runtimeDb);
+  logger.info('Runtime database initialized');
+
+  // Initialize Backend Registry (before memory so LLM callback is available)
+  const registry = new DefaultBackendRegistry(config.AI_BACKEND);
+  registry.register(new ClaudeBackend());
+  registry.register(new CodexBackend());
+  registry.register(new GeminiBackend());
+  registry.register(new PiBackend());
+  registry.register(new OllamaBackend());
+
+  // Wire LLM callback for pyx-memory v2 (consolidation, summarization, reranking)
+  let memoryLLMShutdown: (() => Promise<void>) | undefined;
+  let llmCallback: ((prompt: string) => Promise<string>) | undefined;
+  try {
+    const llmHandle = await createMemoryLLMCallback(registry.getDefault());
+    memoryLLMShutdown = llmHandle.shutdown;
+    llmCallback = llmHandle.callback;
+    logger.info('LLM callback initialized for memory lifecycle');
+  } catch (error) {
+    logger.warn('Failed to initialize LLM callback for memory; will use fallback heuristics', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // Initialize Memory (uses MemoryClient if MEMORY_URL is set, otherwise embedded)
+  const graphStore = new SQLiteGraphStore();
+  await graphStore.initialize({});
+  const embedder = new LocalEmbeddingProvider(384);
   const memory = createMemory({
     dataDir: config.DATA_DIR,
     vectorProvider: config.VECTOR_PROVIDER,
     qdrantUrl: config.QDRANT_URL,
-    embedder: stubEmbedder,
+    embedder: (texts: string[]) => embedder.embed(texts),
+    dimensions: 384,
     memoryUrl: config.MEMORY_URL,
+    graphStore,
+    skipDuplicates: true,
+    llm: llmCallback,
   });
   await memory.initialize();
-  logger.info('Memory initialized');
+  logger.info('Memory initialized', { llm: !!llmCallback });
   debugBus.emit(
     makeDebugEvent({
       category: DebugEventCategory.MEMORY,
       level: DebugEventLevel.INFO,
       source: 'memory.init',
-      message: 'Memory system initialized',
+      message: `Memory system initialized${llmCallback ? ' with LLM' : ' (no LLM)'}`,
     }),
   );
+
+  // Register Hybrid RAG engine (uses LLM reranker if callback available)
+  if (llmCallback) {
+    registerRAGEngine(
+      new HybridRAGEngine({
+        graphStore,
+        reranker: new LLMReranker(llmCallback),
+      }),
+    );
+    logger.info('Hybrid RAG engine registered with LLM reranker');
+  } else {
+    registerRAGEngine(new HybridRAGEngine({ graphStore }));
+    logger.info('Hybrid RAG engine registered with NoopReranker');
+  }
 
   // Initialize Plugin System
   const hookRegistry = new HookRegistry({
@@ -187,13 +220,6 @@ async function main() {
       message: 'Plugin system initialized',
     }),
   );
-
-  // Initialize Backend Registry
-  const registry = new DefaultBackendRegistry(config.AI_BACKEND);
-  registry.register(new ClaudeBackend());
-  registry.register(new CodexBackend());
-  registry.register(new GeminiBackend());
-  registry.register(new PiBackend());
 
   // Initialize Agent Pool (with registry for per-agent backend selection)
   const workspaceDir = join(config.DATA_DIR, 'workspaces');
@@ -222,11 +248,20 @@ async function main() {
   await pool.restore();
   logger.info('Persisted agents restored');
 
+  // Resolve fallback backend (if configured)
+  const fallbackBackend = config.FALLBACK_BACKEND
+    ? registry.get(config.FALLBACK_BACKEND)
+    : undefined;
+  if (fallbackBackend) {
+    logger.info('Fallback backend configured', { fallback: config.FALLBACK_BACKEND });
+  }
+
   // Initialize Conductor (with default backend for direct AI responses)
   const conductor = new Conductor(pool, memory, registry.getDefault(), {
     maxAgents: config.MAX_AGENTS,
     idleTimeoutMs: config.IDLE_TIMEOUT_MS,
     hookRegistry,
+    fallbackBackend,
   });
   await conductor.initialize();
   logger.info('Conductor initialized');
@@ -241,6 +276,8 @@ async function main() {
 
   // Seed pre-configured agents (idempotent)
   await runSeeds(pool, agentStore);
+  // Restore newly seeded agents into the pool (restore() skips already-loaded agents)
+  await pool.restore();
   logger.info('Agent seeds applied');
 
   // Initialize CronManager
@@ -248,17 +285,61 @@ async function main() {
   await cronManager.initialize();
   logger.info('CronManager initialized');
 
-  // Register instance with live heartbeat callback
-  instanceRegistry.register(config.PORT, '0.0.0', async () => {
-    let memoryStatus = 'ok';
-    try {
-      await memory.stats();
-    } catch {
-      memoryStatus = 'error';
-    }
-    return { agentCount: pool.list().length, memoryStatus };
-  });
-  logger.info('Instance registered');
+  // Memory lifecycle: periodic consolidation and decay
+  const lifecycleIntervals: ReturnType<typeof setInterval>[] = [];
+  if (isExtended(memory)) {
+    let consolidating = false;
+    let decaying = false;
+
+    // Consolidation every 30 minutes (with overlap protection)
+    lifecycleIntervals.push(
+      setInterval(
+        async () => {
+          if (consolidating) return;
+          consolidating = true;
+          try {
+            const result = await memory.consolidate();
+            logger.info('Memory consolidation completed', {
+              processed: result.entriesProcessed,
+              merged: result.entriesMerged,
+              archived: result.entriesArchived,
+              durationMs: result.durationMs,
+            });
+          } catch (error) {
+            logger.warn('Memory consolidation failed', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            consolidating = false;
+          }
+        },
+        30 * 60 * 1000,
+      ),
+    );
+
+    // Decay every 24 hours (with overlap protection)
+    lifecycleIntervals.push(
+      setInterval(
+        async () => {
+          if (decaying) return;
+          decaying = true;
+          try {
+            const archived = await memory.runDecay();
+            logger.info('Memory decay completed', { archived });
+          } catch (error) {
+            logger.warn('Memory decay failed', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            decaying = false;
+          }
+        },
+        24 * 60 * 60 * 1000,
+      ),
+    );
+
+    logger.info('Memory lifecycle timers registered (consolidation: 30m, decay: 24h)');
+  }
 
   // Initialize Rate Limiter
   const rateLimiter = new RateLimiter({
@@ -287,18 +368,17 @@ async function main() {
   }
 
   // Build HTTP router
-  const router = new Router();
+  const router = new Router(config.CORS_ORIGIN);
 
-  const healthRoute = createHealthRoute(conductor, memory, startTime);
+  const healthRoute = createHealthRoute(conductor, memory, startTime, registry);
   const agentRoutes = createAgentRoutes(conductor, pool);
   const memoryRoutes = createMemoryRoutes(memory);
+  const lifecycleRoutes = createLifecycleRoutes(memory, config.ENABLE_ADVANCED_MEMORY);
+  const graphRoutes = createGraphRoutes(graphStore);
   const cronRoutes = createCronRoutes(cronManager);
   const activityRoute = createActivityRoute(conductor);
   const configRoutes = createConfigRoutes(configManager);
   const backendRoutes = createBackendRoutes(registry, secretStore);
-  const authRoutes = createAuthRoutes(authStore, authMiddleware);
-  const usageRoutes = createUsageRoutes(usageStore, authMiddleware);
-  const instanceRoutes = createInstanceRoutes(instanceRegistry);
   const sessionRoutes = createSessionRoutes(sessionStore, memory);
 
   router.get('/health', healthRoute);
@@ -313,6 +393,28 @@ async function main() {
   router.post('/api/memory/ingest', memoryRoutes.ingest);
   router.post('/api/memory/ingest/file', memoryRoutes.ingestFile);
   router.get('/api/memory/stats', memoryRoutes.stats);
+  router.get('/api/memory/entries', memoryRoutes.entries);
+  router.get('/api/memory/entries/:id', memoryRoutes.getEntry);
+  router.delete('/api/memory/entries/:id', memoryRoutes.deleteEntry);
+
+  router.delete('/api/memory/sessions/:sessionId', memoryRoutes.clearSession);
+
+  router.post('/api/memory/consolidate', lifecycleRoutes.consolidate);
+  router.post('/api/memory/forget/:id', lifecycleRoutes.forget);
+  router.post('/api/memory/sessions/:sessionId/summarize', lifecycleRoutes.summarizeSession);
+  router.post('/api/memory/decay', lifecycleRoutes.decay);
+  router.post('/api/memory/reindex', lifecycleRoutes.reindex);
+  router.delete('/api/memory/source/:source', lifecycleRoutes.deleteBySource);
+  router.get('/api/memory/consolidation-log', lifecycleRoutes.consolidationLog);
+  router.get('/api/memory/query-as-of', lifecycleRoutes.queryAsOf);
+
+  router.get('/api/memory/graph/nodes', graphRoutes.getNodes);
+  router.post('/api/memory/graph/nodes', graphRoutes.createNode);
+  router.delete('/api/memory/graph/nodes/:id', graphRoutes.deleteNode);
+  router.get('/api/memory/graph/edges', graphRoutes.getEdges);
+  router.get('/api/memory/graph/relationships', graphRoutes.getRelationships);
+  router.post('/api/memory/graph/relationships', graphRoutes.createRelationship);
+  router.post('/api/memory/graph/query', graphRoutes.query);
 
   router.get('/api/crons', cronRoutes.list);
   router.get('/api/crons/logs', cronRoutes.logs);
@@ -329,29 +431,14 @@ async function main() {
   // Backend routes
   router.get('/api/backends/status', backendRoutes.status);
   router.get('/api/backends/options', backendRoutes.options);
-  router.put('/api/backends/api-key', backendRoutes.updateApiKey);
+  router.put('/api/backends/api-key', (req: Request) => backendRoutes.updateApiKey(req));
   router.put('/api/backends/:name/api-key', (req: Request, params: Record<string, string>) =>
     backendRoutes.updateApiKey(req, params.name),
   );
   router.post('/api/backends/:name/logout', (_req: Request, params: Record<string, string>) =>
-    backendRoutes.logout(params.name),
+    // biome-ignore lint/style/noNonNullAssertion: route pattern guarantees param exists
+    backendRoutes.logout(params.name!),
   );
-
-  // Auth routes
-  router.get('/api/auth/keys', authRoutes.listKeys);
-  router.post('/api/auth/keys', authRoutes.createKey);
-  router.get('/api/auth/keys/:id', authRoutes.getKey);
-  router.put('/api/auth/keys/:id', authRoutes.updateKey);
-  router.delete('/api/auth/keys/:id', authRoutes.deleteKey);
-
-  // Usage routes
-  router.get('/api/usage/summary', usageRoutes.summary);
-  router.get('/api/usage/quotas/:keyId', usageRoutes.getQuota);
-  router.put('/api/usage/quotas/:keyId', usageRoutes.setQuota);
-
-  // Instance routes
-  router.get('/api/instances', instanceRoutes.list);
-  router.delete('/api/instances/:id', instanceRoutes.remove);
 
   // Session routes
   router.get('/api/sessions', sessionRoutes.list);
@@ -385,21 +472,16 @@ async function main() {
     port: config.PORT,
     idleTimeout: 0,
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: HTTP request dispatch is inherently branchy
     async fetch(req, server) {
       const url = new URL(req.url);
 
-      // Rate limit check (before auth, applies to all paths except /health)
+      // Rate limit check (applies to all paths except /health)
       const rlResult = rateLimiter.check(req, server);
       if (!rlResult.allowed) return rateLimiter.toResponse(rlResult);
 
-      // Chat WebSocket upgrade (with auth support via query token)
+      // Chat WebSocket upgrade
       if (url.pathname === '/ws/chat') {
-        // Auth for WS: check token query param if auth enabled
-        if (config.AUTH_ENABLED) {
-          const wsAuthResult = authMiddleware.authenticate(req);
-          if (wsAuthResult instanceof Response) return wsAuthResult;
-        }
-
         // Session support: parse ?sessionId= from URL
         // If no sessionId, session is created lazily on first message (see websocket.ts)
         const sessionId = url.searchParams.get('sessionId') ?? undefined;
@@ -420,9 +502,8 @@ async function main() {
 
       // Terminal WebSocket upgrade (for PTY-based CLI login)
       if (url.pathname === '/ws/terminal') {
-        if (config.AUTH_ENABLED) {
-          const wsAuthResult = authMiddleware.authenticate(req);
-          if (wsAuthResult instanceof Response) return wsAuthResult;
+        if (!config.ENABLE_TERMINAL_WS) {
+          return new Response('Terminal WebSocket is disabled', { status: 403 });
         }
         const backend = url.searchParams.get('backend') ?? 'claude';
         const upgraded = server.upgrade(req, {
@@ -437,19 +518,8 @@ async function main() {
         return handleDebugUpgrade(req, server, url) as Response;
       }
 
-      // Auth → Quota → Route → Usage tracking
-      const authResult = authMiddleware.authenticate(req);
-      if (authResult instanceof Response) return authResult;
-
-      const quotaResult = quotaManager.check(authResult);
-      if (quotaResult) return quotaResult;
-
-      setAuthContext(req, authResult);
-
-      const start = performance.now();
+      // Route → Response
       const response = await router.handle(req);
-      usageTracker.track(req, response, authResult, performance.now() - start);
-
       return rateLimiter.addHeaders(response, rlResult);
     },
 
@@ -506,15 +576,16 @@ async function main() {
         message: 'Server shutting down',
       }),
     );
-    instanceRegistry.deregister();
+    for (const interval of lifecycleIntervals) clearInterval(interval);
     ws.shutdown();
     debugWs.shutdown();
     await pluginManager.shutdown();
     await cronManager.shutdown();
     await conductor.shutdown();
+    if (memoryLLMShutdown) await memoryLLMShutdown();
     await pool.shutdown();
     await memory.shutdown();
-    controlPlaneDb.close();
+    runtimeDb.close();
     server.stop();
     logger.info('Shutdown complete');
     process.exit(0);

@@ -1,22 +1,12 @@
-import type { MemoryInterface } from '@autonomy/memory';
-import { getSupportedExtensions, IngestionPipeline } from '@autonomy/memory';
 import { type MemoryIngestRequest, type MemorySearchParams, MemoryType } from '@autonomy/shared';
-import { BadRequestError } from '../errors.ts';
+import type { MemoryInterface } from '@pyx-memory/client';
+import { getSupportedExtensions, IngestionPipeline } from '@pyx-memory/core';
+import { BadRequestError, NotFoundError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
+import type { RouteParams } from '../router.ts';
+import { validateMemoryType, validatePositiveInt, validateRAGStrategy } from '../validation.ts';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-
-const VALID_MEMORY_TYPES = new Set<string>([MemoryType.SHORT_TERM, MemoryType.LONG_TERM]);
-
-function validateMemoryType(value: string | null | undefined): MemoryType | undefined {
-  if (value == null) return undefined;
-  if (!VALID_MEMORY_TYPES.has(value)) {
-    throw new BadRequestError(
-      `Invalid type: must be "${MemoryType.SHORT_TERM}" or "${MemoryType.LONG_TERM}"`,
-    );
-  }
-  return value as MemoryType;
-}
 
 export function createMemoryRoutes(memory: MemoryInterface) {
   return {
@@ -25,12 +15,16 @@ export function createMemoryRoutes(memory: MemoryInterface) {
       const query = url.searchParams.get('query');
       if (!query) throw new BadRequestError('query parameter is required');
 
-      const limitParam = url.searchParams.get('limit');
+      const hydeParam = url.searchParams.get('enableHyDE');
+      const rerankParam = url.searchParams.get('enableRerank');
       const params: MemorySearchParams = {
         query,
-        limit: limitParam !== null ? parseInt(limitParam, 10) : undefined,
+        limit: validatePositiveInt(url.searchParams.get('limit'), 'limit', 10),
         type: validateMemoryType(url.searchParams.get('type')),
         agentId: url.searchParams.get('agentId') ?? undefined,
+        strategy: validateRAGStrategy(url.searchParams.get('strategy')),
+        enableHyDE: hydeParam != null ? hydeParam === 'true' : undefined,
+        enableRerank: rerankParam != null ? rerankParam === 'true' : undefined,
       };
 
       const results = await memory.search(params);
@@ -53,9 +47,49 @@ export function createMemoryRoutes(memory: MemoryInterface) {
       return jsonResponse(entry, 201);
     },
 
-    stats: async (): Promise<Response> => {
+    stats: async (_req: Request): Promise<Response> => {
       const stats = await memory.stats();
       return jsonResponse(stats);
+    },
+
+    entries: async (req: Request): Promise<Response> => {
+      const url = new URL(req.url);
+      const page = Math.min(100, validatePositiveInt(url.searchParams.get('page'), 'page', 1));
+      const limit = Math.min(100, validatePositiveInt(url.searchParams.get('limit'), 'limit', 20));
+      const type = validateMemoryType(url.searchParams.get('type'));
+      const agentId = url.searchParams.get('agentId') ?? undefined;
+
+      const result = await memory.list({ page, limit, type, agentId });
+
+      return jsonResponse({
+        entries: result.entries,
+        page: result.page,
+        limit: result.limit,
+        totalCount: result.totalCount,
+      });
+    },
+
+    getEntry: async (_req: Request, params: RouteParams): Promise<Response> => {
+      const { id } = params;
+      if (!id) throw new BadRequestError('Entry id is required');
+      const entry = await memory.get(id);
+      if (!entry) throw new NotFoundError(`Memory entry "${id}" not found`);
+      return jsonResponse(entry);
+    },
+
+    deleteEntry: async (_req: Request, params: RouteParams): Promise<Response> => {
+      const { id } = params;
+      if (!id) throw new BadRequestError('Entry id is required');
+      const deleted = await memory.delete(id);
+      if (!deleted) throw new NotFoundError(`Memory entry "${id}" not found`);
+      return jsonResponse({ deleted: id });
+    },
+
+    clearSession: async (_req: Request, params: RouteParams): Promise<Response> => {
+      const { sessionId } = params;
+      if (!sessionId) throw new BadRequestError('sessionId is required');
+      const count = await memory.clearSession(sessionId);
+      return jsonResponse({ cleared: count });
     },
 
     ingestFile: async (req: Request): Promise<Response> => {

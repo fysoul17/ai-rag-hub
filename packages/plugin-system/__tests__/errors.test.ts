@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import {
   DuplicatePluginError,
   HookError,
-  MiddlewareError,
   PluginError,
   PluginNotFoundError,
 } from '../src/errors.ts';
@@ -67,19 +66,5 @@ describe('HookError', () => {
     expect(err.name).toBe('HookError');
     expect(err.message).toContain('onMessage');
     expect(err.message).toContain('handler crashed');
-  });
-});
-
-describe('MiddlewareError', () => {
-  test('extends PluginError', () => {
-    const err = new MiddlewareError('pipeline broke');
-    expect(err).toBeInstanceOf(PluginError);
-    expect(err).toBeInstanceOf(Error);
-  });
-
-  test('has correct name and includes detail', () => {
-    const err = new MiddlewareError('pipeline broke');
-    expect(err.name).toBe('MiddlewareError');
-    expect(err.message).toContain('pipeline broke');
   });
 });

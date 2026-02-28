@@ -119,7 +119,10 @@ export function ChatInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-border p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="flex shrink-0 items-center gap-2 border-t border-border p-4"
+    >
       <div className="relative flex-1">
         {isAutocompleteOpen && (
           <SlashAutocomplete

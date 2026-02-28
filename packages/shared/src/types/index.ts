@@ -4,7 +4,6 @@ export * from './api.ts';
 export * from './base.ts';
 export * from './conductor.ts';
 export * from './config.ts';
-export * from './control-plane.ts';
 export * from './cron.ts';
 export * from './debug.ts';
 export * from './memory.ts';

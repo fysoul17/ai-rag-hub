@@ -6,7 +6,7 @@ import type { RouteParams } from '../router.ts';
 
 export function createCronRoutes(cronManager: CronManager) {
   return {
-    list: async (): Promise<Response> => {
+    list: async (_req: Request): Promise<Response> => {
       const crons = cronManager.getStatus();
       return jsonResponse(crons);
     },

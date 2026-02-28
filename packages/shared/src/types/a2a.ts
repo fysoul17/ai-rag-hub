@@ -1,10 +1,9 @@
-import type { AgentId } from './base.ts';
-
 export const AIBackend = {
   CLAUDE: 'claude',
   CODEX: 'codex',
   GEMINI: 'gemini',
   PI: 'pi',
+  OLLAMA: 'ollama',
 } as const;
 export type AIBackend = (typeof AIBackend)[keyof typeof AIBackend];
 
@@ -32,21 +31,6 @@ export interface BackendStatus {
   authMode: 'api_key' | 'cli_login' | 'none';
   capabilities: BackendCapabilities;
   /** Error message if the backend is unavailable. */
-  error?: string;
-}
-
-export interface DelegateTaskRequest {
-  fromAgentId: AgentId;
-  toAgentId: AgentId;
-  task: string;
-  context?: string;
-}
-
-export interface DelegateTaskResult {
-  fromAgentId: AgentId;
-  toAgentId: AgentId;
-  result: string;
-  success: boolean;
   error?: string;
 }
 

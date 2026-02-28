@@ -56,14 +56,14 @@ describe('PluginManager', () => {
       const plugin = makePlugin({
         name: 'hooks-test',
         hooks: [
-          { hookType: HookType.ON_MESSAGE, handler },
-          { hookType: HookType.ON_RESPONSE, handler },
+          { hookType: HookType.BEFORE_MESSAGE, handler },
+          { hookType: HookType.AFTER_RESPONSE, handler },
         ],
       });
 
       await manager.load(plugin);
-      expect(registry.getHandlerCount(HookType.ON_MESSAGE)).toBe(1);
-      expect(registry.getHandlerCount(HookType.ON_RESPONSE)).toBe(1);
+      expect(registry.getHandlerCount(HookType.BEFORE_MESSAGE)).toBe(1);
+      expect(registry.getHandlerCount(HookType.AFTER_RESPONSE)).toBe(1);
     });
 
     test('assigns a unique plugin ID', async () => {
@@ -113,9 +113,9 @@ describe('PluginManager', () => {
       const plugin = makePlugin({
         name: 'hook-count-test',
         hooks: [
-          { hookType: HookType.ON_MESSAGE, handler: makeHookHandler() },
-          { hookType: HookType.ON_RESPONSE, handler: makeHookHandler() },
-          { hookType: HookType.ON_AGENT_CREATE, handler: makeHookHandler() },
+          { hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() },
+          { hookType: HookType.AFTER_RESPONSE, handler: makeHookHandler() },
+          { hookType: HookType.BEFORE_AGENT_CREATE, handler: makeHookHandler() },
         ],
       });
       await manager.load(plugin);
@@ -130,7 +130,7 @@ describe('PluginManager', () => {
         name: 'plugin-a',
         hooks: [
           {
-            hookType: HookType.ON_MESSAGE,
+            hookType: HookType.BEFORE_MESSAGE,
             handler: () => {
               order.push(2);
             },
@@ -142,7 +142,7 @@ describe('PluginManager', () => {
         name: 'plugin-b',
         hooks: [
           {
-            hookType: HookType.ON_MESSAGE,
+            hookType: HookType.BEFORE_MESSAGE,
             handler: () => {
               order.push(1);
             },
@@ -154,7 +154,7 @@ describe('PluginManager', () => {
       await manager.load(pluginA);
       await manager.load(pluginB);
 
-      await registry.emit(HookType.ON_MESSAGE, {});
+      await registry.emit(HookType.BEFORE_MESSAGE, {});
       expect(order).toEqual([1, 2]);
     });
   });
@@ -178,8 +178,8 @@ describe('PluginManager', () => {
       const plugin = makePlugin({
         name: 'cleanup-hooks',
         hooks: [
-          { hookType: HookType.ON_MESSAGE, handler: makeHookHandler() },
-          { hookType: HookType.ON_RESPONSE, handler: makeHookHandler() },
+          { hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() },
+          { hookType: HookType.AFTER_RESPONSE, handler: makeHookHandler() },
         ],
       });
 
@@ -211,20 +211,20 @@ describe('PluginManager', () => {
       await manager.load(
         makePlugin({
           name: 'keep-me',
-          hooks: [{ hookType: HookType.ON_MESSAGE, handler: makeHookHandler() }],
+          hooks: [{ hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() }],
         }),
       );
       await manager.load(
         makePlugin({
           name: 'remove-me',
-          hooks: [{ hookType: HookType.ON_MESSAGE, handler: makeHookHandler() }],
+          hooks: [{ hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() }],
         }),
       );
 
-      expect(registry.getHandlerCount(HookType.ON_MESSAGE)).toBe(2);
+      expect(registry.getHandlerCount(HookType.BEFORE_MESSAGE)).toBe(2);
 
       await manager.unload('remove-me');
-      expect(registry.getHandlerCount(HookType.ON_MESSAGE)).toBe(1);
+      expect(registry.getHandlerCount(HookType.BEFORE_MESSAGE)).toBe(1);
     });
   });
 
@@ -250,7 +250,7 @@ describe('PluginManager', () => {
           shutdown: () => {
             shutdownA = true;
           },
-          hooks: [{ hookType: HookType.ON_MESSAGE, handler: makeHookHandler() }],
+          hooks: [{ hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() }],
         }),
       );
       await manager.load(
@@ -259,7 +259,7 @@ describe('PluginManager', () => {
           shutdown: () => {
             shutdownB = true;
           },
-          hooks: [{ hookType: HookType.ON_RESPONSE, handler: makeHookHandler() }],
+          hooks: [{ hookType: HookType.AFTER_RESPONSE, handler: makeHookHandler() }],
         }),
       );
 

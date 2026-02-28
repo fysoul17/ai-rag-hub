@@ -1,7 +1,6 @@
 import type {
   ActivityEntry,
   AgentRuntimeInfo,
-  ApiKey,
   ApiResponse,
   BackendConfigOption,
   BackendStatusResponse,
@@ -10,28 +9,22 @@ import type {
   EnvironmentConfig,
   GraphNode,
   HealthCheckResponse,
-  InstanceInfo,
   MemoryEntry,
   MemorySearchResult,
   MemoryStats,
   PlatformConfig,
   SessionDetail,
   SessionListResponse,
-  UsageSummary,
 } from '@autonomy/shared';
+import { DashboardClient } from '@pyx-memory/dashboard';
 
 const RUNTIME_URL = process.env.RUNTIME_URL ?? 'http://localhost:7820';
-const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY ?? '';
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string>),
   };
-
-  if (RUNTIME_API_KEY) {
-    headers.Authorization = `Bearer ${RUNTIME_API_KEY}`;
-  }
 
   const res = await fetch(`${RUNTIME_URL}${path}`, {
     ...options,
@@ -98,30 +91,21 @@ export async function getCrons(): Promise<CronEntryWithStatus[]> {
 
 // Memory server API (uses MEMORY_URL if set, falls back to RUNTIME_URL)
 const MEMORY_URL = process.env.MEMORY_URL;
-
-async function fetchMemoryApi<T>(path: string, options?: RequestInit): Promise<T> {
-  if (MEMORY_URL) {
-    const res = await fetch(`${MEMORY_URL}${path}`, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-    });
-    const body = (await res.json()) as ApiResponse<T>;
-    if (!body.success || body.data === undefined) {
-      throw new Error(body.error ?? `Memory API error: ${res.status}`);
-    }
-    return body.data;
-  }
-  return fetchApi<T>(path, options);
-}
+const memoryBaseUrl = MEMORY_URL ?? RUNTIME_URL;
+const dashboardClient = new DashboardClient(memoryBaseUrl);
 
 export async function getMemoryEntries(
   page = 1,
   limit = 20,
   query?: string,
 ): Promise<{ entries: MemoryEntry[]; page: number; limit: number; totalCount: number }> {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-  if (query) params.set('query', query);
-  return fetchMemoryApi(`/api/memory/entries?${params}`);
+  const result = await dashboardClient.listEntriesPaginated({ page, limit, query });
+  return {
+    entries: result.entries,
+    page: result.page,
+    limit: result.limit,
+    totalCount: result.totalCount,
+  };
 }
 
 export async function getGraphNodes(options?: {
@@ -129,20 +113,29 @@ export async function getGraphNodes(options?: {
   type?: string;
   limit?: number;
 }): Promise<{ nodes: GraphNode[]; totalCount: number }> {
+  // DashboardClient.graphNodes() does not support name/type/limit filters,
+  // so we use fetchApi on the runtime when MEMORY_URL is not set.
+  const baseUrl = memoryBaseUrl;
   const params = new URLSearchParams();
   if (options?.name) params.set('name', options.name);
   if (options?.type) params.set('type', options.type);
   if (options?.limit) params.set('limit', String(options.limit));
-  return fetchMemoryApi(`/api/memory/graph/nodes?${params}`);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const res = await fetch(`${baseUrl}/api/memory/graph/nodes?${params}`, {
+    headers,
+  });
+  const body = (await res.json()) as ApiResponse<{ nodes: GraphNode[]; totalCount: number }>;
+  if (!body.success || body.data === undefined) {
+    throw new Error(body.error ?? `Memory API error: ${res.status}`);
+  }
+  return body.data;
 }
 
 export async function getGraphEdges(): Promise<{
   stats: { nodeCount: number; edgeCount: number };
 }> {
-  return fetchMemoryApi('/api/memory/graph/edges');
+  return dashboardClient.graphEdges();
 }
-
-// --- Control Plane Server APIs ---
 
 export async function getRuntimeConfig(): Promise<EnvironmentConfig> {
   return fetchApi<EnvironmentConfig>('/api/config');
@@ -159,16 +152,21 @@ export async function getBackendOptions(): Promise<{
   return fetchApi<{ backend: string; options: BackendConfigOption[] }>('/api/backends/options');
 }
 
-export async function getApiKeys(): Promise<ApiKey[]> {
-  return fetchApi<ApiKey[]>('/api/auth/keys');
+// --- Memory Lifecycle (server-side reads) ---
+
+export async function getConsolidationLog(limit = 10): Promise<{ log: unknown[] }> {
+  return fetchApi<{ log: unknown[] }>(`/api/memory/consolidation-log?limit=${limit}`);
 }
 
-export async function getUsageSummary(period: 'day' | 'month' = 'day'): Promise<UsageSummary[]> {
-  return fetchApi<UsageSummary[]>(`/api/usage/summary?period=${period}`);
-}
-
-export async function getInstances(): Promise<InstanceInfo[]> {
-  return fetchApi<InstanceInfo[]>('/api/instances');
+export async function queryAsOf(
+  asOf: string,
+  options?: { type?: string; agentId?: string; limit?: number },
+): Promise<{ entries: unknown[]; totalCount: number }> {
+  const params = new URLSearchParams({ asOf });
+  if (options?.type) params.set('type', options.type);
+  if (options?.agentId) params.set('agentId', options.agentId);
+  if (options?.limit) params.set('limit', String(options.limit));
+  return fetchApi<{ entries: unknown[]; totalCount: number }>(`/api/memory/query-as-of?${params}`);
 }
 
 // --- Sessions ---

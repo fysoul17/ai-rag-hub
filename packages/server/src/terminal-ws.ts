@@ -42,7 +42,7 @@ const CLAUDE_LOGIN_INJECT_DELAY_MS = 2000;
  * Env vars allowlisted for the PTY login process.
  *
  * Only forward what the CLI needs to function and open the browser for OAuth.
- * Server-side secrets (ANTHROPIC_API_KEY, AUTH_MASTER_KEY, etc.) are excluded.
+ * Server-side secrets (ANTHROPIC_API_KEY, etc.) are excluded.
  */
 const PTY_ENV_ALLOWLIST = [
   'PATH',
@@ -91,6 +91,11 @@ interface PtySession {
   exiting?: boolean;
   /** Timer for polling auth status (Claude backend). */
   authPollTimer?: ReturnType<typeof setTimeout>;
+}
+
+/** Narrow proc.stdin to FileSink (always valid when spawned with stdin: 'pipe'). */
+function getStdin(proc: PtySession['proc']): import('bun').FileSink {
+  return proc.stdin as import('bun').FileSink;
 }
 
 const sessions = new Map<string, PtySession>();
@@ -176,8 +181,9 @@ function gracefullyExitRepl(session: PtySession, sessionId: string): void {
   }
 
   try {
-    session.proc.stdin.write('/exit\r');
-    session.proc.stdin.flush();
+    const stdin = getStdin(session.proc);
+    stdin.write('/exit\r');
+    stdin.flush();
   } catch {
     // stdin already closed
   }
@@ -308,8 +314,9 @@ export function createTerminalWebSocketHandler() {
           setTimeout(() => {
             if (!session.alive) return;
             try {
-              session.proc.stdin.write('/login\r');
-              session.proc.stdin.flush();
+              const stdin = getStdin(session.proc);
+              stdin.write('/login\r');
+              stdin.flush();
             } catch {
               // stdin closed
             }
@@ -325,8 +332,9 @@ export function createTerminalWebSocketHandler() {
 
         try {
           const data = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
-          session.proc.stdin.write(data);
-          session.proc.stdin.flush();
+          const stdin = getStdin(session.proc);
+          stdin.write(data);
+          stdin.flush();
         } catch {
           // stdin closed
         }
@@ -359,7 +367,7 @@ export function createTerminalWebSocketHandler() {
         }
 
         try {
-          session.proc.stdin.end();
+          getStdin(session.proc).end();
         } catch {
           // Ignore
         }

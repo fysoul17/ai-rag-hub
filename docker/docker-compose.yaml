@@ -32,6 +32,12 @@ services:
       - CODEX_HOME=/data/cli-config/codex
       - GEMINI_CLI_HOME=/data/cli-config/gemini
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:7820/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   dashboard:
     build:
@@ -43,9 +49,6 @@ services:
       - RUNTIME_URL=http://runtime:7820
       - NODE_ENV=production
       - MEMORY_URL=${MEMORY_URL:-}
-      - DASHBOARD_USER=${DASHBOARD_USER:-}
-      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
-      - DASHBOARD_SECRET=${DASHBOARD_SECRET:-}
     depends_on:
       runtime:
         condition: service_healthy
@@ -53,8 +56,8 @@ services:
 
   memory:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.memory
+      context: ../vendor/pyx-memory
+      dockerfile: docker/Dockerfile
     ports:
       - "7822:7822"
     volumes:

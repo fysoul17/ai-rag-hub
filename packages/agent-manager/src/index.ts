@@ -1,5 +1,6 @@
 // @autonomy/agent-manager — CLI AI process lifecycle management
 
+export type { StreamEvent } from '@autonomy/shared';
 export { AgentPool, type AgentPoolOptions } from './agent-pool.ts';
 export { AgentProcess, type AgentProcessOptions } from './agent-process.ts';
 export {
@@ -7,13 +8,11 @@ export {
   CodexBackend,
   DefaultBackendRegistry,
   GeminiBackend,
-  getBackend,
+  OllamaBackend,
   PiBackend,
-  registerBackend,
 } from './backends/index.ts';
 export type { BackendRegistry } from './backends/registry.ts';
 export type { BackendProcess, BackendSpawnConfig, CLIBackend } from './backends/types.ts';
-export type { StreamEvent } from '@autonomy/shared';
 export {
   AgentManagerError,
   AgentNotFoundError,

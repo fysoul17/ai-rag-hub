@@ -7,9 +7,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function AgentsPage() {
   let agents: Awaited<ReturnType<typeof getAgents>> = [];
+  let fetchError = false;
   try {
     agents = await getAgents();
   } catch {
+    fetchError = true;
     agents = [];
   }
 
@@ -26,6 +28,11 @@ export default async function AgentsPage() {
           </div>
           <CreateAgentDialog />
         </div>
+        {fetchError && (
+          <div className="mb-4 rounded-lg border border-neon-red/30 bg-neon-red/10 p-3 text-sm text-neon-red">
+            Failed to load data. The runtime server may be unavailable.
+          </div>
+        )}
         <AgentList agents={agents} />
       </div>
     </>

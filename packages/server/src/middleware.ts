@@ -1,38 +1,33 @@
 import type { ApiResponse } from '@autonomy/shared';
 import { ServerError } from './errors.ts';
 
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
-export function corsHeaders(origin?: string): Record<string, string> {
-  if (origin) {
-    return { ...CORS_HEADERS, 'Access-Control-Allow-Origin': origin };
-  }
-  return CORS_HEADERS;
+export function corsHeaders(origin: string = '*'): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
 }
 
-export function handlePreflight(): Response {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+export function handlePreflight(origin: string = '*'): Response {
+  return new Response(null, { status: 204, headers: corsHeaders(origin) });
 }
 
-export function jsonResponse<T>(data: T, status = 200): Response {
+export function jsonResponse<T>(data: T, status = 200, origin: string = '*'): Response {
   const body: ApiResponse<T> = { success: true, data };
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
   });
 }
 
-export function errorResponse(error: unknown, status?: number): Response {
+export function errorResponse(error: unknown, status?: number, origin: string = '*'): Response {
   const message = error instanceof Error ? error.message : String(error);
   const statusCode = status ?? (error instanceof ServerError ? error.statusCode : 500);
   const body: ApiResponse<never> = { success: false, error: message };
   return new Response(JSON.stringify(body), {
     status: statusCode,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
   });
 }
 

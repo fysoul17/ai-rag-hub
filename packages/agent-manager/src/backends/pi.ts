@@ -105,8 +105,9 @@ class PiProcess implements BackendProcess {
         stderr: 'pipe',
       });
 
-      const stdoutStream = this._process.stdout as ReadableStream;
-      this._stdoutReader = stdoutStream.getReader();
+      this._stdoutReader = (
+        this._process.stdout as ReadableStream<Uint8Array>
+      ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
       this._lineBuffer = '';
       this._ensuring = null;
     })();
@@ -114,6 +115,7 @@ class PiProcess implements BackendProcess {
     return this._ensuring;
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: process lifecycle handling is inherently branchy
   async send(message: string): Promise<string> {
     if (!this._alive) {
       throw new BackendError('pi', 'Process is not alive');
@@ -121,14 +123,14 @@ class PiProcess implements BackendProcess {
 
     await this.ensureProcess();
 
+    // biome-ignore lint/style/noNonNullAssertion: ensureProcess() guarantees _process is set
     const proc = this._process!;
-    const stdin = proc.stdin as WritableStream;
-    const writer = stdin.getWriter();
+    const stdin = proc.stdin as import('bun').FileSink;
 
     // Write JSON message to stdin
-    const request = JSON.stringify({ type: 'message', content: message }) + '\n';
-    await writer.write(new TextEncoder().encode(request));
-    writer.releaseLock();
+    const request = `${JSON.stringify({ type: 'message', content: message })}\n`;
+    stdin.write(request);
+    stdin.flush();
 
     // Read NDJSON response lines until we get a complete response
     const chunks: string[] = [];
@@ -168,6 +170,7 @@ class PiProcess implements BackendProcess {
     return chunks.join('');
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: streaming parser requires sequential state handling
   async *sendStreaming(message: string, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
     if (!this._alive) {
       yield { type: 'error', error: 'Process is not alive' };
@@ -189,13 +192,13 @@ class PiProcess implements BackendProcess {
       return;
     }
 
+    // biome-ignore lint/style/noNonNullAssertion: ensureProcess() guarantees _process is set
     const proc = this._process!;
-    const stdin = proc.stdin as WritableStream;
-    const writer = stdin.getWriter();
+    const stdin = proc.stdin as import('bun').FileSink;
 
-    const request = JSON.stringify({ type: 'message', content: message }) + '\n';
-    await writer.write(new TextEncoder().encode(request));
-    writer.releaseLock();
+    const request = `${JSON.stringify({ type: 'message', content: message })}\n`;
+    stdin.write(request);
+    stdin.flush();
 
     while (true) {
       if (signal?.aborted) {
@@ -283,8 +286,15 @@ export class PiBackend implements CLIBackend {
       {
         name: 'model',
         cliFlag: '--model',
-        description: 'Model name in provider/model format (e.g., openai/gpt-4.1, anthropic/claude-sonnet)',
-        values: ['openai/gpt-4.1', 'openai/o3', 'anthropic/claude-sonnet', 'google/gemini-2.5-pro', 'ollama/llama3.2'],
+        description:
+          'Model name in provider/model format (e.g., openai/gpt-4.1, anthropic/claude-sonnet)',
+        values: [
+          'openai/gpt-4.1',
+          'openai/o3',
+          'anthropic/claude-sonnet',
+          'google/gemini-2.5-pro',
+          'ollama/llama3.2',
+        ],
         defaultValue: getDefaultModel(),
       },
     ];
@@ -292,6 +302,12 @@ export class PiBackend implements CLIBackend {
 
   async spawn(config: BackendSpawnConfig): Promise<BackendProcess> {
     return new PiProcess(config);
+  }
+
+  async logout(): Promise<void> {
+    // Pi uses API key auth — clear the env var.
+    // The server route also calls secretStore.removeBackendKeys() after this.
+    delete process.env.PI_API_KEY;
   }
 
   async getStatus(): Promise<BackendStatus> {
