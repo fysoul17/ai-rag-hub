@@ -21,7 +21,7 @@ describe('Plugin isolation', () => {
         name: 'plugin-a',
         hooks: [
           {
-            hookType: HookType.ON_MESSAGE,
+            hookType: HookType.BEFORE_MESSAGE,
             handler: () => {
               throw new Error('Plugin A crashed');
             },
@@ -35,7 +35,7 @@ describe('Plugin isolation', () => {
         name: 'plugin-b',
         hooks: [
           {
-            hookType: HookType.ON_MESSAGE,
+            hookType: HookType.BEFORE_MESSAGE,
             handler: handlerB,
             priority: 2,
           },
@@ -43,7 +43,7 @@ describe('Plugin isolation', () => {
       }),
     );
 
-    await registry.emit(HookType.ON_MESSAGE, { content: 'test' });
+    await registry.emit(HookType.BEFORE_MESSAGE, { content: 'test' });
     expect(handlerB.calls).toHaveLength(1);
   });
 
@@ -65,17 +65,17 @@ describe('Plugin isolation', () => {
     await manager.load(
       makePlugin({
         name: 'good-plugin',
-        hooks: [{ hookType: HookType.ON_MESSAGE, handler: makeHookHandler() }],
+        hooks: [{ hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() }],
       }),
     );
-    expect(registry.getHandlerCount(HookType.ON_MESSAGE)).toBe(1);
+    expect(registry.getHandlerCount(HookType.BEFORE_MESSAGE)).toBe(1);
   });
 
   test('plugin throwing during shutdown() — unload logs error but completes', async () => {
     await manager.load(
       makePlugin({
         name: 'bad-shutdown',
-        hooks: [{ hookType: HookType.ON_MESSAGE, handler: makeHookHandler() }],
+        hooks: [{ hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() }],
         shutdown: () => {
           throw new Error('Shutdown crashed');
         },
@@ -92,16 +92,16 @@ describe('Plugin isolation', () => {
 
   test('system with zero plugins operates normally', async () => {
     // Emit hooks with no plugins — should not throw
-    await registry.emit(HookType.ON_MESSAGE, { content: 'test' });
-    await registry.emit(HookType.ON_RESPONSE, { content: 'response' });
+    await registry.emit(HookType.BEFORE_MESSAGE, { content: 'test' });
+    await registry.emit(HookType.AFTER_RESPONSE, { content: 'response' });
 
-    const result = await registry.emitWaterfall(HookType.ON_MESSAGE, { content: 'original' });
+    const result = await registry.emitWaterfall(HookType.BEFORE_MESSAGE, { content: 'original' });
     expect(result).toEqual({ content: 'original' });
   });
 
   test('system works identically before and after loading/unloading all plugins', async () => {
     // Before plugins
-    const resultBefore = await registry.emitWaterfall(HookType.ON_MESSAGE, { content: 'test' });
+    const resultBefore = await registry.emitWaterfall(HookType.BEFORE_MESSAGE, { content: 'test' });
     expect(resultBefore).toEqual({ content: 'test' });
 
     // Load plugins
@@ -110,7 +110,7 @@ describe('Plugin isolation', () => {
         name: 'temp-plugin',
         hooks: [
           {
-            hookType: HookType.ON_MESSAGE,
+            hookType: HookType.BEFORE_MESSAGE,
             handler: (data: { content: string }) => ({ content: `${data.content} + modified` }),
           },
         ],
@@ -118,14 +118,14 @@ describe('Plugin isolation', () => {
     );
 
     // With plugin
-    const resultDuring = await registry.emitWaterfall(HookType.ON_MESSAGE, { content: 'test' });
+    const resultDuring = await registry.emitWaterfall(HookType.BEFORE_MESSAGE, { content: 'test' });
     expect(resultDuring).toEqual({ content: 'test + modified' });
 
     // Unload
     await manager.unload('temp-plugin');
 
     // After plugins — should be back to normal
-    const resultAfter = await registry.emitWaterfall(HookType.ON_MESSAGE, { content: 'test' });
+    const resultAfter = await registry.emitWaterfall(HookType.BEFORE_MESSAGE, { content: 'test' });
     expect(resultAfter).toEqual({ content: 'test' });
   });
 
@@ -135,7 +135,7 @@ describe('Plugin isolation', () => {
       name: 'hot-reload',
       hooks: [
         {
-          hookType: HookType.ON_MESSAGE,
+          hookType: HookType.BEFORE_MESSAGE,
           handler: (data: { content: string }) => ({ content: `${data.content} v1` }),
         },
       ],
@@ -143,7 +143,7 @@ describe('Plugin isolation', () => {
 
     await manager.load(pluginV1);
 
-    const r1 = await registry.emitWaterfall(HookType.ON_MESSAGE, { content: 'msg' });
+    const r1 = await registry.emitWaterfall(HookType.BEFORE_MESSAGE, { content: 'msg' });
     expect(r1).toEqual({ content: 'msg v1' });
 
     // Unload v1, load v2
@@ -153,14 +153,14 @@ describe('Plugin isolation', () => {
       name: 'hot-reload',
       hooks: [
         {
-          hookType: HookType.ON_MESSAGE,
+          hookType: HookType.BEFORE_MESSAGE,
           handler: (data: { content: string }) => ({ content: `${data.content} v2` }),
         },
       ],
     });
     await manager.load(pluginV2);
 
-    const r2 = await registry.emitWaterfall(HookType.ON_MESSAGE, { content: 'msg' });
+    const r2 = await registry.emitWaterfall(HookType.BEFORE_MESSAGE, { content: 'msg' });
     expect(r2).toEqual({ content: 'msg v2' });
   });
 
@@ -172,23 +172,23 @@ describe('Plugin isolation', () => {
     await manager.load(
       makePlugin({
         name: 'multi-a',
-        hooks: [{ hookType: HookType.ON_AGENT_START, handler: handlerA }],
+        hooks: [{ hookType: HookType.AFTER_AGENT_CREATE, handler: handlerA }],
       }),
     );
     await manager.load(
       makePlugin({
         name: 'multi-b',
-        hooks: [{ hookType: HookType.ON_AGENT_START, handler: handlerB }],
+        hooks: [{ hookType: HookType.AFTER_AGENT_CREATE, handler: handlerB }],
       }),
     );
     await manager.load(
       makePlugin({
         name: 'multi-c',
-        hooks: [{ hookType: HookType.ON_AGENT_START, handler: handlerC }],
+        hooks: [{ hookType: HookType.AFTER_AGENT_CREATE, handler: handlerC }],
       }),
     );
 
-    await registry.emit(HookType.ON_AGENT_START, { agentId: 'agent-1' });
+    await registry.emit(HookType.AFTER_AGENT_CREATE, { agentId: 'agent-1' });
 
     expect(handlerA.calls).toHaveLength(1);
     expect(handlerB.calls).toHaveLength(1);
@@ -202,7 +202,7 @@ describe('Plugin isolation', () => {
       makePlugin({
         name: 'init-register',
         initialize: (reg) => {
-          reg.register(HookType.ON_MESSAGE, aHandler, { pluginId: 'init-register' });
+          reg.register(HookType.BEFORE_MESSAGE, aHandler, { pluginId: 'init-register' });
         },
       }),
     );
@@ -211,18 +211,18 @@ describe('Plugin isolation', () => {
     await manager.load(
       makePlugin({
         name: 'decl-register',
-        hooks: [{ hookType: HookType.ON_MESSAGE, handler: makeHookHandler() }],
+        hooks: [{ hookType: HookType.BEFORE_MESSAGE, handler: makeHookHandler() }],
       }),
     );
 
-    expect(registry.getHandlerCount(HookType.ON_MESSAGE)).toBe(2);
+    expect(registry.getHandlerCount(HookType.BEFORE_MESSAGE)).toBe(2);
 
     // Unload B
     await manager.unload('decl-register');
-    expect(registry.getHandlerCount(HookType.ON_MESSAGE)).toBe(1);
+    expect(registry.getHandlerCount(HookType.BEFORE_MESSAGE)).toBe(1);
 
     // A's handler should still fire
-    await registry.emit(HookType.ON_MESSAGE, { test: true });
+    await registry.emit(HookType.BEFORE_MESSAGE, { test: true });
     expect(aHandler.calls).toHaveLength(1);
   });
 
@@ -234,7 +234,7 @@ describe('Plugin isolation', () => {
         name: 'slow-plugin',
         hooks: [
           {
-            hookType: HookType.ON_AGENT_START,
+            hookType: HookType.AFTER_AGENT_CREATE,
             handler: async () => {
               await delay(50);
             },
@@ -248,7 +248,7 @@ describe('Plugin isolation', () => {
         name: 'fast-plugin',
         hooks: [
           {
-            hookType: HookType.ON_AGENT_START,
+            hookType: HookType.AFTER_AGENT_CREATE,
             handler: fastHandler,
             priority: 2,
           },
@@ -257,7 +257,7 @@ describe('Plugin isolation', () => {
     );
 
     const start = performance.now();
-    await registry.emit(HookType.ON_AGENT_START, {});
+    await registry.emit(HookType.AFTER_AGENT_CREATE, {});
     const elapsed = performance.now() - start;
 
     // Fast handler should have been called (even if it waited for slow one)
