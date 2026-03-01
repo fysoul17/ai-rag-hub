@@ -157,8 +157,15 @@ async function main() {
   }
 
   // Initialize Memory (uses MemoryClient if MEMORY_URL is set, otherwise embedded)
+  const memoryDir = join(config.DATA_DIR, 'memory');
+  if (!existsSync(memoryDir)) {
+    mkdirSync(memoryDir, { recursive: true });
+  }
+  const graphDb = new Database(join(memoryDir, 'graph.sqlite'));
+  graphDb.exec('PRAGMA journal_mode = WAL;');
+  graphDb.exec('PRAGMA foreign_keys = ON;');
   const graphStore = new SQLiteGraphStore();
-  await graphStore.initialize({});
+  await graphStore.initialize({ sqliteDb: graphDb });
   const embedder = new LocalEmbeddingProvider(384);
   const memory = createMemory({
     dataDir: config.DATA_DIR,
@@ -585,6 +592,7 @@ async function main() {
     if (memoryLLMShutdown) await memoryLLMShutdown();
     await pool.shutdown();
     await memory.shutdown();
+    graphDb.close();
     runtimeDb.close();
     server.stop();
     logger.info('Shutdown complete');
