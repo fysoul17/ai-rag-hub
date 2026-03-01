@@ -19,6 +19,7 @@ COPY packages/plugin-system/package.json ./packages/plugin-system/
 COPY vendor/pyx-memory/packages/shared/package.json ./vendor/pyx-memory/packages/shared/
 COPY vendor/pyx-memory/packages/client/package.json ./vendor/pyx-memory/packages/client/
 COPY vendor/pyx-memory/packages/core/package.json ./vendor/pyx-memory/packages/core/
+COPY vendor/pyx-memory/packages/dashboard/package.json ./vendor/pyx-memory/packages/dashboard/
 
 RUN bun install --frozen-lockfile || bun install
 
