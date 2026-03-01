@@ -43,7 +43,7 @@ import { createLifecycleRoutes, isExtended } from './routes/lifecycle.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
 import { SecretStore } from './secret-store.ts';
-import { runSeeds } from './seeds/index.ts';
+import { runCronSeeds, runSeeds } from './seeds/index.ts';
 import { SessionStore } from './session-store.ts';
 import { createTerminalWebSocketHandler, type TerminalWSData } from './terminal-ws.ts';
 import { createWebSocketHandler, type WSData } from './websocket.ts';
@@ -290,7 +290,12 @@ async function main() {
   // Initialize CronManager
   const cronManager = new CronManager(conductor, { dataDir: config.DATA_DIR });
   await cronManager.initialize();
+  conductor.setCronManager(cronManager);
   logger.info('CronManager initialized');
+
+  // Seed cron jobs (idempotent)
+  await runCronSeeds(cronManager);
+  logger.info('Cron seeds applied');
 
   // Memory lifecycle: periodic consolidation and decay
   const lifecycleIntervals: ReturnType<typeof setInterval>[] = [];

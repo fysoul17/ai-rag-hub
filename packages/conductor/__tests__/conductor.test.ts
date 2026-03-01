@@ -279,4 +279,52 @@ describe('Conductor', () => {
       expect(agentActivity.length).toBeGreaterThan(0);
     });
   });
+
+  describe('setCronManager', () => {
+    test('accepts a CronManager-like object', async () => {
+      await conductor.initialize();
+      const mockCron = { create: mock(async () => ({ id: 'c1', name: 'test' })) };
+      // Should not throw
+      conductor.setCronManager(mockCron as never);
+    });
+  });
+
+  describe('searchMemory', () => {
+    beforeEach(async () => {
+      await conductor.initialize();
+    });
+
+    test('searches memory via the public searchMemory method', async () => {
+      const result = await conductor.searchMemory('test query', 3);
+      expect(result).toBeDefined();
+      expect(memory.searchCalls.length).toBe(1);
+      expect(memory.searchCalls[0].query).toBe('test query');
+      expect(memory.searchCalls[0].limit).toBe(3);
+    });
+
+    test('returns null when memory search throws', async () => {
+      memory.setShouldThrow(true);
+      const result = await conductor.searchMemory('test', 5);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('system context in augmented prompt', () => {
+    beforeEach(async () => {
+      await conductor.initialize();
+    });
+
+    test('delegates to agent with system-context in augmented message', async () => {
+      const def = makeAgent({ id: 'ctx-agent', name: 'Context Agent', role: 'test' });
+      await pool.create(def);
+      pool.setSendResponse('OK');
+
+      await conductor.handleMessage(makeMessage({ targetAgentId: 'ctx-agent' }));
+
+      // The augmented message sent to pool.sendMessage should contain system-context
+      const sentMessage = pool.sendMessage.mock.calls[0]?.[1] as string;
+      expect(sentMessage).toContain('<system-context>');
+      expect(sentMessage).toContain('agent-forge');
+    });
+  });
 });
