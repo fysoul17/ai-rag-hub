@@ -1,22 +1,25 @@
-import type { MemoryStats } from '@autonomy/shared';
+import { formatBytes } from '@pyx-memory/dashboard';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface MemoryStatsCardsProps {
-  stats: MemoryStats | null;
-  graphStats?: { nodeCount: number; edgeCount: number } | null;
+  stats: { totalEntries: number; vectorCount: number; storageUsedBytes: number } | null;
+  isLoading: boolean;
+  error: Error | null;
+  graphNodeCount: number | null;
+  graphEdgeCount: number | null;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export function MemoryStatsCards({ stats, graphStats }: MemoryStatsCardsProps) {
-  if (!stats) {
+export function MemoryStatsCards({
+  stats,
+  isLoading,
+  error,
+  graphNodeCount,
+  graphEdgeCount,
+}: MemoryStatsCardsProps) {
+  if (isLoading && !stats) {
     return (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {['total', 'short', 'long', 'episodic'].map((id) => (
+        {['total', 'vectors', 'storage', 'graph'].map((id) => (
           <Card key={id} className="glass">
             <CardContent className="py-3">
               <div className="h-4 w-16 animate-pulse rounded bg-muted" />
@@ -28,13 +31,23 @@ export function MemoryStatsCards({ stats, graphStats }: MemoryStatsCardsProps) {
     );
   }
 
+  if (error && !stats) {
+    return (
+      <div className="rounded-lg border border-neon-red/30 bg-neon-red/10 p-3 text-sm text-neon-red">
+        Failed to load stats. The runtime server may be unavailable.
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
   const cards = [
     { label: 'Entries', value: String(stats.totalEntries), glow: 'hover:glow-cyan' },
     { label: 'Vectors', value: String(stats.vectorCount), glow: 'hover:glow-purple' },
     { label: 'Storage', value: formatBytes(stats.storageUsedBytes), glow: 'hover:glow-amber' },
     {
       label: 'Graph',
-      value: graphStats ? `${graphStats.nodeCount}N / ${graphStats.edgeCount}E` : '—',
+      value: graphNodeCount !== null ? `${graphNodeCount}N / ${graphEdgeCount ?? 0}E` : '\u2014',
       glow: 'hover:glow-cyan',
     },
   ];

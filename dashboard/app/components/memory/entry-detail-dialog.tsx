@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { deleteMemoryEntry, forgetMemory } from '@/lib/api';
+import { memoryTypeBadgeVariant } from './memory-utils';
 
 interface EntryDetailDialogProps {
   entry: MemoryEntry | null;
@@ -77,9 +78,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange }: EntryDetailDial
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={entry.type === 'short-term' ? 'secondary' : 'default'}>
-                {entry.type}
-              </Badge>
+              <Badge variant={memoryTypeBadgeVariant(entry.type)}>{entry.type}</Badge>
               {entry.agentId && (
                 <Badge variant="outline" className="font-mono">
                   agent: {entry.agentId}
