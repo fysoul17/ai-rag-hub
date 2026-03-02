@@ -595,7 +595,7 @@ The `StreamBuffer` accumulates streamed content per session. When a client recon
 | `IDLE_TIMEOUT_MS`      | No        | `300000`                 | Agent idle timeout (5 min) |
 | `MAX_AGENTS`           | No        | `10`                     | Max concurrent agents      |
 | `VECTOR_PROVIDER`      | No        | `lancedb`                | Vector DB provider (`lancedb`, `qdrant`) |
-| `EMBEDDING_PROVIDER`   | No        | `stub`                   | Embedding provider (`stub`, `local`, `anthropic`, `openai`) |
+| `EMBEDDING_PROVIDER`   | No        | `stub`                   | Embedding provider — **pyx-memory sidecar** env var (`stub`, `local`, `anthropic`, `openai`) |
 | `LOG_LEVEL`            | No        | `info`                   | Log level (`debug`, `info`, `warn`, `error`) |
 | `MODE`                 | No        | `standalone`             | Deployment mode (`standalone`, `managed`) |
 | `MEMORY_SERVER_PORT`   | No        | `7822`                   | Memory sidecar port        |
@@ -609,10 +609,13 @@ The `StreamBuffer` accumulates streamed content per session. When a client recon
 | `PI_API_KEY`           | No        | —                        | API key for Pi backend               |
 | `PI_MODEL`             | No        | —                        | Pi model override (e.g., `openai/gpt-4.1`) |
 | `QDRANT_URL`           | No        | —                        | Qdrant vector DB URL (alternative to LanceDB) |
-| `CORS_ORIGIN`          | No        | —                        | Allowed CORS origin (e.g., `https://yourdomain.com`) |
+| `ANTHROPIC_API_KEY`    | No        | —                        | API key for Claude CLI                               |
+| `CODEX_API_KEY`        | No        | —                        | API key for OpenAI Codex CLI                         |
+| `GEMINI_API_KEY`       | No        | —                        | API key for Google Gemini CLI                        |
+| `CORS_ORIGIN`          | No        | `http://localhost:7821`  | Allowed CORS origin (e.g., `https://yourdomain.com`) |
 | `FALLBACK_BACKEND`     | No        | —                        | Fallback AI backend if primary fails to spawn |
-| `ENABLE_TERMINAL_WS`   | No        | `false`                  | Enable PTY-based CLI login WebSocket |
-| `ENABLE_ADVANCED_MEMORY`| No       | `false`                  | Enable consolidation, decay, summarization routes |
+| `ENABLE_TERMINAL_WS`   | No        | `true`                   | PTY-based CLI login WebSocket (opt-out with `false`) |
+| `ENABLE_ADVANCED_MEMORY`| No       | `true`                   | Consolidation, decay, summarization routes (opt-out with `false`) |
 | `ENABLE_DEBUG_WS`      | No        | `true`                   | Enable debug event WebSocket |
 | `DEBUG_WS_TOKEN`       | No        | —                        | Token to protect debug WebSocket endpoint |
 

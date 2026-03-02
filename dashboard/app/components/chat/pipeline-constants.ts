@@ -5,7 +5,7 @@ export interface PhaseConfig {
   friendlyLabel: string;
 }
 
-export const PHASE_CONFIG: Record<string, PhaseConfig> = {
+const PHASE_CONFIG: Record<string, PhaseConfig> = {
   memory_search: {
     dot: 'bg-neon-cyan',
     text: 'text-neon-cyan',
