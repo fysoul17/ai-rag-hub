@@ -29,6 +29,13 @@ import type { ServerWebSocket } from 'bun';
 import type { DebugBus } from './debug-bus.ts';
 import { makeDebugEvent } from './debug-bus.ts';
 import type { SessionStore } from './session-store.ts';
+import {
+  accumulateAgentStep,
+  buildStepMetadata,
+  PHASE_MESSAGES,
+  type StepMetadata,
+  type StreamState,
+} from './step-metadata.ts';
 import type { StreamBuffer } from './stream-buffer.ts';
 import { SessionStreamBufferManager } from './stream-buffer.ts';
 
@@ -58,6 +65,18 @@ export interface WSData {
   sessionId?: string;
   /** Per-session config overrides set via slash commands (e.g., { model: 'sonnet' }). */
   configOverrides?: Record<string, string>;
+}
+
+/** Shared context passed through the WebSocket message handling chain. */
+interface WebSocketContext {
+  conductor: Conductor;
+  debugBus?: DebugBus;
+  sessionStore?: SessionStore;
+  streamTimeoutMs?: number;
+  backendRegistry?: BackendRegistry;
+  bufferManager?: SessionStreamBufferManager;
+  sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>;
+  sessionAbortControllers?: Map<string, AbortController>;
 }
 
 function sendWSError(ws: ServerWebSocket<WSData>, message: string): void {
@@ -231,9 +250,10 @@ function persistAssistantMessage(
   sessionId: string,
   content: string,
   targetAgent?: string,
+  metadata?: Record<string, unknown>,
 ): void {
   try {
-    sessionStore.addMessage(sessionId, MessageRole.ASSISTANT, content, targetAgent);
+    sessionStore.addMessage(sessionId, MessageRole.ASSISTANT, content, targetAgent, metadata);
   } catch (err) {
     wsLogger.warn('Failed to persist assistant message', {
       sessionId,
@@ -262,37 +282,47 @@ function emitResponseDebug(
   );
 }
 
-interface StreamState {
-  accumulatedContent: string;
-  completeSent: boolean;
-  errorSent: boolean;
-}
-
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: WebSocket message handler with multiple event types
 async function streamConductorResponse(
   ws: ServerWebSocket<WSData>,
-  conductor: Conductor,
+  ctx: WebSocketContext,
   incoming: IncomingMessage,
   agentId: string,
   targetAgent: string | undefined,
-  debugBus?: DebugBus,
-  streamTimeoutMs?: number,
   buffer?: StreamBuffer,
   sessionId?: string,
-  sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>,
   signal?: AbortSignal,
-): Promise<{ content: string }> {
+): Promise<{ content: string; stepMetadata?: StepMetadata }> {
+  const { conductor, debugBus, streamTimeoutMs, sessionClientsMap } = ctx;
+
   // Resolve agent display name once before the streaming loop so step events can carry it.
   // Falls back to undefined for 'conductor' (which has no pool entry).
   const agentDisplayName = conductor.listAgents().find((a) => a.id === agentId)?.name;
 
   // conductor_status events go directly to the requesting ws (not buffered)
+  // Also accumulate pipeline phases for persistence.
   const onEvent = (event: ConductorEvent) => {
     sendConductorStatus(ws, event);
     debugBus?.emit(conductorEventToDebug(event));
+
+    // Accumulate pipeline phase for metadata persistence.
+    state.pipelinePhases.push({
+      phase: event.type,
+      message: event.content ?? PHASE_MESSAGES[event.type] ?? event.type,
+      timestamp: Date.now(),
+      durationMs: event.durationMs,
+      debug: buildDebugPayload(event),
+    });
   };
 
-  const state: StreamState = { accumulatedContent: '', completeSent: false, errorSent: false };
+  const state: StreamState = {
+    accumulatedContent: '',
+    completeSent: false,
+    errorSent: false,
+    pipelinePhases: [],
+    agentActivities: new Map(),
+    toolToAgent: new Map(),
+  };
 
   /**
    * Broadcast a message to all current session clients (if buffer exists) or just the requesting ws.
@@ -370,6 +400,9 @@ async function streamConductorResponse(
         event.type === 'tool_complete' ||
         event.type === 'thinking'
       ) {
+        // Accumulate agent step data for metadata persistence
+        accumulateAgentStep(state, event, agentId, agentDisplayName);
+
         // Agent-level step events: broadcast to live clients but do NOT accumulate
         // in the stream buffer (buffer only tracks chunk content for reconnect replay).
         const step: WSServerAgentStep = {
@@ -468,21 +501,16 @@ async function streamConductorResponse(
     }
   }
 
-  return { content: state.accumulatedContent };
+  return { content: state.accumulatedContent, stepMetadata: buildStepMetadata(state) };
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: streaming handler with abort and error handling
 async function handleConductorMessage(
   ws: ServerWebSocket<WSData>,
-  conductor: Conductor,
+  ctx: WebSocketContext,
   parsed: WSClientMessage,
-  debugBus?: DebugBus,
-  sessionStore?: SessionStore,
-  streamTimeoutMs?: number,
-  bufferManager?: SessionStreamBufferManager,
-  sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>,
-  sessionAbortControllers?: Map<string, AbortController>,
 ): Promise<void> {
+  const { debugBus, sessionStore, bufferManager, sessionClientsMap, sessionAbortControllers } = ctx;
   ensureSession(ws, sessionStore);
 
   // After ensureSession, ws.data.sessionId may have just been set (lazy session creation).
@@ -571,20 +599,23 @@ async function handleConductorMessage(
   try {
     const result = await streamConductorResponse(
       ws,
-      conductor,
+      ctx,
       incoming,
       agentId,
       parsed.targetAgent,
-      debugBus,
-      streamTimeoutMs,
       buffer,
       sessionId,
-      sessionClientsMap,
       abortController?.signal,
     );
 
     if (sessionStore && sessionId && result.content) {
-      persistAssistantMessage(sessionStore, sessionId, result.content, parsed.targetAgent);
+      persistAssistantMessage(
+        sessionStore,
+        sessionId,
+        result.content,
+        parsed.targetAgent,
+        result.stepMetadata as Record<string, unknown> | undefined,
+      );
     }
 
     emitResponseDebug(debugBus, agentId, parsed.targetAgent, result.content.length);
@@ -748,16 +779,10 @@ function handleSlashCommand(
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: delegation handler with streaming support
 function handleParsedMessage(
   ws: ServerWebSocket<WSData>,
-  conductor: Conductor,
+  ctx: WebSocketContext,
   parsed: WSClientMessage,
-  debugBus?: DebugBus,
-  sessionStore?: SessionStore,
-  streamTimeoutMs?: number,
-  backendRegistry?: BackendRegistry,
-  bufferManager?: SessionStreamBufferManager,
-  sessionClientsMap?: Map<string, Set<ServerWebSocket<WSData>>>,
-  sessionAbortControllers?: Map<string, AbortController>,
 ): Promise<void> | void {
+  const { conductor, debugBus, backendRegistry, bufferManager, sessionAbortControllers } = ctx;
   if (parsed.type === WSClientMessageType.PING) {
     const pong: WSServerPong = { type: WSServerMessageType.PONG };
     try {
@@ -807,17 +832,7 @@ function handleParsedMessage(
       return;
     }
 
-    return handleConductorMessage(
-      ws,
-      conductor,
-      parsed,
-      debugBus,
-      sessionStore,
-      streamTimeoutMs,
-      bufferManager,
-      sessionClientsMap,
-      sessionAbortControllers,
-    );
+    return handleConductorMessage(ws, ctx, parsed);
   }
 
   sendWSError(ws, 'Unknown message type');
@@ -841,6 +856,17 @@ export function createWebSocketHandler(
 
   /** Per-session AbortController for cancelling active streams. */
   const sessionAbortControllers = new Map<string, AbortController>();
+
+  const wsCtx: WebSocketContext = {
+    conductor,
+    debugBus,
+    sessionStore,
+    streamTimeoutMs,
+    backendRegistry,
+    bufferManager,
+    sessionClientsMap,
+    sessionAbortControllers,
+  };
 
   function broadcast(message: object): void {
     const data = JSON.stringify(message);
@@ -976,18 +1002,7 @@ export function createWebSocketHandler(
         return;
       }
 
-      await handleParsedMessage(
-        ws,
-        conductor,
-        parsed,
-        debugBus,
-        sessionStore,
-        streamTimeoutMs,
-        backendRegistry,
-        bufferManager,
-        sessionClientsMap,
-        sessionAbortControllers,
-      );
+      await handleParsedMessage(ws, wsCtx, parsed);
     },
 
     close(ws: ServerWebSocket<WSData>): void {

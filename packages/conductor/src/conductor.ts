@@ -100,6 +100,7 @@ export class Conductor {
   private messageQueue: QueuedConductorMessage[] = [];
   private processing = false;
   private cronManager?: CronManagerLike;
+  private memoryConnected = true;
 
   constructor(
     pool: AgentPool,
@@ -129,6 +130,7 @@ export class Conductor {
         this.backendProcess = await this.backend.spawn({
           agentId: 'conductor',
           systemPrompt,
+          skipPermissions: true,
         });
         this.activityLog.record(ActivityType.MESSAGE, 'Conductor AI process initialized');
       } catch (error) {
@@ -145,6 +147,7 @@ export class Conductor {
             this.backendProcess = await this.fallbackBackend.spawn({
               agentId: 'conductor',
               systemPrompt,
+              skipPermissions: true,
             });
             this.activityLog.record(
               ActivityType.MESSAGE,
@@ -161,6 +164,17 @@ export class Conductor {
 
     const systemPrompt = this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
     this.sessionPool = new SessionProcessPool(this.backend, this.fallbackBackend, systemPrompt);
+
+    // Detect memory connectivity via stats().connected flag
+    try {
+      const stats = await this.memory.stats();
+      this.memoryConnected = stats.connected !== false;
+    } catch {
+      this.memoryConnected = false;
+    }
+    if (!this.memoryConnected) {
+      conductorLogger.warn('Memory service not connected — memory operations will be skipped');
+    }
 
     this.initialized = true;
     this.activityLog.record(ActivityType.MESSAGE, 'Conductor initialized');
@@ -664,19 +678,29 @@ export class Conductor {
     const processedMessage = await this.runBeforeMessageHook(message);
     if (processedMessage === null) return null;
 
-    const rawMemoryContext = await this.timedStep(
-      () => this.searchMemoryContext(processedMessage),
-      (durationMs, result) =>
-        onEvent?.({
-          type: ConductorEventType.MEMORY_SEARCH,
-          content: result ? `Found ${result.entries.length} memory entries` : 'No memory results',
-          durationMs,
-          memoryResults: result?.entries.length ?? 0,
-          memoryQuery: processedMessage.content,
-          memoryEntryPreviews: result?.entries.slice(0, 5).map((e) => e.content.slice(0, 80)),
-        }),
-    );
-    const memoryContext = await this.runAfterMemorySearchHook(processedMessage, rawMemoryContext);
+    let memoryContext: MemorySearchResult | null = null;
+    if (this.memoryConnected) {
+      const rawMemoryContext = await this.timedStep(
+        () => this.searchMemoryContext(processedMessage),
+        (durationMs, result) =>
+          onEvent?.({
+            type: ConductorEventType.MEMORY_SEARCH,
+            content: result ? `Found ${result.entries.length} memory entries` : 'No memory results',
+            durationMs,
+            memoryResults: result?.entries.length ?? 0,
+            memoryQuery: processedMessage.content,
+            memoryEntryPreviews: result?.entries.slice(0, 5).map((e) => e.content.slice(0, 80)),
+          }),
+      );
+      memoryContext = await this.runAfterMemorySearchHook(processedMessage, rawMemoryContext);
+    } else {
+      onEvent?.({
+        type: ConductorEventType.MEMORY_SEARCH,
+        content: 'Memory not connected — skipped',
+        durationMs: 0,
+        memoryResults: 0,
+      });
+    }
 
     return { processedMessage, memoryContext };
   }
@@ -716,19 +740,27 @@ export class Conductor {
       });
     }
 
-    try {
-      await this.timedStep(
-        () => this.storeConversation(processedMessage, decisions, finalContent),
-        (durationMs) =>
-          onEvent?.({
-            type: ConductorEventType.MEMORY_STORE,
-            content: 'Conversation stored',
-            durationMs,
-          }),
-      );
-    } catch (error) {
-      const detail = getErrorDetail(error);
-      conductorLogger.warn('Memory store failed', { error: detail });
+    if (this.memoryConnected) {
+      try {
+        await this.timedStep(
+          () => this.storeConversation(processedMessage, decisions, finalContent),
+          (durationMs) =>
+            onEvent?.({
+              type: ConductorEventType.MEMORY_STORE,
+              content: 'Conversation stored',
+              durationMs,
+            }),
+        );
+      } catch (error) {
+        const detail = getErrorDetail(error);
+        conductorLogger.warn('Memory store failed', { error: detail });
+      }
+    } else {
+      onEvent?.({
+        type: ConductorEventType.MEMORY_STORE,
+        content: 'Memory not connected — skipped',
+        durationMs: 0,
+      });
     }
 
     this.activityLog.record(
@@ -778,6 +810,15 @@ export class Conductor {
     decisions: ConductorDecision[],
     responseContent?: string,
   ): Promise<void> {
+    if (!this.memoryConnected) {
+      decisions.push({
+        timestamp: new Date().toISOString(),
+        action: 'skip_memory',
+        reason: 'Memory service not connected',
+      });
+      return;
+    }
+
     if (message.content.trim().length === 0) {
       decisions.push({
         timestamp: new Date().toISOString(),
