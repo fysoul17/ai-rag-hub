@@ -4,6 +4,8 @@
 
 **Version 2.0 | February 2026**
 
+> **Note:** This is the **product architecture specification** for this project. It describes the B2B SaaS product being built on the [Agent Forge](https://github.com/fysoul17/agent-forge) engine. For the engine's own specification, see [`SPEC.md`](SPEC.md).
+
 ---
 
 ## 1. Executive Summary

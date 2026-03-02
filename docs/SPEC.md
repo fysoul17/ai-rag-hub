@@ -224,7 +224,9 @@ agent-forge/
 │   └── docker-compose.yaml
 │
 ├── data/                        # Default /data volume contents
-│   ├── runtime.sqlite           # Sessions + agents (bun:sqlite, WAL mode)
+│   ├── agents/
+│   │   └── registry.json       # Seed agent definitions (restored on startup)
+│   ├── runtime.sqlite           # Sessions + agents (bun:sqlite, WAL mode, created at runtime)
 │   ├── crons.json               # Scheduled task definitions
 │   └── config.json              # Runtime config overrides
 │
@@ -282,6 +284,13 @@ The Conductor's logic is split across focused modules:
 - `conductor-memory.ts` — memory search and conversation storage (extracted free functions)
 - `conductor-hooks.ts` — hook execution helpers (before_message, after_memory_search, after_response)
 - `conductor-prompt.ts` — memory-augmented prompt builder with system context
+- `session-process-pool.ts` — LRU pool of per-session backend processes
+- `system-context.ts` — system context builder for AI prompts
+- `system-action-parser.ts` — parses slash commands and system actions from messages
+- `system-action-executor.ts` — executes parsed system actions (model switch, config changes)
+- `activity-log.ts` — in-memory ring-buffer activity log for debug/observability
+- `types.ts` — conductor-specific type definitions
+- `errors.ts` — conductor error classes
 
 ### Agent Management
 

@@ -1,0 +1,2 @@
+# Keep our README when merging from upstream
+README.md merge=ours
