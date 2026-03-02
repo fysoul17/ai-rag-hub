@@ -17,7 +17,7 @@ import {
   RAGStrategy,
 } from '@autonomy/shared';
 import type { MemoryInterface } from '@pyx-memory/client';
-import { nanoid } from 'nanoid';
+import crypto from 'node:crypto';
 import { ActivityLog } from './activity-log.ts';
 import {
   runAfterMemorySearchHook,
@@ -487,7 +487,7 @@ export class Conductor {
   }): Promise<AgentRuntimeInfo> {
     this.ensureInitialized();
 
-    const id = nanoid();
+    const id = crypto.randomUUID();
     const definition = buildAgentDefinition(id, params);
 
     try {

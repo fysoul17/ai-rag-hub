@@ -2,7 +2,12 @@ import { formatBytes } from '@pyx-memory/dashboard';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface MemoryStatsCardsProps {
-  stats: { totalEntries: number; vectorCount: number; storageUsedBytes: number; connected?: boolean } | null;
+  stats: {
+    totalEntries: number;
+    vectorCount: number;
+    storageUsedBytes: number;
+    connected?: boolean;
+  } | null;
   graphNodeCount: number | null;
   graphEdgeCount: number | null;
 }
@@ -49,7 +54,10 @@ export function MemoryStatsCards({ stats, graphNodeCount, graphEdgeCount }: Memo
       )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((card) => (
-          <Card key={card.label} className={`glass transition-all ${isDisconnected ? 'opacity-50' : card.glow}`}>
+          <Card
+            key={card.label}
+            className={`glass transition-all ${isDisconnected ? 'opacity-50' : card.glow}`}
+          >
             <CardContent className="py-3">
               <p className="text-xs text-muted-foreground">{card.label}</p>
               <p className="font-mono text-lg font-bold">{card.value}</p>

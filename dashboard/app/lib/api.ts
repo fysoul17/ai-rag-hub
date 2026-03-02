@@ -7,6 +7,7 @@ import type {
   CronExecutionLog,
   EnvironmentConfig,
   HealthCheckResponse,
+  MemoryEntry,
   MemorySearchResult,
   MemoryStats,
   RAGStrategy,
@@ -108,7 +109,7 @@ export async function forgetMemory(id: string, reason?: string): Promise<{ forgo
   });
 }
 
-export async function summarizeSession(sessionId: string): Promise<unknown> {
+export async function summarizeSession(sessionId: string): Promise<MemoryEntry | null> {
   return fetchApi(`/api/memory/sessions/${sessionId}/summarize`, {
     method: 'POST',
   });
