@@ -1,5 +1,5 @@
 import type { WSServerSessionInit } from '@autonomy/shared';
-import { Logger, MessageRole, WSServerMessageType } from '@autonomy/shared';
+import { getErrorDetail, Logger, MessageRole, WSServerMessageType } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import type { SessionStore } from './session-store.ts';
 import type { WSData } from './websocket.ts';
@@ -37,7 +37,7 @@ export function persistUserMessage(
   } catch (err) {
     wsSessionLogger.warn('Failed to persist user message', {
       sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      error: getErrorDetail(err),
     });
   }
 }
@@ -54,7 +54,7 @@ export function persistAssistantMessage(
   } catch (err) {
     wsSessionLogger.warn('Failed to persist assistant message', {
       sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      error: getErrorDetail(err),
     });
   }
 }

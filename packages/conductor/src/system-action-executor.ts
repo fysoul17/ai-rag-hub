@@ -1,5 +1,6 @@
 // system-action-executor.ts — Execute parsed system actions using Conductor/Memory/CronManager APIs
 
+import { getErrorDetail } from '@autonomy/shared';
 import type { Conductor } from './conductor.ts';
 import type { ParsedSystemAction } from './system-action-parser.ts';
 
@@ -46,7 +47,7 @@ const handlers: Record<string, ActionHandler> = {
       return {
         type: 'create_agent',
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorDetail(err),
       };
     }
   },
@@ -64,7 +65,7 @@ const handlers: Record<string, ActionHandler> = {
       return {
         type: 'search_memory',
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorDetail(err),
       };
     }
   },
@@ -92,7 +93,7 @@ const handlers: Record<string, ActionHandler> = {
       return {
         type: 'create_cron',
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorDetail(err),
       };
     }
   },

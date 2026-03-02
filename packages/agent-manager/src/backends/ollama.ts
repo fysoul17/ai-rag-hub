@@ -20,6 +20,9 @@ const DEFAULT_BASE_URL = 'http://localhost:11434';
 /** Maximum number of messages to keep in conversation history (system prompt excluded). */
 const MAX_HISTORY_MESSAGES = 100;
 
+/** Timeout for Ollama health check (GET /api/tags). */
+const OLLAMA_HEALTH_TIMEOUT_MS = 3000;
+
 function getBaseUrl(): string {
   return process.env.OLLAMA_BASE_URL || DEFAULT_BASE_URL;
 }
@@ -235,7 +238,9 @@ export class OllamaBackend implements CLIBackend {
     let available = false;
 
     try {
-      const resp = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      const resp = await fetch(`${baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(OLLAMA_HEALTH_TIMEOUT_MS),
+      });
       available = resp.ok;
     } catch {
       // Ollama not running

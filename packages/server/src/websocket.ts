@@ -350,7 +350,7 @@ async function handleConductorMessage(
     } catch (err) {
       wsLogger.warn('Failed to fetch conversation history', {
         sessionId,
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorDetail(err),
       });
     }
   }

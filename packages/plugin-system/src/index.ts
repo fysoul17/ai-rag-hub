@@ -10,13 +10,12 @@ export {
 export { HookRegistry } from './hook-registry.ts';
 export { PluginManager } from './plugin-manager.ts';
 
-export {
-  type HookHandler,
-  type HookRegistration,
-  type HookRegistryInterface,
-  HookType,
-  type Middleware,
-  type PluginDefinition,
-  type PluginInfo,
-  type PluginStatus,
+export type {
+  HookHandler,
+  HookRegistration,
+  HookRegistryInterface,
+  Middleware,
+  PluginDefinition,
+  PluginInfo,
+  PluginStatus,
 } from './types.ts';
