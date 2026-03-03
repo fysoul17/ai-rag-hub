@@ -195,7 +195,7 @@ export class CronManager {
       this.executeWorkflow(entry).catch((err) => {
         cronLogger.error('Scheduled execution failed', {
           cronName: entry.name,
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorDetail(err),
         });
       });
     });
@@ -271,8 +271,7 @@ export class CronManager {
       const test = new Cron(schedule);
       test.stop();
     } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      throw new CronScheduleError(schedule, detail);
+      throw new CronScheduleError(schedule, getErrorDetail(err));
     }
   }
 

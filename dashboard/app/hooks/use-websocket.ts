@@ -22,7 +22,6 @@ export type {
   ChatMessage,
   ConnectionStatus,
   PipelinePhase,
-  ToolCallStatus,
 } from './use-websocket-types.ts';
 
 /** Maximum characters stored per tool's accumulated input before truncation. */

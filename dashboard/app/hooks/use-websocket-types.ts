@@ -10,7 +10,7 @@ export interface PipelinePhase {
   debug?: ConductorDebugPayload;
 }
 
-export type ToolCallStatus = 'streaming' | 'complete';
+type ToolCallStatus = 'streaming' | 'complete';
 
 export interface AgentToolCall {
   toolId: string;

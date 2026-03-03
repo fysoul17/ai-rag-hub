@@ -1,7 +1,7 @@
-import type { BackendCapabilityMap } from '../types/index.ts';
+import type { BackendCapabilities } from '../types/index.ts';
 import { AIBackend } from '../types/index.ts';
 
-export const BACKEND_CAPABILITIES: BackendCapabilityMap = {
+export const BACKEND_CAPABILITIES: Record<AIBackend, BackendCapabilities> = {
   [AIBackend.CLAUDE]: {
     customTools: true,
     streaming: true,

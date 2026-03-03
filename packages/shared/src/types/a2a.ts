@@ -14,8 +14,6 @@ export interface BackendCapabilities {
   fileAccess: boolean;
 }
 
-export type BackendCapabilityMap = Record<AIBackend, BackendCapabilities>;
-
 /** Runtime status of a registered backend. */
 export interface BackendStatus {
   name: AIBackend;

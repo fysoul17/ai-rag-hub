@@ -1,8 +1,9 @@
 import type { WSServerSessionInit } from '@autonomy/shared';
-import { Logger, MessageRole, WSServerMessageType } from '@autonomy/shared';
+import { getErrorDetail, Logger, MessageRole, WSServerMessageType } from '@autonomy/shared';
 import type { ServerWebSocket } from 'bun';
 import type { SessionStore } from './session-store.ts';
 import type { WSData } from './websocket.ts';
+import { safeSend } from './ws-utils.ts';
 
 const wsSessionLogger = new Logger({ context: { source: 'websocket' } });
 
@@ -14,11 +15,7 @@ export function ensureSession(ws: ServerWebSocket<WSData>, sessionStore?: Sessio
       type: WSServerMessageType.SESSION_INIT,
       sessionId: session.id,
     };
-    try {
-      ws.send(JSON.stringify(sessionInit));
-    } catch {
-      // Client may have disconnected
-    }
+    safeSend(ws, sessionInit);
   }
 }
 
@@ -37,7 +34,7 @@ export function persistUserMessage(
   } catch (err) {
     wsSessionLogger.warn('Failed to persist user message', {
       sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      error: getErrorDetail(err),
     });
   }
 }
@@ -54,7 +51,7 @@ export function persistAssistantMessage(
   } catch (err) {
     wsSessionLogger.warn('Failed to persist assistant message', {
       sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      error: getErrorDetail(err),
     });
   }
 }

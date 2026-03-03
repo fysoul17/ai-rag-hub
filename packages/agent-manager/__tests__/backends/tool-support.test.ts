@@ -33,7 +33,7 @@ describe('CodexBackend tool support', () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                JSON.stringify({ type: 'message', role: 'assistant', content: 'ok' }) + '\n',
+                `${JSON.stringify({ type: 'message', role: 'assistant', content: 'ok' })}\n`,
               ),
             );
             controller.close();
@@ -126,12 +126,12 @@ describe('CodexBackend tool support', () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                JSON.stringify({
+                `${JSON.stringify({
                   session_id: 'sess-codex-001',
                   type: 'message',
                   role: 'assistant',
                   content: 'ok',
-                }) + '\n',
+                })}\n`,
               ),
             );
             controller.close();
