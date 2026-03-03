@@ -183,7 +183,7 @@ FULL (docker-compose --profile full up)
 | AI Backends   | claude -p (default), codex, gemini, pi, ollama                 | Pluggable via CLIBackend interface       |
 | Vector DB     | LanceDB (embedded)                                             | 4MB idle, fast ANN, native TS SDK        |
 | Structured DB | bun:sqlite (WAL mode)                                          | Embedded, zero config                    |
-| Memory        | pyx-memory (git submodule)                                     | Hybrid RAG, graph store, lifecycle       |
+| Memory        | pyx-memory (@pyxmate/memory SDK + Docker)                      | Hybrid RAG, graph store, lifecycle       |
 | Dashboard     | Next.js 16.1 (App Router) + Tailwind CSS 4 + shadcn/ui        | RSC, standalone output                   |
 | Container     | Docker + docker-compose                                        | One-click deploy                         |
 | Linter        | Biome 2.4+                                                     | Fast, unified linter + formatter         |
@@ -218,15 +218,6 @@ agent-forge/
 │           ├── step-metadata.ts     # Agent step metadata accumulation
 │           └── routes/              # REST route handlers (agents, memory, crons, etc.)
 │
-├── vendor/
-│   └── pyx-memory/              # Git submodule → fysoul17/pyx-memory-v1
-│       └── packages/
-│           ├── shared/          # Memory types, enums (@pyx-memory/shared)
-│           ├── client/          # MemoryInterface + HTTP client (@pyx-memory/client)
-│           ├── core/            # SQLite + LanceDB + RAG + embeddings + lifecycle (@pyx-memory/core)
-│           ├── server/          # Standalone memory sidecar (:7822)
-│           └── dashboard/       # Memory browser UI components
-│
 ├── dashboard/                   # Next.js 16.1 (built-in cyberpunk UI)
 │   └── app/
 │       ├── (dashboard)/         # Home, Agents, Chat, Memory, Automation, Activity, Sessions, Settings
@@ -237,7 +228,6 @@ agent-forge/
 ├── docker/
 │   ├── Dockerfile.runtime
 │   ├── Dockerfile.dashboard
-│   ├── Dockerfile.memory
 │   └── docker-compose.yaml
 │
 ├── data/                        # Default /data volume contents
@@ -355,7 +345,7 @@ Each agent can use a different CLI backend. The `BackendRegistry` manages multip
 
 ## 7. Memory System (pyx-memory)
 
-Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), consumed via git submodule at `vendor/pyx-memory`. The runtime connects to pyx-memory as a **sidecar** (standalone HTTP service) via `MemoryClient` when `MEMORY_URL` is set. When no memory server is configured, the runtime uses `DisabledMemory` (no-op) and all memory features are unavailable.
+Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), consumed via the [`@pyxmate/memory`](https://www.npmjs.com/package/@pyxmate/memory) npm SDK. The runtime connects to pyx-memory as a **sidecar** (Docker container: `ghcr.io/fysoul17/pyx-memory`) via `MemoryClient` when `MEMORY_URL` is set. When no memory server is configured, the runtime uses `DisabledMemory` (no-op) and all memory features are unavailable.
 
 ### Storage Layer (managed by pyx-memory sidecar)
 
@@ -635,7 +625,6 @@ The `StreamBuffer` accumulates streamed content per session. When a client recon
 | `AI_BACKEND`           | No        | `claude`                 | CLI backend to use (`claude`, `codex`, `gemini`, `pi`, `ollama`) |
 | `IDLE_TIMEOUT_MS`      | No        | `300000`                 | Agent idle timeout (5 min) |
 | `MAX_AGENTS`           | No        | `10`                     | Max concurrent agents      |
-| `VECTOR_PROVIDER`      | No        | `lancedb`                | Vector DB provider (`lancedb`, `qdrant`) |
 | `EMBEDDING_PROVIDER`   | No        | `stub`                   | Embedding provider — **pyx-memory sidecar** env var (`stub`, `local`, `anthropic`, `openai`) |
 | `LOG_LEVEL`            | No        | `info`                   | Log level (`debug`, `info`, `warn`, `error`) |
 | `MODE`                 | No        | `standalone`             | Deployment mode (`standalone`, `managed`) |
@@ -649,7 +638,6 @@ The `StreamBuffer` accumulates streamed content per session. When a client recon
 | `OLLAMA_MODEL`         | No        | `llama3.2`               | Default Ollama model                 |
 | `PI_API_KEY`           | No        | —                        | API key for Pi backend               |
 | `PI_MODEL`             | No        | —                        | Pi model override (e.g., `openai/gpt-4.1`) |
-| `QDRANT_URL`           | No        | —                        | Qdrant vector DB URL (alternative to LanceDB) |
 | `ANTHROPIC_API_KEY`    | No        | —                        | API key for Claude CLI                               |
 | `CODEX_API_KEY`        | No        | —                        | API key for OpenAI Codex CLI                         |
 | `GEMINI_API_KEY`       | No        | —                        | API key for Google Gemini CLI                        |

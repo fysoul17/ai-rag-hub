@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { MemoryInterface } from '@autonomy/shared';
 import { BadRequestError, NotImplementedError } from '../../src/errors.ts';
 import { createLifecycleRoutes, isExtended } from '../../src/routes/lifecycle.ts';
 import { MockExtendedMemory, MockMemory } from '../helpers/mock-memory.ts';

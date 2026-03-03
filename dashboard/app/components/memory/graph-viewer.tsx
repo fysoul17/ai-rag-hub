@@ -1,4 +1,4 @@
-import type { GraphVizData } from '@pyx-memory/dashboard';
+import type { GraphVizData } from '@pyxmate/memory/dashboard';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 

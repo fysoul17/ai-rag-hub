@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { deleteCron, triggerCron, updateCron } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { CronLogsDialog } from './cron-logs-dialog';
 import { EditCronDialog } from './edit-cron-dialog';
 
@@ -50,7 +51,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
       setSuccess('Triggered successfully');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to trigger');
+      setError(getErrorMessage(err, 'Failed to trigger'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
       setSuccess(cron.enabled ? 'Disabled' : 'Enabled');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle');
+      setError(getErrorMessage(err, 'Failed to toggle'));
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,7 @@ export function CronCardActions({ cron }: { cron: CronEntryWithStatus }) {
       await deleteCron(cron.id);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setError(getErrorMessage(err, 'Failed to delete'));
     } finally {
       setLoading(false);
       setShowDelete(false);

@@ -9,6 +9,7 @@ import {
   type StreamEvent,
 } from '@autonomy/shared';
 import { BackendError } from '../errors.ts';
+import { finalizeProcess, readNDJSONStream } from './ndjson-stream.ts';
 import {
   buildSafeEnv as buildSafeEnvBase,
   checkCliAuth,
@@ -151,7 +152,7 @@ class ClaudeProcess implements BackendProcess {
     }
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: streaming parser requires sequential state handling
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: streaming lifecycle (spawn, abort, parse, finalize)
   async *sendStreaming(message: string, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
     if (!this._alive) {
       yield { type: 'error', error: 'Process is not alive' };
@@ -176,8 +177,7 @@ class ClaudeProcess implements BackendProcess {
     const proc = this._process;
     const stdoutStream = proc.stdout as ReadableStream;
     const stderrStream = proc.stderr as ReadableStream;
-    const reader = stdoutStream.getReader();
-    const decoder = new TextDecoder();
+    const reader = (stdoutStream as ReadableStream<Uint8Array>).getReader();
 
     // Read stderr in background (bounded to prevent memory issues)
     const stderrPromise = readBoundedStderr(stderrStream);
@@ -193,9 +193,8 @@ class ClaudeProcess implements BackendProcess {
     signal?.addEventListener('abort', onAbort, { once: true });
 
     let hasContent = false;
-    // Set to true when the CLI 'result' event is processed — prevents double-yielding
-    // complete/error from the exit-code fallback below.
     let streamDone = false;
+    let rawTextMode = false;
 
     // State for Claude Code SDK stream-json format (assistant/user/result events).
     // text/thinking deltas are tracked by content block index; tool lifecycle by toolId.
@@ -203,60 +202,16 @@ class ClaudeProcess implements BackendProcess {
     const thinkingProgress = new Map<number, number>();
     const activeTools = new Map<string, { name: string; startMs: number }>();
 
-    let lineBuffer = '';
-    // If the first line fails JSON parsing, fall back to raw text mode for the rest of the stream
-    let rawTextMode = false;
-
     try {
-      while (true) {
+      for await (const line of readNDJSONStream(reader)) {
         if (signal?.aborted) {
           yield { type: 'error', error: 'Aborted' };
           return;
         }
 
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value, { stream: true });
-        if (!text) continue;
-
-        // Raw text fallback mode — yield as plain chunks (same as before stream-json)
-        if (rawTextMode) {
-          hasContent = true;
-          yield { type: 'chunk', content: text };
-          continue;
-        }
-
-        // NDJSON parsing — split on newlines and process each JSON line
-        lineBuffer += text;
-        const lines = lineBuffer.split('\n');
-        // Last element may be incomplete — keep it in the buffer
-        lineBuffer = lines.pop() ?? '';
-
-        for (let li = 0; li < lines.length; li++) {
-          const trimmed = (lines[li] ?? '').trim();
-          if (!trimmed) continue;
-
-          let parsed: Record<string, unknown>;
-          try {
-            parsed = JSON.parse(trimmed) as Record<string, unknown>;
-          } catch {
-            // First non-JSON line switches to raw text mode (e.g., older CLI without stream-json)
-            if (!hasContent) {
-              rawTextMode = true;
-              claudeLogger.debug('stream-json parse failed, falling back to raw text mode');
-              hasContent = true;
-              yield { type: 'chunk', content: trimmed };
-              const remaining = lines.slice(li + 1).join('\n');
-              if (remaining) yield { type: 'chunk', content: remaining };
-              break;
-            }
-            // After content has started, skip unparseable lines
-            continue;
-          }
-
+        if (line.type === 'json') {
           const events = this.parseStreamJsonEvent(
-            parsed,
+            line.data,
             textProgress,
             thinkingProgress,
             activeTools,
@@ -267,78 +222,31 @@ class ClaudeProcess implements BackendProcess {
             yield event;
           }
           if (streamDone) break;
-        }
-        if (streamDone) break;
-      }
-
-      // Flush decoder — may produce final bytes if stream ended mid-multibyte-sequence
-      const decoderRemainder = decoder.decode();
-      if (decoderRemainder) lineBuffer += decoderRemainder;
-
-      // Process any buffered content that didn't end with a newline (common when stream
-      // ends without a trailing '\n', e.g. raw text or single-line output from mocks).
-      if (!streamDone && lineBuffer.trim()) {
-        const trimmed = lineBuffer.trim();
-        lineBuffer = '';
-        if (rawTextMode) {
+        } else if (!hasContent) {
+          // First line is non-JSON — fall back to raw text mode (older CLI without stream-json)
+          rawTextMode = true;
+          claudeLogger.debug('stream-json parse failed, falling back to raw text mode');
           hasContent = true;
-          yield { type: 'chunk', content: trimmed };
-        } else {
-          try {
-            const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-            const events = this.parseStreamJsonEvent(
-              parsed,
-              textProgress,
-              thinkingProgress,
-              activeTools,
-            );
-            for (const event of events) {
-              if (event.type === 'chunk') hasContent = true;
-              if (event.type === 'complete' || event.type === 'error') streamDone = true;
-              yield event;
-            }
-          } catch {
-            if (!hasContent) {
-              hasContent = true;
-              yield { type: 'chunk', content: trimmed };
-            }
-          }
+          yield { type: 'chunk', content: line.data };
+        } else if (rawTextMode) {
+          // Already in raw text mode — yield subsequent text as chunks
+          hasContent = true;
+          yield { type: 'chunk', content: line.data };
         }
+        // else: valid JSON already seen but this line is unparseable — skip silently
       }
 
       const exitCode = await proc.exited;
       const stderrText = await stderrPromise;
       this._process = null;
 
-      // streamDone means the 'result' event already yielded complete/error — don't double-emit.
       if (!streamDone) {
-        if (exitCode !== 0) {
-          const stderr = stderrText.trim().slice(0, DEFAULTS.MAX_ERROR_PREVIEW_LENGTH);
-          claudeLogger.warn('Backend process failed', { exitCode, stderr });
-          // Include stderr summary in error so it reaches debug console via DebugBus.
-          // The websocket layer sanitizes what the chat client sees.
-          yield {
-            type: 'error',
-            error: stderr
-              ? `Backend exited with code ${exitCode}: ${stderr}`
-              : `Backend process exited with code ${exitCode}`,
-          };
-        } else if (!hasContent && stderrText.trim()) {
-          const stderr = stderrText.trim().slice(0, DEFAULTS.MAX_ERROR_PREVIEW_LENGTH);
-          claudeLogger.warn('Backend produced no output', { stderr });
-          yield {
-            type: 'error',
-            error: `Backend produced no output: ${stderr}`,
-          };
-        } else {
-          yield { type: 'complete' };
-        }
+        yield* finalizeProcess(exitCode, stderrText, hasContent);
       }
     } catch (error) {
       yield { type: 'error', error: getErrorDetail(error) };
     } finally {
       signal?.removeEventListener('abort', onAbort);
-      reader.releaseLock();
     }
   }
 

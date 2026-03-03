@@ -90,10 +90,6 @@ export class MockConductor {
     return this.activity.slice(-l).reverse();
   }
 
-  getAgentActivity(agentId: AgentId, limit?: number): ActivityEntry[] {
-    return this.activity.filter((a) => a.agentId === agentId).slice(-(limit ?? 50));
-  }
-
   addActivity(entry: Partial<ActivityEntry>): void {
     this.activity.push({
       id: `act-${this.activity.length + 1}`,

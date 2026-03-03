@@ -1,6 +1,5 @@
 import type { AIBackend } from './a2a.ts';
 import type { LogLevel } from './base.ts';
-import type { VectorProvider } from './memory.ts';
 
 export const RuntimeMode = {
   STANDALONE: 'standalone',
@@ -16,8 +15,6 @@ export interface EnvironmentConfig {
   AI_BACKEND: AIBackend;
   IDLE_TIMEOUT_MS: number;
   MAX_AGENTS: number;
-  VECTOR_PROVIDER: VectorProvider;
-  QDRANT_URL?: string;
   LOG_LEVEL: LogLevel;
   MODE: RuntimeMode;
   MEMORY_URL?: string;
@@ -37,7 +34,7 @@ export interface EnvironmentConfig {
   CODEX_API_KEY?: string;
   /** API key for Google Gemini CLI. */
   GEMINI_API_KEY?: string;
-  /** Allowed CORS origin (default '*'). */
+  /** Allowed CORS origin (default 'http://localhost:7821'). */
   CORS_ORIGIN: string;
   /** Optional fallback backend when primary AI_BACKEND fails to spawn. */
   FALLBACK_BACKEND?: AIBackend;

@@ -1,4 +1,4 @@
-import { formatBytes } from '@pyx-memory/dashboard';
+import { formatBytes } from '@pyxmate/memory/dashboard';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface MemoryStatsCardsProps {

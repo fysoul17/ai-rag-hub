@@ -2,6 +2,9 @@ import type { AgentRuntimeInfo, MemorySearchResult } from '@autonomy/shared';
 import { buildSystemContextPreamble } from './system-context.ts';
 import type { IncomingMessage } from './types.ts';
 
+/** Max memory entries included in the RAG context prepended to prompts. */
+const MAX_RAG_CONTEXT_ENTRIES = 3;
+
 /**
  * Build the final memory-augmented prompt.
  * Layers on RAG memory context and system context preamble.
@@ -22,7 +25,7 @@ export function buildMemoryAugmentedPrompt(
   // Layer on RAG memory (long-term knowledge across sessions).
   if (memoryContext && memoryContext.entries.length > 0) {
     const contextSnippet = memoryContext.entries
-      .slice(0, 3)
+      .slice(0, MAX_RAG_CONTEXT_ENTRIES)
       .map((e) => e.content)
       .join('\n---\n');
     prompt = `<memory-context>\n${contextSnippet}\n</memory-context>\n\n${prompt}`;

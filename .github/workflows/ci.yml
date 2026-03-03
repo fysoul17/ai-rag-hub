@@ -96,8 +96,6 @@ jobs:
             dockerfile: docker/Dockerfile.runtime
           - name: dashboard
             dockerfile: docker/Dockerfile.dashboard
-          - name: memory
-            dockerfile: docker/Dockerfile.memory
 
     steps:
       - name: Checkout

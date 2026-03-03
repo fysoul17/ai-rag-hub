@@ -55,7 +55,7 @@ export function getErrorDetail(error: unknown): string {
   return 'Unknown error';
 }
 
-export interface LoggerConfig {
+interface LoggerConfig {
   level?: LogLevel;
   write?: (line: string) => void;
   context?: Record<string, unknown>;

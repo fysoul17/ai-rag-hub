@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { AgentPool } from '@autonomy/agent-manager';
+import type { MemoryInterface } from '@autonomy/shared';
 import {
   type AgentDefinition,
   AgentOwner,
   type AgentRuntimeInfo,
   AgentStatus,
 } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
 import { Conductor } from '../src/conductor.ts';
 import { ConductorNotInitializedError } from '../src/errors.ts';
 import { makeAgent, makeMessage } from './helpers/fixtures.ts';
@@ -78,6 +78,7 @@ describe('Conductor', () => {
 
     test('initialize succeeds', async () => {
       await conductor.initialize();
+      expect(conductor.listAgents()).toEqual([]);
       // Should not throw on second init
       await conductor.initialize();
     });
@@ -267,16 +268,6 @@ describe('Conductor', () => {
       await conductor.handleMessage(makeMessage({ senderName: 'Alice' }));
       const activity = conductor.getActivity(10);
       expect(activity.length).toBeGreaterThan(0);
-    });
-
-    test('getAgentActivity filters by agent', async () => {
-      const def = makeAgent({ id: 'tracked', name: 'Tracked Agent' });
-      await pool.create(def);
-      pool.setSendResponse('OK');
-
-      await conductor.sendToAgent('tracked', 'Test');
-      const agentActivity = conductor.getAgentActivity('tracked');
-      expect(agentActivity.length).toBeGreaterThan(0);
     });
   });
 

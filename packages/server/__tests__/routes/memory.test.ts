@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
+import type { MemoryInterface } from '@autonomy/shared';
 import { RAGStrategy } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createMemoryRoutes } from '../../src/routes/memory.ts';
 

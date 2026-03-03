@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EnvironmentConfig } from '@autonomy/shared';
-import { AIBackend } from '@autonomy/shared';
+import { AIBackend, Logger } from '@autonomy/shared';
 
 const VALID_AI_BACKENDS = new Set(Object.values(AIBackend));
 
@@ -12,7 +12,6 @@ const REJECTED_FIELDS = new Set([
   'GEMINI_API_KEY',
   'PI_API_KEY',
   'PI_MODEL',
-  'QDRANT_URL',
   'MEMORY_URL',
 ]);
 
@@ -21,7 +20,6 @@ const UPDATABLE_FIELDS = new Set([
   'AI_BACKEND',
   'MAX_AGENTS',
   'IDLE_TIMEOUT_MS',
-  'VECTOR_PROVIDER',
   'LOG_LEVEL',
   'MODE',
 ]);
@@ -29,6 +27,7 @@ const UPDATABLE_FIELDS = new Set([
 export class ConfigManager {
   private config: EnvironmentConfig;
   private overridesPath: string;
+  private logger = new Logger({ level: 'info', context: { source: 'config-manager' } });
 
   constructor(baseConfig: EnvironmentConfig) {
     this.config = { ...baseConfig };
@@ -43,7 +42,7 @@ export class ConfigManager {
         const overrides = JSON.parse(raw) as Partial<EnvironmentConfig>;
         this.config = { ...this.config, ...overrides };
       } catch {
-        // Ignore corrupt file — start fresh
+        this.logger.warn('Corrupt config.json — starting fresh');
       }
     }
   }
@@ -98,7 +97,7 @@ export class ConfigManager {
       try {
         existing = JSON.parse(readFileSync(this.overridesPath, 'utf-8'));
       } catch {
-        // ignore
+        this.logger.warn('Corrupt config.json during persist merge — using empty base');
       }
     }
 

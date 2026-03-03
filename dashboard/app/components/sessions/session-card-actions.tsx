@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { deleteSession, summarizeSession } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 interface SessionCardActionsProps {
   sessionId: string;
@@ -37,7 +38,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
       toast.success('Session summarized');
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to summarize';
+      const msg = getErrorMessage(err, 'Failed to summarize');
       setError(msg);
       toast.error(msg);
     } finally {
@@ -52,7 +53,7 @@ export function SessionCardActions({ sessionId, title }: SessionCardActionsProps
       await deleteSession(sessionId);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setError(getErrorMessage(err, 'Failed to delete'));
     } finally {
       setLoading(false);
       setShowDelete(false);

@@ -2,7 +2,7 @@ import { NotFoundError } from './errors.ts';
 import { corsHeaders, errorResponse, handlePreflight } from './middleware.ts';
 
 export type RouteParams = Record<string, string>;
-export type RouteHandler = (req: Request, params: RouteParams) => Response | Promise<Response>;
+type RouteHandler = (req: Request, params: RouteParams) => Response | Promise<Response>;
 
 interface Route {
   method: string;

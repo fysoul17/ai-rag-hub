@@ -96,7 +96,7 @@ The Conductor is a simple AI agent: it searches memory for context, then either 
 Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, Pi, and Ollama slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry. Custom tool support is wired up for Claude (`--allowed-tools`), Codex (`--enable`), Gemini (`--allowed-tools`), and Ollama (API `tools` parameter).
 
 ### Persistent Memory (pyx-memory)
-Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), extracted as a standalone repo and consumed via git submodule at `vendor/pyx-memory`. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + four RAG strategies (Hybrid, Graph, Agentic, Naive). The runtime connects to pyx-memory as a **sidecar** (standalone HTTP service) via `MemoryClient` when `MEMORY_URL` is configured. Memory persists across sessions and agent restarts.
+Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), consumed via the [`@pyxmate/memory`](https://www.npmjs.com/package/@pyxmate/memory) npm SDK. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + four RAG strategies (Hybrid, Graph, Agentic, Naive). The runtime connects to pyx-memory as a **sidecar** (standalone HTTP service via Docker) using `MemoryClient` when `MEMORY_URL` is configured. Memory persists across sessions and agent restarts.
 
 ### Agent Lifecycle Management
 Full CRUD for AI agents with serial message queues, idle timeout auto-shutdown, configurable pool limits, session persistence (`--resume` flags), and ownership-based permissions (user-created vs conductor-created agents).
@@ -134,12 +134,9 @@ IP-based rate limiting (configurable window + max), structured JSON logging with
 ### Development Mode
 
 ```bash
-# Clone (include submodules for pyx-memory)
-git clone --recurse-submodules https://github.com/fysoul17/agent-forge.git
+# Clone
+git clone https://github.com/fysoul17/agent-forge.git
 cd agent-forge
-
-# Or if already cloned without submodules:
-git submodule update --init --recursive
 
 # Install dependencies
 bun install
@@ -224,14 +221,6 @@ agent-forge/
 │   ├── cron-manager/    # Scheduled tasks
 │   ├── plugin-system/   # Event hooks, middleware pipeline, plugin manager
 │   └── server/          # Bun.serve HTTP + WebSocket + routes + agent store
-├── vendor/
-│   └── pyx-memory/      # Git submodule → fysoul17/pyx-memory-v1
-│       └── packages/
-│           ├── shared/    # Memory types (@pyx-memory/shared)
-│           ├── client/    # MemoryInterface + HTTP client (@pyx-memory/client)
-│           ├── core/      # SQLite + LanceDB + RAG + embeddings (@pyx-memory/core)
-│           ├── server/    # Standalone memory sidecar (:7822)
-│           └── dashboard/ # Memory browser UI components
 ├── dashboard/           # Next.js 16.1 cyberpunk dashboard
 ├── docker/              # Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
 ├── package.json         # Monorepo root
@@ -242,23 +231,21 @@ agent-forge/
 ### Package Dependencies
 
 ```
-@autonomy/shared             @pyx-memory/shared
+@autonomy/shared             @pyxmate/memory (npm SDK)
        │                            │
        ├──▶ @autonomy/agent-manager │
-       │                     @pyx-memory/client ◀── MemoryInterface contract
+       │                     MemoryClient ◀── MemoryInterface contract
        │                            │
-       │                     @pyx-memory/core   ◀── Memory, RAG, embeddings
-       │                            │
-       ├──▶ @autonomy/conductor ────┘ (uses @pyx-memory/client)
+       ├──▶ @autonomy/conductor ────┘ (uses @pyxmate/memory)
        ├──▶ @autonomy/cron-manager
        └──▶ @autonomy/plugin-system (hooks, middleware)
                     │
                     ▼
-             @autonomy/server  ◀── uses @pyx-memory/client (sidecar)
+             @autonomy/server  ◀── uses @pyxmate/memory (sidecar)
                     │                  or DisabledMemory (no-op)
                     │                  + AgentStore (bun:sqlite)
                     ▼
-               dashboard (HTTP + WS)
+               dashboard (HTTP + WS, uses @pyxmate/memory/dashboard)
 ```
 
 ---

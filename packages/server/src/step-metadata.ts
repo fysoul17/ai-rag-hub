@@ -22,7 +22,7 @@ export const PHASE_MESSAGES: Record<string, string> = {
   [ConductorEventType.RESPONDING]: 'Conductor is responding...',
 };
 
-export interface PersistedPipelinePhase {
+interface PersistedPipelinePhase {
   phase: string;
   message: string;
   timestamp: number;
@@ -30,7 +30,7 @@ export interface PersistedPipelinePhase {
   debug?: ConductorDebugPayload;
 }
 
-export interface PersistedToolCall {
+interface PersistedToolCall {
   toolId: string;
   toolName: string;
   accumulatedInput: string;
@@ -40,19 +40,19 @@ export interface PersistedToolCall {
   completedAt?: number;
 }
 
-export interface PersistedThinking {
+interface PersistedThinking {
   content: string;
   timestamp: number;
 }
 
-export interface PersistedAgentActivity {
+interface PersistedAgentActivity {
   agentId: string;
   agentName?: string;
   toolCalls: PersistedToolCall[];
   thinkingBlocks: PersistedThinking[];
 }
 
-export interface PersistedActivityFeed {
+interface PersistedActivityFeed {
   agents: PersistedAgentActivity[];
   totalSteps: number;
   totalDurationMs: number;

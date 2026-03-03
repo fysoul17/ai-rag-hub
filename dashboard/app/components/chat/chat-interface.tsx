@@ -11,6 +11,7 @@ import { useShowSteps } from '@/hooks/use-show-steps';
 import type { ActivityFeed, PipelinePhase } from '@/hooks/use-websocket';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { RUNTIME_WS_URL } from '@/lib/constants';
+import { shortId } from '@/lib/short-id';
 import { AgentSelector } from './agent-selector';
 import { ChatInput } from './chat-input';
 import { ChatMessageBubble } from './chat-message';
@@ -286,7 +287,7 @@ export function ChatInterface({
             title={sessionId}
             aria-label={`Session ID: ${sessionId}`}
           >
-            {sessionId.slice(0, 8)}
+            {shortId(sessionId)}
           </output>
         )}
 

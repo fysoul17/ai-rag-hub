@@ -18,7 +18,6 @@ services:
       - AI_BACKEND=${AI_BACKEND:-claude}
       - IDLE_TIMEOUT_MS=${IDLE_TIMEOUT_MS:-300000}
       - MAX_AGENTS=${MAX_AGENTS:-10}
-      - VECTOR_PROVIDER=${VECTOR_PROVIDER:-lancedb}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - MODE=standalone
       - MEMORY_URL=${MEMORY_URL:-http://memory:7822}
@@ -59,9 +58,7 @@ services:
     restart: unless-stopped
 
   memory:
-    build:
-      context: ../vendor/pyx-memory
-      dockerfile: docker/Dockerfile
+    image: ghcr.io/fysoul17/pyx-memory:latest
     ports:
       - "7822:7822"
     volumes:

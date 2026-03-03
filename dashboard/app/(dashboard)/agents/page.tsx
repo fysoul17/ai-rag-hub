@@ -1,6 +1,7 @@
 import { AgentList } from '@/components/agents/agent-list';
 import { CreateAgentDialog } from '@/components/agents/create-agent-dialog';
 import { Header } from '@/components/layout/header';
+import { RuntimeFetchError } from '@/components/runtime-fetch-error';
 import { getAgents } from '@/lib/api-server';
 
 export const dynamic = 'force-dynamic';
@@ -28,11 +29,7 @@ export default async function AgentsPage() {
           </div>
           <CreateAgentDialog />
         </div>
-        {fetchError && (
-          <div className="mb-4 rounded-lg border border-neon-red/30 bg-neon-red/10 p-3 text-sm text-neon-red">
-            Failed to load data. The runtime server may be unavailable.
-          </div>
-        )}
+        {fetchError && <RuntimeFetchError />}
         <AgentList agents={agents} />
       </div>
     </>

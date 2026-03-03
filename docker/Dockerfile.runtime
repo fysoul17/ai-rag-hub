@@ -7,14 +7,10 @@ WORKDIR /app
 
 # Install dependencies
 # All workspace package.json files must be present for bun to resolve the lockfile.
-# When adding a new workspace, update all 3 Dockerfiles (runtime, dashboard, memory).
+# When adding a new workspace, update both Dockerfiles (runtime, dashboard).
 COPY package.json bun.lock* ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/agent-manager/package.json ./packages/agent-manager/
-COPY vendor/pyx-memory/packages/shared/package.json ./vendor/pyx-memory/packages/shared/
-COPY vendor/pyx-memory/packages/client/package.json ./vendor/pyx-memory/packages/client/
-COPY vendor/pyx-memory/packages/core/package.json ./vendor/pyx-memory/packages/core/
-COPY vendor/pyx-memory/packages/dashboard/package.json ./vendor/pyx-memory/packages/dashboard/
 COPY packages/conductor/package.json ./packages/conductor/
 COPY packages/cron-manager/package.json ./packages/cron-manager/
 COPY packages/server/package.json ./packages/server/
@@ -36,7 +32,6 @@ RUN npm install -g @anthropic-ai/claude-code @openai/codex @google/gemini-cli
 # Copy source (Bun runs TS directly — no build step)
 COPY tsconfig.base.json ./
 COPY packages/ ./packages/
-COPY vendor/pyx-memory/ ./vendor/pyx-memory/
 
 # Create data directory with seed files
 RUN mkdir -p /data/agents /data/workspaces \
@@ -54,7 +49,6 @@ ENV PORT=7820
 ENV AI_BACKEND=claude
 ENV IDLE_TIMEOUT_MS=300000
 ENV MAX_AGENTS=10
-ENV VECTOR_PROVIDER=lancedb
 ENV LOG_LEVEL=info
 ENV MODE=standalone
 ENV XDG_CONFIG_HOME=/data/cli-config

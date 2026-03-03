@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { BackendRegistry } from '@autonomy/agent-manager';
 import type { Conductor } from '@autonomy/conductor';
-import type { BackendStatus, HealthCheckResponse } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { BackendStatus, HealthCheckResponse, MemoryInterface } from '@autonomy/shared';
 import { jsonResponse } from '../middleware.ts';
+
+const PKG_VERSION: string = (
+  JSON.parse(readFileSync(join(import.meta.dir, '../../package.json'), 'utf-8')) as {
+    version: string;
+  }
+).version;
 
 const BACKEND_STATUS_TTL_MS = 30_000;
 
@@ -46,7 +53,7 @@ export function createHealthRoute(
       uptime,
       agentCount: agents.length,
       memoryStatus,
-      version: '0.0.0',
+      version: PKG_VERSION,
     };
 
     if (registry) {
@@ -68,7 +75,7 @@ export function createHealthRoute(
           health.status = 'degraded';
         }
       } catch {
-        // If status check fails, don't break the health endpoint
+        health.status = 'degraded';
       }
     }
 

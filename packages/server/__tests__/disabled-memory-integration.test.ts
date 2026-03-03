@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Conductor } from '@autonomy/conductor';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { MemoryInterface } from '@autonomy/shared';
 import { DisabledMemory } from '../src/disabled-memory.ts';
 import { createHealthRoute } from '../src/routes/health.ts';
 import { createMemoryRoutes } from '../src/routes/memory.ts';

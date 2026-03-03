@@ -6,9 +6,7 @@
       "@autonomy/shared": ["../shared/src/index.ts"],
       "@autonomy/shared/*": ["../shared/src/*"],
       "@autonomy/agent-manager": ["../agent-manager/src/index.ts"],
-      "@autonomy/agent-manager/*": ["../agent-manager/src/*"],
-      "@pyx-memory/client": ["../../vendor/pyx-memory/packages/client/src/index.ts"],
-      "@pyx-memory/client/*": ["../../vendor/pyx-memory/packages/client/src/*"]
+      "@autonomy/agent-manager/*": ["../agent-manager/src/*"]
     }
   },
   "include": ["src/**/*.ts"],

@@ -1,5 +1,4 @@
-import type { MemoryInterface } from '@pyx-memory/client';
-import type { GraphNode, GraphTraversalResult } from '@pyx-memory/shared';
+import type { GraphNode, GraphTraversalResult, MemoryInterface } from '@autonomy/shared';
 import { BadRequestError, NotImplementedError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import { validatePositiveInt } from '../validation.ts';
@@ -45,7 +44,8 @@ export function createGraphRoutes(memory: MemoryInterface) {
       if (type) {
         filtered = filtered.filter((n) => n.type === type);
       }
-      filtered = filtered.slice(0, Math.min(100, limit));
+      const MAX_GRAPH_NODES = 100;
+      filtered = filtered.slice(0, Math.min(MAX_GRAPH_NODES, limit));
       return jsonResponse({ nodes: filtered, totalCount: filtered.length });
     },
 

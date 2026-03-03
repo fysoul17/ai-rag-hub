@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { BackendRegistry } from '@autonomy/agent-manager';
 import type { Conductor } from '@autonomy/conductor';
-import type { AIBackend, BackendStatus } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { AIBackend, BackendStatus, MemoryInterface } from '@autonomy/shared';
 import { createHealthRoute } from '../../src/routes/health.ts';
 import { MockConductor } from '../helpers/mock-conductor.ts';
 
@@ -128,6 +127,32 @@ describe('GET /health', () => {
     expect(body.data.backendStatus.backends[0].authenticated).toBe(true);
     expect(body.data.backendStatus.backends[1].name).toBe('ollama');
     expect(body.data.backendStatus.backends[1].authenticated).toBe(false);
+  });
+
+  test('status is degraded when backend status check fails', async () => {
+    const conductor = new MockConductor();
+    await conductor.initialize();
+    const memory = createMockMemory();
+    const startTime = Date.now();
+
+    const registry = {
+      getDefaultName: () => 'claude',
+      getStatusAll: async () => {
+        throw new Error('registry unavailable');
+      },
+    } as unknown as BackendRegistry;
+
+    const handler = createHealthRoute(
+      conductor as unknown as Conductor,
+      memory as unknown as MemoryInterface,
+      startTime,
+      registry,
+    );
+    const res = await handler();
+    const body = await res.json();
+
+    expect(body.data.status).toBe('degraded');
+    expect(body.data.backendStatus).toBeUndefined();
   });
 
   test('status is degraded when default backend not authenticated', async () => {

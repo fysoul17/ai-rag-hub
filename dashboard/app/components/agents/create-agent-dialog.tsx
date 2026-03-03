@@ -23,6 +23,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createAgent } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 const BACKEND_DEFAULT = '_default';
 
@@ -83,7 +84,7 @@ export function CreateAgentDialog() {
       setBackend(BACKEND_DEFAULT);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create agent');
+      setError(getErrorMessage(err, 'Failed to create agent'));
     } finally {
       setLoading(false);
     }

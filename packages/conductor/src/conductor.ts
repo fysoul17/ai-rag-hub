@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
-import type { StreamEvent } from '@autonomy/shared';
+import type { MemoryInterface, StreamEvent } from '@autonomy/shared';
 import {
   type ActivityEntry,
   ActivityType,
@@ -16,7 +16,6 @@ import {
   type MemorySearchResult,
   RAGStrategy,
 } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
 import { ActivityLog } from './activity-log.ts';
 import {
   runAfterMemorySearchHook,
@@ -49,6 +48,11 @@ import {
   type IncomingMessage,
   type OnConductorEvent,
 } from './types.ts';
+
+/** Max memory entries shown in debug event previews. */
+const MAX_MEMORY_PREVIEW_ENTRIES = 5;
+/** Max characters per memory entry in debug event previews. */
+const MAX_MEMORY_PREVIEW_LENGTH = 80;
 
 const DEFAULT_MAX_DELEGATION_DEPTH = 5;
 const DEFAULT_MAX_QUEUE_DEPTH = 50;
@@ -524,10 +528,6 @@ export class Conductor {
     return this.activityLog.getRecent(limit);
   }
 
-  getAgentActivity(agentId: AgentId, limit?: number): ActivityEntry[] {
-    return this.activityLog.getByAgent(agentId, limit);
-  }
-
   /** Kill the backend process for a session so it respawns with new config on next message. */
   invalidateSessionBackend(sessionId: string): void {
     this.sessionPool.invalidate(sessionId);
@@ -642,7 +642,9 @@ export class Conductor {
             durationMs,
             memoryResults: result?.entries.length ?? 0,
             memoryQuery: processedMessage.content,
-            memoryEntryPreviews: result?.entries.slice(0, 5).map((e) => e.content.slice(0, 80)),
+            memoryEntryPreviews: result?.entries
+              .slice(0, MAX_MEMORY_PREVIEW_ENTRIES)
+              .map((e) => e.content.slice(0, MAX_MEMORY_PREVIEW_LENGTH)),
           }),
       );
       memoryContext = await runAfterMemorySearchHook(

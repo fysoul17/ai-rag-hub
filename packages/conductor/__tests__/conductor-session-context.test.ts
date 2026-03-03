@@ -14,7 +14,7 @@ import type {
   BackendSpawnConfig,
   CLIBackend,
 } from '@autonomy/agent-manager';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { MemoryInterface } from '@autonomy/shared';
 import { Conductor } from '../src/conductor.ts';
 import { makeMessage } from './helpers/fixtures.ts';
 import { MockMemory } from './helpers/mock-memory.ts';

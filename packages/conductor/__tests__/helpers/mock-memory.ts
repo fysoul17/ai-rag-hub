@@ -1,12 +1,14 @@
 import type {
   MemoryEntry,
+  MemoryInterface,
+  MemoryListParams,
+  MemoryListResult,
   MemorySearchParams,
   MemorySearchResult,
   MemoryStats,
   MemoryType,
 } from '@autonomy/shared';
 import { RAGStrategy } from '@autonomy/shared';
-import type { MemoryInterface, MemoryListParams, MemoryListResult } from '@pyx-memory/client';
 
 export class MockMemory implements MemoryInterface {
   private entries = new Map<string, MemoryEntry>();

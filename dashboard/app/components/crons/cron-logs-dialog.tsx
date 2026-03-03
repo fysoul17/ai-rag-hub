@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCronLogs } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/format';
+import { getErrorMessage } from '@/lib/utils';
 
 interface CronLogsDialogProps {
   cronId: string;
@@ -27,7 +28,7 @@ export function CronLogsDialog({ cronId, cronName, open, onOpenChange }: CronLog
     setError('');
     getCronLogs(cronId, 50)
       .then((data) => setLogs([...data].reverse()))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load logs'))
+      .catch((err) => setError(getErrorMessage(err, 'Failed to load logs')))
       .finally(() => setLoading(false));
   }, [open, cronId]);
 

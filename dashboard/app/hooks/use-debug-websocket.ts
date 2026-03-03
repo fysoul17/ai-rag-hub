@@ -2,10 +2,10 @@
 
 import type { DebugEvent, WSServerMessage } from '@autonomy/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { RUNTIME_WS_URL } from '@/lib/constants';
+import { reconnectDelay, safeParseWsMessage } from '@/lib/ws-utils';
 
 export type DebugConnectionStatus = 'connecting' | 'connected' | 'disconnected';
-
-import { RUNTIME_WS_URL } from '@/lib/constants';
 
 // Performance: 500 cap keeps DOM node count manageable without virtualization
 const MAX_CLIENT_EVENTS = 500;
@@ -50,12 +50,8 @@ export function useDebugWebSocket({ enabled = true }: UseDebugWebSocketOptions =
       };
 
       ws.onmessage = (event) => {
-        let parsed: WSServerMessage;
-        try {
-          parsed = JSON.parse(event.data as string) as WSServerMessage;
-        } catch {
-          return;
-        }
+        const parsed = safeParseWsMessage<WSServerMessage>(event.data);
+        if (!parsed) return;
 
         if (parsed.type === 'debug_history') {
           setEvents((prev) => {
@@ -91,9 +87,8 @@ export function useDebugWebSocket({ enabled = true }: UseDebugWebSocketOptions =
   }, []);
 
   function scheduleReconnect() {
-    const delay = Math.min(1000 * 2 ** retryCountRef.current, 30_000);
+    reconnectRef.current = setTimeout(connect, reconnectDelay(retryCountRef.current));
     retryCountRef.current += 1;
-    reconnectRef.current = setTimeout(connect, delay);
   }
 
   function disconnect() {

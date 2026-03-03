@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@autonomy/shared": "workspace:*",
-    "@autonomy/agent-manager": "workspace:*",
-    "@pyx-memory/client": "workspace:*"
+    "@autonomy/agent-manager": "workspace:*"
   }
 }

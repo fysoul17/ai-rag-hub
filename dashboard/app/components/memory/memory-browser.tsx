@@ -1,11 +1,12 @@
 'use client';
 
 import type { MemoryEntry, RAGStrategy } from '@autonomy/shared';
-import type { EntryFilters } from '@pyx-memory/dashboard';
-import { useKnowledgeGraph, useMemoryEntries, useMemoryStats } from '@pyx-memory/dashboard/react';
+import type { EntryFilters } from '@pyxmate/memory/dashboard';
+import { useKnowledgeGraph, useMemoryEntries, useMemoryStats } from '@pyxmate/memory/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { searchMemoryWithStrategy } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { EntryDetailDialog } from './entry-detail-dialog';
 import { GraphViewer } from './graph-viewer';
 import { MemoryEntryList } from './memory-entry-list';
@@ -15,6 +16,8 @@ import { MemoryStatsCards } from './memory-stats-cards';
 interface MemoryBrowserProps {
   serverUrl: string;
 }
+
+const ENTRIES_PER_PAGE = 20;
 
 export function MemoryBrowser({ serverUrl }: MemoryBrowserProps) {
   const [query, setQuery] = useState('');
@@ -32,7 +35,7 @@ export function MemoryBrowser({ serverUrl }: MemoryBrowserProps) {
   const graph = useKnowledgeGraph(serverUrl);
   const entries = useMemoryEntries(serverUrl, {
     page,
-    limit: 20,
+    limit: ENTRIES_PER_PAGE,
     type: typeFilter !== 'all' ? (typeFilter as EntryFilters['type']) : undefined,
   });
 
@@ -52,13 +55,13 @@ export function MemoryBrowser({ serverUrl }: MemoryBrowserProps) {
         const results = await searchMemoryWithStrategy(query, {
           strategy: strategy as RAGStrategy,
           type: typeFilter !== 'all' ? typeFilter : undefined,
-          limit: 20,
+          limit: ENTRIES_PER_PAGE,
         });
         if (fetchId !== searchFetchIdRef.current) return;
         setSearchResults(results.entries);
       } catch (err) {
         if (fetchId !== searchFetchIdRef.current) return;
-        setSearchError(err instanceof Error ? err.message : 'Search failed');
+        setSearchError(getErrorMessage(err, 'Search failed'));
       } finally {
         if (fetchId === searchFetchIdRef.current) setSearching(false);
       }

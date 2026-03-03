@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateConfig } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 export function ConfigForm({ config }: { config: EnvironmentConfig }) {
   const router = useRouter();
@@ -25,7 +26,6 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
   const [aiBackend, setAiBackend] = useState<string>(config.AI_BACKEND);
   const [maxAgents, setMaxAgents] = useState(String(config.MAX_AGENTS));
   const [idleTimeout, setIdleTimeout] = useState(String(config.IDLE_TIMEOUT_MS));
-  const [vectorProvider, setVectorProvider] = useState<string>(config.VECTOR_PROVIDER);
   const [logLevel, setLogLevel] = useState<string>(config.LOG_LEVEL);
 
   async function handleSave() {
@@ -38,13 +38,12 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
         AI_BACKEND: aiBackend,
         MAX_AGENTS: Number(maxAgents),
         IDLE_TIMEOUT_MS: Number(idleTimeout),
-        VECTOR_PROVIDER: vectorProvider,
         LOG_LEVEL: logLevel,
       });
       setSuccess(true);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(getErrorMessage(err, 'Failed to save'));
     } finally {
       setSaving(false);
     }
@@ -97,21 +96,6 @@ export function ConfigForm({ config }: { config: EnvironmentConfig }) {
             value={idleTimeout}
             onChange={(e) => setIdleTimeout(e.target.value)}
           />
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="vector-provider" className="text-xs text-muted-foreground">
-            Vector Provider
-          </Label>
-          <Select value={vectorProvider} onValueChange={setVectorProvider}>
-            <SelectTrigger id="vector-provider">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="lancedb">LanceDB</SelectItem>
-              <SelectItem value="qdrant">Qdrant</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="space-y-1">

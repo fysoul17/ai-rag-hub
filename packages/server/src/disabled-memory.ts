@@ -1,6 +1,11 @@
+import type {
+  MemoryEntry,
+  MemoryInterface,
+  MemoryListResult,
+  MemorySearchResult,
+  MemoryStats,
+} from '@autonomy/shared';
 import { Logger } from '@autonomy/shared';
-import type { MemoryInterface, MemoryListResult } from '@pyx-memory/client';
-import type { MemoryEntry, MemorySearchResult, MemoryStats } from '@pyx-memory/shared';
 
 const log = new Logger({ context: { source: 'disabled-memory' } });
 
@@ -28,7 +33,8 @@ export class DisabledMemory implements MemoryInterface {
   }
 
   async list(): Promise<MemoryListResult> {
-    return { entries: [], totalCount: 0, page: 1, limit: 20 };
+    const DEFAULT_PAGE_LIMIT = 20;
+    return { entries: [], totalCount: 0, page: 1, limit: DEFAULT_PAGE_LIMIT };
   }
 
   async get(): Promise<MemoryEntry | null> {
