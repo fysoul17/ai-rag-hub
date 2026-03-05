@@ -4,7 +4,7 @@ import type {
   MemoryInterface,
   MemorySearchResult,
 } from '@autonomy/shared';
-import { getErrorDetail, HookName, Logger, MemoryType, RAGStrategy, StoreTarget } from '@autonomy/shared';
+import { getErrorDetail, HookName, Logger, MemoryType, RAGStrategy } from '@autonomy/shared';
 import type { IncomingMessage } from './types.ts';
 
 const memoryLogger = new Logger({ context: { source: 'conductor' } });
@@ -92,7 +92,6 @@ export async function storeConversation(
       agentId: message.senderId,
       sessionId: message.sessionId,
       metadata,
-      targets: [StoreTarget.SQLITE],
     });
 
     // Also store assistant response so memory search can find it
@@ -103,7 +102,6 @@ export async function storeConversation(
         agentId: 'conductor',
         sessionId: message.sessionId,
         metadata: { role: 'assistant' },
-        targets: [StoreTarget.SQLITE],
       });
     }
 
