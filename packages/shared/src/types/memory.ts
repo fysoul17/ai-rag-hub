@@ -4,6 +4,8 @@ export {
   type ExtendedMemoryInterface,
   type GraphNode,
   type GraphTraversalResult,
+  type IngestEntity,
+  type IngestRelationship,
   type IngestionResult,
   type MemoryEntry,
   type MemoryIngestRequest,
@@ -15,4 +17,6 @@ export {
   type MemoryStats,
   MemoryType,
   RAGStrategy,
+  type StoreInput,
+  StoreTarget,
 } from '@pyxmate/memory';
