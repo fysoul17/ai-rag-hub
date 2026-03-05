@@ -11,6 +11,19 @@ const EXTRACTION_TIMEOUT_MS = 10_000;
 
 const EXTRACTION_MODEL = 'claude-haiku-4-5-20251001';
 
+const MAX_ENTITY_NAME_LENGTH = 200;
+
+const VALID_ENTITY_TYPES = new Set([
+  'PERSON',
+  'ORGANIZATION',
+  'LOCATION',
+  'TOOL',
+  'CONCEPT',
+  'EVENT',
+  'PRODUCT',
+  'OTHER',
+]);
+
 export interface ExtractionResult {
   entities: IngestEntity[];
   relationships: IngestRelationship[];
@@ -34,10 +47,7 @@ Text:
  * Extract entities and relationships from text using the Anthropic Messages API.
  * Returns empty arrays on failure (non-fatal).
  */
-export async function extractEntities(
-  content: string,
-  apiKey: string,
-): Promise<ExtractionResult> {
+export async function extractEntities(content: string, apiKey: string): Promise<ExtractionResult> {
   const empty: ExtractionResult = { entities: [], relationships: [] };
 
   if (!apiKey || content.trim().length < 20) return empty;
@@ -83,7 +93,11 @@ export async function extractEntities(
 
     const entities = parsed.entities.filter(
       (e): e is IngestEntity =>
-        typeof e.name === 'string' && typeof e.type === 'string' && e.name.length > 0,
+        typeof e.name === 'string' &&
+        typeof e.type === 'string' &&
+        e.name.length > 0 &&
+        e.name.length <= MAX_ENTITY_NAME_LENGTH &&
+        VALID_ENTITY_TYPES.has(e.type),
     );
 
     const entityNames = new Set(entities.map((e) => e.name));

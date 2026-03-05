@@ -13,9 +13,7 @@ import { makeMessage } from './helpers/mock-registry.ts';
  */
 
 // Mock the entity extractor to avoid real API calls in tests
-const mockExtractEntities = mock(() =>
-  Promise.resolve({ entities: [], relationships: [] }),
-);
+const mockExtractEntities = mock(() => Promise.resolve({ entities: [], relationships: [] }));
 mock.module('../src/entity-extractor.ts', () => ({
   extractEntities: mockExtractEntities,
 }));
@@ -107,7 +105,11 @@ describe('storeConversation — graph ingestion', () => {
 
     expect(memory.storeCalls).toHaveLength(2);
     // User message: has graph targets
-    expect(memory.storeCalls[0].targets).toEqual([StoreTarget.SQLITE, StoreTarget.VECTOR, StoreTarget.GRAPH]);
+    expect(memory.storeCalls[0].targets).toEqual([
+      StoreTarget.SQLITE,
+      StoreTarget.VECTOR,
+      StoreTarget.GRAPH,
+    ]);
     expect(memory.storeCalls[0].entities).toEqual([{ name: 'TypeScript', type: 'TOOL' }]);
     // Assistant response: no graph data (already ingested above)
     expect(memory.storeCalls[1].targets).toBeUndefined();
