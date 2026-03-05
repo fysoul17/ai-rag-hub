@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { deleteAgent, restartAgent } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { EditAgentDialog } from './edit-agent-dialog';
 
 export function AgentCardActions({ agent }: { agent: AgentRuntimeInfo }) {
@@ -41,7 +42,7 @@ export function AgentCardActions({ agent }: { agent: AgentRuntimeInfo }) {
       toast.success(`Agent "${agent.name}" restarted`);
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to restart';
+      const msg = getErrorMessage(err, 'Failed to restart');
       setError(msg);
       toast.error(msg);
     } finally {
@@ -58,7 +59,7 @@ export function AgentCardActions({ agent }: { agent: AgentRuntimeInfo }) {
       toast.success(`Agent "${agent.name}" deleted`);
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete';
+      const msg = getErrorMessage(err, 'Failed to delete');
       setError(msg);
       toast.error(msg);
     } finally {

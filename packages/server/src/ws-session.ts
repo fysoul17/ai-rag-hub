@@ -7,6 +7,9 @@ import { safeSend } from './ws-utils.ts';
 
 const wsSessionLogger = new Logger({ context: { source: 'websocket' } });
 
+/** Max characters for auto-generated session titles. */
+const MAX_SESSION_TITLE_LENGTH = 60;
+
 export function ensureSession(ws: ServerWebSocket<WSData>, sessionStore?: SessionStore): void {
   if (!ws.data.sessionId && sessionStore) {
     const session = sessionStore.create({ title: 'New Chat' });
@@ -28,7 +31,10 @@ export function persistUserMessage(
     sessionStore.addMessage(sessionId, MessageRole.USER, content);
     const session = sessionStore.getById(sessionId);
     if (session && session.title === 'New Chat' && session.messageCount <= 1 && content) {
-      const title = content.length > 60 ? `${content.slice(0, 57)}...` : content;
+      const title =
+        content.length > MAX_SESSION_TITLE_LENGTH
+          ? `${content.slice(0, MAX_SESSION_TITLE_LENGTH - 3)}...`
+          : content;
       sessionStore.update(sessionId, { title });
     }
   } catch (err) {

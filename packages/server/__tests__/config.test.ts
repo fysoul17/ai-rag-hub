@@ -13,8 +13,6 @@ describe('parseEnvConfig', () => {
     delete process.env.AI_BACKEND;
     delete process.env.IDLE_TIMEOUT_MS;
     delete process.env.MAX_AGENTS;
-    delete process.env.VECTOR_PROVIDER;
-    delete process.env.QDRANT_URL;
     delete process.env.LOG_LEVEL;
     delete process.env.MODE;
     delete process.env.ANTHROPIC_API_KEY;
@@ -37,7 +35,6 @@ describe('parseEnvConfig', () => {
     expect(config.AI_BACKEND).toBe(DEFAULTS.AI_BACKEND);
     expect(config.IDLE_TIMEOUT_MS).toBe(DEFAULTS.IDLE_TIMEOUT_MS);
     expect(config.MAX_AGENTS).toBe(DEFAULTS.MAX_AGENTS);
-    expect(config.VECTOR_PROVIDER).toBe(DEFAULTS.VECTOR_PROVIDER);
     expect(config.LOG_LEVEL).toBe(DEFAULTS.LOG_LEVEL);
     expect(config.MODE).toBe(DEFAULTS.MODE);
   });

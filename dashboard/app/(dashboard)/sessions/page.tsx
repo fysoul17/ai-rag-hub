@@ -1,4 +1,5 @@
 import { Header } from '@/components/layout/header';
+import { RuntimeFetchError } from '@/components/runtime-fetch-error';
 import { SessionList } from '@/components/sessions/session-list';
 import { getSessions } from '@/lib/api-server';
 
@@ -28,11 +29,7 @@ export default async function SessionsPage() {
             {sessions.total} session{sessions.total !== 1 ? 's' : ''} total
           </p>
         </div>
-        {fetchError && (
-          <div className="mb-4 rounded-lg border border-neon-red/30 bg-neon-red/10 p-3 text-sm text-neon-red">
-            Failed to load data. The runtime server may be unavailable.
-          </div>
-        )}
+        {fetchError && <RuntimeFetchError />}
         <SessionList sessions={sessions.sessions} />
       </div>
     </>

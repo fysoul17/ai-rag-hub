@@ -4,6 +4,7 @@ import type { BackendStatusResponse } from '@autonomy/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getBackendStatus } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { ProviderCardSkeleton } from './provider-card-skeleton';
 import { ProviderList } from './provider-list';
 
@@ -17,7 +18,7 @@ export function ProviderListLoader() {
       setStatus(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to connect to runtime');
+      setError(getErrorMessage(err, 'Unable to connect to runtime'));
     }
   }, []);
 

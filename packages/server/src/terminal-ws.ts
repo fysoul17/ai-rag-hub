@@ -103,6 +103,35 @@ const sessions = new Map<string, PtySession>();
 /** 5-minute hard timeout for login PTY sessions. */
 const PTY_TIMEOUT_MS = 5 * 60 * 1000;
 
+/** Safely close a WebSocket, ignoring errors if already closed. */
+function safeCloseWs(ws: ServerWebSocket<TerminalWSData>): void {
+  try {
+    ws.close();
+  } catch {
+    /* already closed */
+  }
+}
+
+/** Safely kill a PTY process, ignoring errors if already exited. */
+function safeKill(proc: PtySession['proc']): void {
+  try {
+    proc.kill();
+  } catch {
+    /* already exited */
+  }
+}
+
+/** Safely write to PTY stdin, ignoring errors if already closed. */
+function safeStdinWrite(session: PtySession, data: string): void {
+  try {
+    const stdin = getStdin(session.proc);
+    stdin.write(data);
+    stdin.flush();
+  } catch {
+    /* stdin closed */
+  }
+}
+
 const PTY_BRIDGE_PATH = join(import.meta.dir, 'pty-bridge.py');
 
 /** Pipe a ReadableStream to a WebSocket, stopping when the session dies. */
@@ -134,7 +163,7 @@ function sendAnsiMessage(ws: ServerWebSocket<TerminalWSData>, msg: string): void
   try {
     ws.send(new TextEncoder().encode(msg));
   } catch {
-    // Already closed
+    /* already closed */
   }
 }
 
@@ -149,15 +178,11 @@ async function handleProcessExit(
     const exitCode = await proc.exited;
     sendAnsiMessage(ws, `\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m\r\n`);
   } catch {
-    // Ignore
+    /* process already reaped */
   }
   session.alive = false;
   sessions.delete(sessionId);
-  try {
-    ws.close();
-  } catch {
-    // Already closed
-  }
+  safeCloseWs(ws);
 }
 
 /** Interval (ms) between auth status polls for auto-close detection. */
@@ -180,23 +205,13 @@ function gracefullyExitRepl(session: PtySession, sessionId: string): void {
     session.authPollTimer = undefined;
   }
 
-  try {
-    const stdin = getStdin(session.proc);
-    stdin.write('/exit\r');
-    stdin.flush();
-  } catch {
-    // stdin already closed
-  }
+  safeStdinWrite(session, '/exit\r');
 
   // Safety net: force-kill if /exit doesn't cause the process to exit in time
   setTimeout(() => {
     if (!session.alive) return;
     session.alive = false;
-    try {
-      session.proc.kill();
-    } catch {
-      // Already exited
-    }
+    safeKill(session.proc);
     sessions.delete(sessionId);
   }, REPL_EXIT_GRACE_MS);
 }
@@ -254,17 +269,9 @@ function setupPtyTimeout(
       clearTimeout(session.authPollTimer);
       session.authPollTimer = undefined;
     }
-    try {
-      session.proc.kill();
-    } catch {
-      // Ignore
-    }
+    safeKill(session.proc);
     sendAnsiMessage(ws, '\r\n\x1b[31m[Login timed out]\x1b[0m\r\n');
-    try {
-      ws.close();
-    } catch {
-      // Already closed
-    }
+    safeCloseWs(ws);
     sessions.delete(sessionId);
   }, PTY_TIMEOUT_MS);
 }
@@ -278,11 +285,7 @@ export function createTerminalWebSocketHandler() {
 
         if (!loginCmd) {
           sendAnsiMessage(ws, `\x1b[31mUnknown backend: ${backend}\x1b[0m\r\n`);
-          try {
-            ws.close();
-          } catch {
-            // Already closed
-          }
+          safeCloseWs(ws);
           return;
         }
 
@@ -313,13 +316,7 @@ export function createTerminalWebSocketHandler() {
         if (backend === 'claude') {
           setTimeout(() => {
             if (!session.alive) return;
-            try {
-              const stdin = getStdin(session.proc);
-              stdin.write('/login\r');
-              stdin.flush();
-            } catch {
-              // stdin closed
-            }
+            safeStdinWrite(session, '/login\r');
             // Start polling auth status after /login is injected
             startAuthStatusPoll(ws, session, sessionId, env);
           }, CLAUDE_LOGIN_INJECT_DELAY_MS);
@@ -330,14 +327,8 @@ export function createTerminalWebSocketHandler() {
         const session = sessions.get(ws.data.id);
         if (!session?.alive) return;
 
-        try {
-          const data = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
-          const stdin = getStdin(session.proc);
-          stdin.write(data);
-          stdin.flush();
-        } catch {
-          // stdin closed
-        }
+        const data = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
+        safeStdinWrite(session, data);
       },
 
       close(ws: ServerWebSocket<TerminalWSData>) {
@@ -359,17 +350,13 @@ export function createTerminalWebSocketHandler() {
         } else {
           session.alive = false;
           sessions.delete(sessionId);
-          try {
-            session.proc.kill();
-          } catch {
-            // Ignore
-          }
+          safeKill(session.proc);
         }
 
         try {
           getStdin(session.proc).end();
         } catch {
-          // Ignore
+          /* already closed */
         }
       },
     },

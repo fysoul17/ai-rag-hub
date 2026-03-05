@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { MemoryInterface } from '@autonomy/shared';
 import { DisabledMemory } from '../src/disabled-memory.ts';
 
 describe('DisabledMemory', () => {

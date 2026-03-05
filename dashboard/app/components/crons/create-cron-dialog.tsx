@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { createCron } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 interface WorkflowStep {
   key: string;
@@ -102,7 +103,7 @@ export function CreateCronDialog() {
       setEnabled(true);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create cron job');
+      setError(getErrorMessage(err, 'Failed to create cron job'));
     } finally {
       setLoading(false);
     }

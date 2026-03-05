@@ -3,6 +3,7 @@
 import type { BackendStatusResponse } from '@autonomy/shared';
 import { useState } from 'react';
 import { updateConfig } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { ProviderCard } from './provider-card';
 
 interface ProviderListProps {
@@ -21,7 +22,7 @@ export function ProviderList({ status, onRefetch }: ProviderListProps) {
       await updateConfig({ AI_BACKEND: backendName });
       onRefetch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to switch backend');
+      setError(getErrorMessage(err, 'Failed to switch backend'));
     } finally {
       setSwitching(null);
     }

@@ -92,6 +92,7 @@ export class SecretStore {
     try {
       return JSON.parse(readFileSync(this.filePath, 'utf-8'));
     } catch {
+      this.logger.warn('Corrupt secrets.json — returning empty');
       return {};
     }
   }

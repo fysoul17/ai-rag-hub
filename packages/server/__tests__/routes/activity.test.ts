@@ -35,11 +35,15 @@ describe('GET /api/activity', () => {
 
   test('defaults to limit 50', async () => {
     const conductor = new MockConductor();
+    for (let i = 0; i < 60; i++) {
+      conductor.addActivity({ details: `entry-${i}` });
+    }
     const handler = createActivityRoute(conductor as unknown as Conductor);
     const req = new Request('http://localhost/api/activity');
     const res = await handler(req);
     const body = await res.json();
 
     expect(body.success).toBe(true);
+    expect(body.data.length).toBe(50);
   });
 });

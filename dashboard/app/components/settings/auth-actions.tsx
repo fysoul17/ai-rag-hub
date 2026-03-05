@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { logoutBackend, updateBackendApiKey } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { CliLoginTerminal } from './cli-login-terminal';
 
 interface AuthActionsProps {
@@ -102,7 +103,7 @@ function useApiKeyActions(backendName: string, onAuthChange: () => void) {
       setShowForm(false);
       onAuthChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update API key');
+      setError(getErrorMessage(err, 'Failed to update API key'));
     } finally {
       setSaving(false);
     }
@@ -115,7 +116,7 @@ function useApiKeyActions(backendName: string, onAuthChange: () => void) {
       await updateBackendApiKey(backendName, null);
       onAuthChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to clear API key');
+      setError(getErrorMessage(err, 'Failed to clear API key'));
     } finally {
       setSaving(false);
     }
@@ -243,7 +244,7 @@ function CliAuthenticatedActions({
       await logoutBackend(backendName);
       onAuthChange();
     } catch (err) {
-      setLogoutError(err instanceof Error ? err.message : 'Logout failed');
+      setLogoutError(getErrorMessage(err, 'Logout failed'));
     } finally {
       setLoggingOut(false);
     }

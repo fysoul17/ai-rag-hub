@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EnvironmentConfig } from '@autonomy/shared';
-import { AIBackend } from '@autonomy/shared';
+import { AIBackend, Logger } from '@autonomy/shared';
 
 const VALID_AI_BACKENDS = new Set(Object.values(AIBackend));
 
@@ -12,7 +12,6 @@ const REJECTED_FIELDS = new Set([
   'GEMINI_API_KEY',
   'PI_API_KEY',
   'PI_MODEL',
-  'QDRANT_URL',
   'MEMORY_URL',
 ]);
 
@@ -21,7 +20,6 @@ const UPDATABLE_FIELDS = new Set([
   'AI_BACKEND',
   'MAX_AGENTS',
   'IDLE_TIMEOUT_MS',
-  'VECTOR_PROVIDER',
   'LOG_LEVEL',
   'MODE',
 ]);
@@ -29,6 +27,7 @@ const UPDATABLE_FIELDS = new Set([
 export class ConfigManager {
   private config: EnvironmentConfig;
   private overridesPath: string;
+  private logger = new Logger({ level: 'info', context: { source: 'config-manager' } });
 
   constructor(baseConfig: EnvironmentConfig) {
     this.config = { ...baseConfig };
@@ -37,13 +36,13 @@ export class ConfigManager {
 
   /** Load persisted overrides from disk and merge into config. */
   initialize(): void {
-    if (existsSync(this.overridesPath)) {
-      try {
-        const raw = readFileSync(this.overridesPath, 'utf-8');
-        const overrides = JSON.parse(raw) as Partial<EnvironmentConfig>;
-        this.config = { ...this.config, ...overrides };
-      } catch {
-        // Ignore corrupt file — start fresh
+    try {
+      const raw = readFileSync(this.overridesPath, 'utf-8');
+      const overrides = JSON.parse(raw) as Partial<EnvironmentConfig>;
+      this.config = { ...this.config, ...overrides };
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        this.logger.warn('Corrupt config.json — starting fresh');
       }
     }
   }
@@ -94,21 +93,18 @@ export class ConfigManager {
   private persist(overrides: Partial<EnvironmentConfig>): void {
     // Load existing persisted overrides and merge
     let existing: Record<string, unknown> = {};
-    if (existsSync(this.overridesPath)) {
-      try {
-        existing = JSON.parse(readFileSync(this.overridesPath, 'utf-8'));
-      } catch {
-        // ignore
+    try {
+      existing = JSON.parse(readFileSync(this.overridesPath, 'utf-8'));
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        this.logger.warn('Corrupt config.json during persist merge — using empty base');
       }
     }
 
     const merged = { ...existing, ...overrides };
 
-    // Ensure data directory exists
-    const dir = this.config.DATA_DIR;
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
+    // Ensure data directory exists (mkdirSync recursive is idempotent)
+    mkdirSync(this.config.DATA_DIR, { recursive: true });
 
     writeFileSync(this.overridesPath, JSON.stringify(merged, null, 2));
   }

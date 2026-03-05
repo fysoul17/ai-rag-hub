@@ -1,7 +1,7 @@
 'use client';
 
 import type { MemoryEntry } from '@autonomy/shared';
-import type { PaginatedEntries } from '@pyx-memory/dashboard';
+import type { PaginatedEntries } from '@pyxmate/memory/dashboard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MemoryEntryCard } from './memory-entry-card';

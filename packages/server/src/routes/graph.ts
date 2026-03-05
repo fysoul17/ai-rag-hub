@@ -1,5 +1,4 @@
-import type { MemoryInterface } from '@pyx-memory/client';
-import type { GraphNode, GraphTraversalResult } from '@pyx-memory/shared';
+import type { GraphNode, GraphTraversalResult, MemoryInterface } from '@autonomy/shared';
 import { BadRequestError, NotImplementedError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import { validatePositiveInt } from '../validation.ts';
@@ -12,6 +11,8 @@ function hasGraphMethods(m: MemoryInterface): m is MemoryInterface & {
 } {
   return 'graphNodes' in m && 'graphEdges' in m && 'graphQuery' in m;
 }
+
+const MAX_GRAPH_NODES = 100;
 
 export function createGraphRoutes(memory: MemoryInterface) {
   if (!hasGraphMethods(memory)) {
@@ -45,7 +46,7 @@ export function createGraphRoutes(memory: MemoryInterface) {
       if (type) {
         filtered = filtered.filter((n) => n.type === type);
       }
-      filtered = filtered.slice(0, Math.min(100, limit));
+      filtered = filtered.slice(0, Math.min(MAX_GRAPH_NODES, limit));
       return jsonResponse({ nodes: filtered, totalCount: filtered.length });
     },
 

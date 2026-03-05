@@ -19,7 +19,7 @@ import { Conductor } from '@autonomy/conductor';
 import { CronManager } from '@autonomy/cron-manager';
 import { HookRegistry, PluginManager } from '@autonomy/plugin-system';
 import { DebugEventCategory, DebugEventLevel, type Logger } from '@autonomy/shared';
-import type { MemoryClient } from '@pyx-memory/client';
+import type { MemoryClient } from '@pyxmate/memory';
 import { AgentStore } from './agent-store.ts';
 import type { parseEnvConfig } from './config.ts';
 import type { DebugBus } from './debug-bus.ts';
@@ -104,14 +104,17 @@ export function initPluginSystem(logger: Logger, debugBus: DebugBus): PluginDeps
 
 // ── Agent Pool ──────────────────────────────────────────────────────────────
 
-export async function initAgentPool(
-  config: EnvConfig,
-  registry: DefaultBackendRegistry,
-  hookRegistry: HookRegistry,
-  agentStore: AgentStore,
-  logger: Logger,
-  debugBus: DebugBus,
-): Promise<AgentPool> {
+interface AgentPoolDeps {
+  config: EnvConfig;
+  registry: DefaultBackendRegistry;
+  hookRegistry: HookRegistry;
+  agentStore: AgentStore;
+  logger: Logger;
+  debugBus: DebugBus;
+}
+
+export async function initAgentPool(deps: AgentPoolDeps): Promise<AgentPool> {
+  const { config, registry, hookRegistry, agentStore, logger, debugBus } = deps;
   const workspaceDir = join(config.DATA_DIR, 'workspaces');
   mkdirSync(workspaceDir, { recursive: true });
   const pool = new AgentPool(registry, {
@@ -145,16 +148,19 @@ interface ConductorDeps {
   cronManager: CronManager;
 }
 
-export async function initConductor(
-  config: EnvConfig,
-  pool: AgentPool,
-  memory: MemoryClient | DisabledMemory,
-  registry: DefaultBackendRegistry,
-  hookRegistry: HookRegistry,
-  agentStore: AgentStore,
-  logger: Logger,
-  debugBus: DebugBus,
-): Promise<ConductorDeps> {
+interface ConductorInitDeps {
+  config: EnvConfig;
+  pool: AgentPool;
+  memory: MemoryClient | DisabledMemory;
+  registry: DefaultBackendRegistry;
+  hookRegistry: HookRegistry;
+  agentStore: AgentStore;
+  logger: Logger;
+  debugBus: DebugBus;
+}
+
+export async function initConductor(deps: ConductorInitDeps): Promise<ConductorDeps> {
+  const { config, pool, memory, registry, hookRegistry, agentStore, logger, debugBus } = deps;
   const fallbackBackend = config.FALLBACK_BACKEND
     ? registry.get(config.FALLBACK_BACKEND)
     : undefined;

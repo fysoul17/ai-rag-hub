@@ -13,3 +13,4 @@ data/agents/*
 !data/agents/registry.json
 **/secrets.json
 bun.lock
+.superset/

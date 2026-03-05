@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { deleteMemoryEntry, forgetMemory } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 import { memoryTypeBadgeVariant } from './memory-utils';
 
 interface EntryDetailDialogProps {
@@ -43,7 +44,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
       onOpenChange(false);
       onMutate?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete entry');
+      setError(getErrorMessage(err, 'Failed to delete entry'));
     } finally {
       setDeleting(false);
       setConfirmAction(null);
@@ -59,7 +60,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
       onOpenChange(false);
       onMutate?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to forget entry');
+      setError(getErrorMessage(err, 'Failed to forget entry'));
     } finally {
       setForgetting(false);
       setConfirmAction(null);

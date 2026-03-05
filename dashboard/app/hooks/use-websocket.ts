@@ -2,17 +2,16 @@
 
 import type { ConductorDebugPayload, WSClientMessage, WSServerMessage } from '@autonomy/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { reconnectDelay, safeParseWsMessage } from '@/lib/ws-utils';
+import { useAgentActivity } from './use-agent-activity.ts';
 import type {
-  ActivityFeed,
-  AgentActivity,
-  AgentThinking,
-  AgentToolCall,
   ChatMessage,
   ConnectionStatus,
   PipelinePhase,
   UseWebSocketOptions,
 } from './use-websocket-types.ts';
 
+export { useAgentActivity } from './use-agent-activity.ts';
 // Re-export all types so consumers can keep importing from this file
 export type {
   ActivityFeed,
@@ -23,9 +22,6 @@ export type {
   ConnectionStatus,
   PipelinePhase,
 } from './use-websocket-types.ts';
-
-/** Maximum characters stored per tool's accumulated input before truncation. */
-const MAX_INPUT_BYTES = 10_240;
 
 export function useWebSocket({
   url,
@@ -49,154 +45,12 @@ export function useWebSocket({
   const onSessionInitRef = useRef(onSessionInit);
   onSessionInitRef.current = onSessionInit;
 
-  // Agent step accumulation refs — never triggers renders directly
-  // Map<agentId, AgentActivity> for O(1) lookup during streaming
-  const agentActivitiesRef = useRef<Map<string, AgentActivity>>(new Map());
-  // Map<toolId, agentId> for routing tool_input/tool_complete to the right agent
-  const toolToAgentRef = useRef<Map<string, string>>(new Map());
-
-  function buildActivityFeed(isActive: boolean): ActivityFeed {
-    const agents = Array.from(agentActivitiesRef.current.values());
-    let totalDurationMs = 0;
-    let totalSteps = 0;
-    for (const agent of agents) {
-      totalSteps += agent.toolCalls.length + agent.thinkingBlocks.length;
-      for (const tc of agent.toolCalls) {
-        totalDurationMs += tc.durationMs ?? 0;
-      }
-    }
-    return { agents, totalSteps, totalDurationMs, isActive };
-  }
-
-  function flushActivityToProcessingMessage(isActive: boolean) {
-    // Target the processing placeholder OR the live streaming assistant message (whichever is active).
-    // After the first text chunk, processingIdRef is null but accumulatorRef is set —
-    // without this fallback, tool_start/tool_complete events during text streaming are no-ops.
-    const procId = processingIdRef.current;
-    const accId = accumulatorRef.current?.id;
-    const targetId = procId ?? accId;
-    if (!targetId) return;
-    const feed = buildActivityFeed(isActive);
-    setMessages((prev) => prev.map((m) => (m.id === targetId ? { ...m, activityFeed: feed } : m)));
-  }
-
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: agent step handler processes many event types
-  function handleAgentStep(parsed: WSServerMessage & { type: 'agent_step' }) {
-    if (cancelledRef.current) return;
-
-    switch (parsed.stepType) {
-      case 'tool_start': {
-        const agentId = parsed.agentId;
-        const toolId = parsed.toolId;
-        const toolName = parsed.toolName ?? 'unknown';
-        if (!toolId) return;
-
-        const newTool: AgentToolCall = {
-          toolId,
-          toolName,
-          accumulatedInput: '',
-          status: 'streaming',
-          startedAt: Date.now(),
-        };
-
-        // Always create a new AgentActivity object so React.memo sees a changed reference
-        // and re-renders AgentSection + ToolCallRow. Mutating in place would be invisible
-        // to memo's shallow-equality check.
-        const existing = agentActivitiesRef.current.get(agentId);
-        const newAgent: AgentActivity = existing
-          ? { ...existing, toolCalls: [...existing.toolCalls, newTool] }
-          : {
-              agentId,
-              agentName: parsed.agentName,
-              toolCalls: [newTool],
-              thinkingBlocks: [],
-            };
-        agentActivitiesRef.current.set(agentId, newAgent);
-        toolToAgentRef.current.set(toolId, agentId);
-
-        flushActivityToProcessingMessage(true);
-        break;
-      }
-
-      case 'tool_input': {
-        const toolId = parsed.toolId;
-        if (!toolId || !parsed.inputDelta) return;
-        const agentId = toolToAgentRef.current.get(toolId);
-        if (!agentId) return;
-        const agent = agentActivitiesRef.current.get(agentId);
-        if (!agent) return;
-        const tool = agent.toolCalls.find((tc) => tc.toolId === toolId);
-        if (!tool) return;
-
-        // Accumulate directly — no flush here (one render per tool_input would be expensive).
-        // The accumulated input is captured on the next flush (tool_complete or a flush triggered
-        // by an immutable update to the agent's toolCalls array).
-        if (tool.accumulatedInput.length < MAX_INPUT_BYTES) {
-          tool.accumulatedInput += parsed.inputDelta;
-          if (tool.accumulatedInput.length > MAX_INPUT_BYTES) {
-            tool.accumulatedInput = `${tool.accumulatedInput.slice(0, MAX_INPUT_BYTES)}\n[truncated]`;
-          }
-        }
-        break;
-      }
-
-      case 'tool_complete': {
-        const toolId = parsed.toolId;
-        if (!toolId) return;
-        const agentId = toolToAgentRef.current.get(toolId);
-        if (!agentId) return;
-        const agent = agentActivitiesRef.current.get(agentId);
-        if (!agent) return;
-        const toolIdx = agent.toolCalls.findIndex((tc) => tc.toolId === toolId);
-        if (toolIdx === -1) return;
-
-        // Create a new array with a new tool object at toolIdx — preserves accumulatedInput
-        // (which may have been mutated by tool_input events) while ensuring a new reference
-        // that React.memo will detect.
-        const existingTool = agent.toolCalls[toolIdx];
-        if (!existingTool) return; // noUncheckedIndexedAccess guard — toolIdx is guaranteed valid via findIndex above
-        const newToolCalls = [...agent.toolCalls];
-        newToolCalls[toolIdx] = {
-          ...existingTool,
-          status: 'complete',
-          durationMs: parsed.durationMs,
-          completedAt: Date.now(),
-        };
-        agentActivitiesRef.current.set(agentId, { ...agent, toolCalls: newToolCalls });
-        toolToAgentRef.current.delete(toolId);
-
-        flushActivityToProcessingMessage(true);
-        break;
-      }
-
-      case 'thinking': {
-        const agentId = parsed.agentId;
-        const newThink: AgentThinking = {
-          content: parsed.content ?? '',
-          timestamp: Date.now(),
-        };
-
-        const existing = agentActivitiesRef.current.get(agentId);
-        const newAgent: AgentActivity = existing
-          ? { ...existing, thinkingBlocks: [...existing.thinkingBlocks, newThink] }
-          : {
-              agentId,
-              agentName: parsed.agentName,
-              toolCalls: [],
-              thinkingBlocks: [newThink],
-            };
-        agentActivitiesRef.current.set(agentId, newAgent);
-
-        flushActivityToProcessingMessage(true);
-        break;
-      }
-    }
-  }
-
-  function clearActivityRefs() {
-    agentActivitiesRef.current = new Map();
-    toolToAgentRef.current = new Map();
-  }
+  // Agent activity tracking — extracted to separate hook
+  const { handleAgentStep, buildActivityFeed, clearActivityRefs, hasActivity } = useAgentActivity({
+    getTargetId: () => processingIdRef.current ?? accumulatorRef.current?.id ?? null,
+    isCancelled: () => cancelledRef.current,
+    setMessages,
+  });
 
   function handleChunk(content: string, agentId: string) {
     if (cancelledRef.current) return;
@@ -204,8 +58,7 @@ export function useWebSocket({
       const id = `msg-${Date.now()}`;
       accumulatorRef.current = { content, agentId, id };
       const pipeline = pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
-      const activityFeed =
-        agentActivitiesRef.current.size > 0 ? buildActivityFeed(false) : undefined;
+      const activityFeed = hasActivity() ? buildActivityFeed(false) : undefined;
       const procId = processingIdRef.current;
       processingIdRef.current = null;
       setMessages((prev) => {
@@ -237,7 +90,7 @@ export function useWebSocket({
     if (cancelledRef.current) return;
     setIsProcessing(false);
     const finalPipeline = pipelineRef.current.length > 0 ? pipelineRef.current.slice() : undefined;
-    const finalFeed = agentActivitiesRef.current.size > 0 ? buildActivityFeed(false) : undefined;
+    const finalFeed = hasActivity() ? buildActivityFeed(false) : undefined;
     if (accumulatorRef.current) {
       const acc = accumulatorRef.current;
       setMessages((prev) =>
@@ -277,7 +130,7 @@ export function useWebSocket({
     setIsProcessing(false);
     accumulatorRef.current = null;
     const errorPipeline = pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
-    const errorFeed = agentActivitiesRef.current.size > 0 ? buildActivityFeed(false) : undefined;
+    const errorFeed = hasActivity() ? buildActivityFeed(false) : undefined;
     pipelineRef.current = [];
     clearActivityRefs();
     const procId = processingIdRef.current;
@@ -370,12 +223,8 @@ export function useWebSocket({
 
       // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: WebSocket message handler dispatches many event types
       ws.onmessage = (event) => {
-        let parsed: WSServerMessage;
-        try {
-          parsed = JSON.parse(event.data as string) as WSServerMessage;
-        } catch {
-          return;
-        }
+        const parsed = safeParseWsMessage<WSServerMessage>(event.data);
+        if (!parsed) return;
 
         switch (parsed.type) {
           case 'chunk':
@@ -495,9 +344,8 @@ export function useWebSocket({
   }
 
   function scheduleReconnect() {
-    const delay = Math.min(1000 * 2 ** retryCountRef.current, 30_000);
+    reconnectRef.current = setTimeout(connect, reconnectDelay(retryCountRef.current));
     retryCountRef.current += 1;
-    reconnectRef.current = setTimeout(connect, delay);
   }
 
   const sendMessage = useCallback(
@@ -554,7 +402,7 @@ export function useWebSocket({
     const procId = processingIdRef.current;
     const accumId = accumulatorRef.current?.id;
     const errorPipeline = pipelineRef.current.length > 0 ? [...pipelineRef.current] : undefined;
-    const cancelFeed = agentActivitiesRef.current.size > 0 ? buildActivityFeed(false) : undefined;
+    const cancelFeed = hasActivity() ? buildActivityFeed(false) : undefined;
     accumulatorRef.current = null;
     processingIdRef.current = null;
     pipelineRef.current = [];

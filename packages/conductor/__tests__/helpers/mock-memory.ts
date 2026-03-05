@@ -1,12 +1,14 @@
 import type {
   MemoryEntry,
+  MemoryInterface,
+  MemoryListParams,
+  MemoryListResult,
   MemorySearchParams,
   MemorySearchResult,
   MemoryStats,
   MemoryType,
 } from '@autonomy/shared';
 import { RAGStrategy } from '@autonomy/shared';
-import type { MemoryInterface, MemoryListParams, MemoryListResult } from '@pyx-memory/client';
 
 export class MockMemory implements MemoryInterface {
   private entries = new Map<string, MemoryEntry>();
@@ -86,6 +88,14 @@ export class MockMemory implements MemoryInterface {
       vectorCount: 0,
       recentAccessCount: 0,
     };
+  }
+
+  async queryAsOf(): Promise<MemoryEntry[]> {
+    return [];
+  }
+
+  async queryByEventTime(): Promise<MemoryEntry[]> {
+    return [];
   }
 
   async shutdown(): Promise<void> {

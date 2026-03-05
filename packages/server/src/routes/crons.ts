@@ -4,6 +4,9 @@ import { BadRequestError, NotFoundError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';
 
+const DEFAULT_LOG_LIMIT = 50;
+const MAX_LOG_LIMIT = 200;
+
 export function createCronRoutes(cronManager: CronManager) {
   return {
     list: async (_req: Request): Promise<Response> => {
@@ -15,13 +18,13 @@ export function createCronRoutes(cronManager: CronManager) {
       const url = new URL(req.url);
       const cronId = url.searchParams.get('cronId') ?? undefined;
       const limitParam = url.searchParams.get('limit');
-      let limit = 50;
+      let limit = DEFAULT_LOG_LIMIT;
       if (limitParam) {
         const parsed = Number.parseInt(limitParam, 10);
         if (Number.isNaN(parsed) || parsed < 1) {
           throw new BadRequestError('limit must be a positive integer');
         }
-        limit = Math.min(parsed, 200);
+        limit = Math.min(parsed, MAX_LOG_LIMIT);
       }
 
       const logs = cronManager.getExecutionLogs(cronId, limit);

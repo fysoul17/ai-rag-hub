@@ -1,4 +1,4 @@
-import type { ExtendedMemoryInterface, MemoryInterface } from '@pyx-memory/client';
+import type { ExtendedMemoryInterface, MemoryInterface } from '@autonomy/shared';
 import { BadRequestError, ForbiddenError, NotImplementedError } from '../errors.ts';
 import { jsonResponse, parseJsonBody } from '../middleware.ts';
 import type { RouteParams } from '../router.ts';

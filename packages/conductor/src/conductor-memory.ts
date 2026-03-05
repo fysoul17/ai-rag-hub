@@ -1,10 +1,10 @@
 import type {
   ConductorDecision,
   HookRegistryInterface,
+  MemoryInterface,
   MemorySearchResult,
 } from '@autonomy/shared';
 import { getErrorDetail, HookName, Logger, MemoryType, RAGStrategy } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
 import type { IncomingMessage } from './types.ts';
 
 const memoryLogger = new Logger({ context: { source: 'conductor' } });

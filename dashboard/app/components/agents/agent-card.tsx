@@ -1,6 +1,7 @@
 import type { AgentRuntimeInfo } from '@autonomy/shared';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatRelativeTime } from '@/lib/format';
+import { shortId } from '@/lib/short-id';
 import { AgentCardActions } from './agent-card-actions';
 import { BackendBadge } from './backend-badge';
 import { OwnerBadge } from './owner-badge';
@@ -33,7 +34,7 @@ export function AgentCard({ agent }: { agent: AgentRuntimeInfo }) {
           <BackendBadge backend={agent.backend} />
         </div>
         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span className="font-mono">{agent.id.slice(0, 8)}...</span>
+          <span className="font-mono">{shortId(agent.id)}...</span>
           <span>{formatRelativeTime(agent.createdAt)}</span>
         </div>
       </CardContent>

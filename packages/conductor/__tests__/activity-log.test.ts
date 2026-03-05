@@ -50,43 +50,6 @@ describe('ActivityLog', () => {
     expect(recent[1].details).toBe('second');
   });
 
-  test('getByAgent filters by agentId', () => {
-    const log = new ActivityLog();
-    log.record(ActivityType.DELEGATION, 'to agent-1', 'agent-1');
-    log.record(ActivityType.DELEGATION, 'to agent-2', 'agent-2');
-    log.record(ActivityType.DELEGATION, 'to agent-1 again', 'agent-1');
-
-    const agent1 = log.getByAgent('agent-1');
-    expect(agent1.length).toBe(2);
-    expect(agent1[0].details).toBe('to agent-1 again');
-    expect(agent1[1].details).toBe('to agent-1');
-  });
-
-  test('getByAgent respects limit', () => {
-    const log = new ActivityLog();
-    log.record(ActivityType.DELEGATION, 'first', 'agent-1');
-    log.record(ActivityType.DELEGATION, 'second', 'agent-1');
-    log.record(ActivityType.DELEGATION, 'third', 'agent-1');
-
-    const result = log.getByAgent('agent-1', 1);
-    expect(result.length).toBe(1);
-    expect(result[0].details).toBe('third');
-  });
-
-  test('getByType filters by type', () => {
-    const log = new ActivityLog();
-    log.record(ActivityType.MESSAGE, 'msg');
-    log.record(ActivityType.ERROR, 'err');
-    log.record(ActivityType.MESSAGE, 'msg2');
-
-    const messages = log.getByType(ActivityType.MESSAGE);
-    expect(messages.length).toBe(2);
-
-    const errors = log.getByType(ActivityType.ERROR);
-    expect(errors.length).toBe(1);
-    expect(errors[0].details).toBe('err');
-  });
-
   test('ring buffer discards oldest entries when exceeding max size', () => {
     const log = new ActivityLog(3);
     log.record(ActivityType.MESSAGE, 'a');

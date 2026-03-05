@@ -1,8 +1,14 @@
-import { Logger } from '@autonomy/shared';
-import type { MemoryInterface, MemoryListResult } from '@pyx-memory/client';
-import type { MemoryEntry, MemorySearchResult, MemoryStats } from '@pyx-memory/shared';
+import type {
+  MemoryEntry,
+  MemoryInterface,
+  MemoryListResult,
+  MemorySearchResult,
+  MemoryStats,
+} from '@autonomy/shared';
+import { Logger, RAGStrategy } from '@autonomy/shared';
 
 const log = new Logger({ context: { source: 'disabled-memory' } });
+const DEFAULT_PAGE_LIMIT = 20;
 
 /**
  * No-op memory implementation for when MEMORY_URL is not configured.
@@ -24,11 +30,11 @@ export class DisabledMemory implements MemoryInterface {
   }
 
   async search(): Promise<MemorySearchResult> {
-    return { entries: [], totalCount: 0, strategy: 'naive' };
+    return { entries: [], totalCount: 0, strategy: RAGStrategy.NAIVE };
   }
 
   async list(): Promise<MemoryListResult> {
-    return { entries: [], totalCount: 0, page: 1, limit: 20 };
+    return { entries: [], totalCount: 0, page: 1, limit: DEFAULT_PAGE_LIMIT };
   }
 
   async get(): Promise<MemoryEntry | null> {
@@ -51,6 +57,14 @@ export class DisabledMemory implements MemoryInterface {
       recentAccessCount: 0,
       connected: false,
     };
+  }
+
+  async queryAsOf(): Promise<MemoryEntry[]> {
+    return [];
+  }
+
+  async queryByEventTime(): Promise<MemoryEntry[]> {
+    return [];
   }
 
   async shutdown(): Promise<void> {}

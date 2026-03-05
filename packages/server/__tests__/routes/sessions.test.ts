@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { MemoryInterface } from '@pyx-memory/client';
+import type { MemoryInterface } from '@autonomy/shared';
 import { BadRequestError, NotFoundError } from '../../src/errors.ts';
 import { createSessionRoutes } from '../../src/routes/sessions.ts';
 import { SessionStore } from '../../src/session-store.ts';

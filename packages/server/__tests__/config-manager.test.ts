@@ -14,7 +14,6 @@ function makeConfig(overrides?: Partial<EnvironmentConfig>): EnvironmentConfig {
     AI_BACKEND: DEFAULTS.AI_BACKEND,
     IDLE_TIMEOUT_MS: DEFAULTS.IDLE_TIMEOUT_MS,
     MAX_AGENTS: DEFAULTS.MAX_AGENTS,
-    VECTOR_PROVIDER: DEFAULTS.VECTOR_PROVIDER,
     LOG_LEVEL: DEFAULTS.LOG_LEVEL,
     MODE: DEFAULTS.MODE,
     ...overrides,
@@ -86,13 +85,6 @@ describe('ConfigManager', () => {
     cm.initialize();
 
     expect(() => cm.update({ ANTHROPIC_API_KEY: 'new-key' })).toThrow(ConfigUpdateError);
-  });
-
-  test('update() rejects QDRANT_URL changes', () => {
-    const cm = new ConfigManager(makeConfig());
-    cm.initialize();
-
-    expect(() => cm.update({ QDRANT_URL: 'http://bad' })).toThrow(ConfigUpdateError);
   });
 
   test('update() ignores unknown fields', () => {

@@ -4,7 +4,7 @@ import type { AgentPool, DefaultBackendRegistry } from '@autonomy/agent-manager'
 import type { Conductor } from '@autonomy/conductor';
 import type { CronManager } from '@autonomy/cron-manager';
 import { DebugEventCategory, DebugEventLevel, getErrorDetail, Logger } from '@autonomy/shared';
-import { MemoryClient } from '@pyx-memory/client';
+import { MemoryClient } from '@pyxmate/memory';
 import type { ServerWebSocket } from 'bun';
 import { parseEnvConfig } from './config.ts';
 import { ConfigManager } from './config-manager.ts';
@@ -263,8 +263,15 @@ async function main() {
   );
 
   const { hookRegistry, pluginManager } = initPluginSystem(logger, debugBus);
-  const pool = await initAgentPool(config, registry, hookRegistry, agentStore, logger, debugBus);
-  const { conductor, cronManager } = await initConductor(
+  const pool = await initAgentPool({
+    config,
+    registry,
+    hookRegistry,
+    agentStore,
+    logger,
+    debugBus,
+  });
+  const { conductor, cronManager } = await initConductor({
     config,
     pool,
     memory,
@@ -273,7 +280,7 @@ async function main() {
     agentStore,
     logger,
     debugBus,
-  );
+  });
 
   // Memory lifecycle timers
   const lifecycleIntervals = startMemoryLifecycle(memory, logger);

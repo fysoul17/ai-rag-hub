@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { AgentPool, BackendProcess, CLIBackend } from '@autonomy/agent-manager';
+import type { MemoryInterface } from '@autonomy/shared';
 import { type AgentDefinition, type AgentRuntimeInfo, AgentStatus } from '@autonomy/shared';
-import type { MemoryInterface } from '@pyx-memory/client';
 import { Conductor } from '../src/conductor.ts';
 import { makeMessage } from './helpers/fixtures.ts';
 import { MockMemory } from './helpers/mock-memory.ts';

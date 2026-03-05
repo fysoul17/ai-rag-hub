@@ -2,6 +2,7 @@ import type { Session } from '@autonomy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatRelativeTime } from '@/lib/format';
+import { shortId } from '@/lib/short-id';
 import { SessionCardActions } from './session-card-actions';
 
 const statusConfig: Record<string, { label: string; className: string; dot: string }> = {
@@ -47,7 +48,7 @@ export function SessionCard({ session }: { session: Session }) {
           </Badge>
         </div>
         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span className="font-mono">{session.id.slice(0, 8)}...</span>
+          <span className="font-mono">{shortId(session.id)}...</span>
           <span>{formatRelativeTime(session.updatedAt)}</span>
         </div>
       </CardContent>

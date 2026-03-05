@@ -41,18 +41,6 @@ export class ActivityLog {
     return this.entries.slice(-l).reverse();
   }
 
-  getByAgent(agentId: AgentId, limit?: number): ActivityEntry[] {
-    const filtered = this.entries.filter((e) => e.agentId === agentId);
-    const l = limit ?? filtered.length;
-    return filtered.slice(-l).reverse();
-  }
-
-  getByType(type: ActivityType, limit?: number): ActivityEntry[] {
-    const filtered = this.entries.filter((e) => e.type === type);
-    const l = limit ?? filtered.length;
-    return filtered.slice(-l).reverse();
-  }
-
   get size(): number {
     return this.entries.length;
   }

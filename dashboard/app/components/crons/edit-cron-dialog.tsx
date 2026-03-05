@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { updateCron } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 interface WorkflowStep {
   key: string;
@@ -103,7 +104,7 @@ export function EditCronDialog({ cron, open, onOpenChange }: EditCronDialogProps
       onOpenChange(false);
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to update cron job';
+      const msg = getErrorMessage(err, 'Failed to update cron job');
       setError(msg);
       toast.error(msg);
     } finally {

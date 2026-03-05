@@ -18,6 +18,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { updateAgent } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 const BACKEND_DEFAULT = '_default';
 
@@ -83,7 +84,7 @@ export function EditAgentDialog({ agent, open, onOpenChange }: EditAgentDialogPr
       onOpenChange(false);
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to update agent';
+      const msg = getErrorMessage(err, 'Failed to update agent');
       setError(msg);
       toast.error(msg);
     } finally {
