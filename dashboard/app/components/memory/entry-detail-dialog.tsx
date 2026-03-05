@@ -71,7 +71,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="glass border-primary/20 sm:max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent className="glass border-primary/20 sm:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary text-glow-cyan">
               <span className="font-mono text-sm">{entry.id.slice(0, 16)}...</span>
