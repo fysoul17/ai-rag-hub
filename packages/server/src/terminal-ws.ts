@@ -290,12 +290,24 @@ export function createTerminalWebSocketHandler() {
         }
 
         const env = buildPtyEnv();
-        const proc = Bun.spawn(['python3', PTY_BRIDGE_PATH, ...loginCmd], {
-          stdin: 'pipe',
-          stdout: 'pipe',
-          stderr: 'pipe',
-          env,
-        });
+
+        let proc: ReturnType<typeof Bun.spawn>;
+        try {
+          proc = Bun.spawn(['python3', PTY_BRIDGE_PATH, ...loginCmd], {
+            stdin: 'pipe',
+            stdout: 'pipe',
+            stderr: 'pipe',
+            env,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          sendAnsiMessage(
+            ws,
+            `\x1b[31mFailed to start login terminal: ${msg}\x1b[0m\r\n\x1b[90mEnsure python3 is installed and on PATH.\x1b[0m\r\n`,
+          );
+          safeCloseWs(ws);
+          return;
+        }
 
         const session: PtySession = { proc, alive: true };
         sessions.set(sessionId, session);

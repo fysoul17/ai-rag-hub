@@ -21,6 +21,9 @@ COPY dashboard/package.json ./dashboard/
 
 RUN bun install --frozen-lockfile || bun install
 
+# Install Python 3 (required by PTY bridge for interactive CLI login)
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+
 # Copy Node.js 22 from official image (avoids apt-get GPG/signature issues)
 COPY --from=node-donor /usr/local/bin/ /usr/local/bin/
 COPY --from=node-donor /usr/local/lib/node_modules /usr/local/lib/node_modules
