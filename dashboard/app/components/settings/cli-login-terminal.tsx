@@ -161,12 +161,14 @@ function XtermTerminal({
       wsRef.current = ws;
 
       ws.binaryType = 'arraybuffer';
+      let hasReceivedData = false;
 
       ws.onopen = () => {
         term.write(`\x1b[90m$ ${config.command}\x1b[0m\r\n`);
       };
 
       ws.onmessage = (event) => {
+        hasReceivedData = true;
         let text: string;
         if (event.data instanceof ArrayBuffer) {
           const bytes = new Uint8Array(event.data);
@@ -183,7 +185,9 @@ function XtermTerminal({
 
       ws.onclose = () => {
         if (!disposed) {
-          onExit(0);
+          // Only treat as success if we detected an auth URL (login flow started).
+          // Otherwise the WS may have closed due to a server crash or spawn failure.
+          onExit(hasReceivedData ? 0 : 1);
         }
       };
 
