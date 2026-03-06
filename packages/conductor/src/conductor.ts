@@ -60,13 +60,10 @@ const DEFAULT_MAX_QUEUE_DEPTH = 50;
 
 const conductorLogger = new Logger({ context: { source: 'conductor' } });
 
-const DEFAULT_SYSTEM_PROMPT =
-  'You are an AI assistant running inside an AI orchestration platform. Answer the user clearly and helpfully. If memory context is provided, use it to inform your response.';
-
-/** Build a system prompt from the soul config. Falls back to DEFAULT_SYSTEM_PROMPT. */
-function buildSystemPromptFromSoul(soul?: SoulConfig): string {
-  if (!soul || !soul.content.trim()) return DEFAULT_SYSTEM_PROMPT;
-  return soul.content;
+/** Build a system prompt from the soul config. Falls back to DEFAULT_SOUL. */
+function buildSystemPromptFromSoul(soul: SoulConfig): string {
+  const content = soul.content.trim();
+  return content || DEFAULT_SOUL.content;
 }
 
 const FALLBACK_NO_BACKEND =
@@ -148,9 +145,10 @@ export class Conductor {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    const systemPrompt = this.options.systemPrompt ?? buildSystemPromptFromSoul(this.soul);
+
     if (this.backend) {
       try {
-        const systemPrompt = this.options.systemPrompt ?? buildSystemPromptFromSoul(this.soul);
         this.backendProcess = await this.backend.spawn({
           agentId: 'conductor',
           systemPrompt,
@@ -167,7 +165,6 @@ export class Conductor {
             conductorLogger.info('Trying fallback backend', {
               fallback: this.fallbackBackend.name,
             });
-            const systemPrompt = this.options.systemPrompt ?? buildSystemPromptFromSoul(this.soul);
             this.backendProcess = await this.fallbackBackend.spawn({
               agentId: 'conductor',
               systemPrompt,
@@ -186,7 +183,6 @@ export class Conductor {
       }
     }
 
-    const systemPrompt = this.options.systemPrompt ?? buildSystemPromptFromSoul(this.soul);
     this.sessionPool = new SessionProcessPool(this.backend, this.fallbackBackend, systemPrompt);
 
     // Detect memory connectivity via stats().connected flag

@@ -1,6 +1,5 @@
 // soul.ts — Loads the conductor's constitutional soul from data/soul.md
 
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Logger } from '@autonomy/shared';
 
@@ -34,38 +33,9 @@ export const DEFAULT_SOUL: SoulConfig = { content: DEFAULT_SOUL_CONTENT };
  * Returns DEFAULT_SOUL if the file is missing or unreadable.
  * The soul is read-only — no API endpoint or system-action can modify it.
  */
-export function loadSoul(dataDir: string): SoulConfig {
-  const soulPath = join(dataDir, 'soul.md');
-  try {
-    if (!existsSync(soulPath)) {
-      logger.info('No soul.md found, using default soul', { path: soulPath });
-      return DEFAULT_SOUL;
-    }
-    const raw = Bun.file(soulPath);
-    // Synchronous read via Bun — soul is loaded once at boot
-    const content = new TextDecoder().decode(raw.stream as unknown as BufferSource);
-    logger.info('Soul loaded from file', { path: soulPath });
-    return { content };
-  } catch (error) {
-    logger.warn('Failed to read soul.md, using default soul', {
-      path: soulPath,
-      error: String(error),
-    });
-    return DEFAULT_SOUL;
-  }
-}
-
-/**
- * Synchronously load soul file content.
- * Uses Bun.file().text() pattern for reliable file reading.
- */
 export async function loadSoulAsync(dataDir: string): Promise<SoulConfig> {
   const soulPath = join(dataDir, 'soul.md');
   try {
-    if (!existsSync(soulPath)) {
-      logger.info('No soul.md found, using default soul', { path: soulPath });
-      return DEFAULT_SOUL;
-    }
     const content = await Bun.file(soulPath).text();
     if (!content.trim()) {
       logger.warn('soul.md is empty, using default soul');
@@ -74,7 +44,7 @@ export async function loadSoulAsync(dataDir: string): Promise<SoulConfig> {
     logger.info('Soul loaded from file', { path: soulPath });
     return { content };
   } catch (error) {
-    logger.warn('Failed to read soul.md, using default soul', {
+    logger.info('No soul.md found or unreadable, using default soul', {
       path: soulPath,
       error: String(error),
     });
