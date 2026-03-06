@@ -192,6 +192,14 @@ export class SessionStore {
     return true;
   }
 
+  deleteAll(): void {
+    const clear = this.db.transaction(() => {
+      this.db.run('DELETE FROM session_messages');
+      this.db.run('DELETE FROM sessions');
+    });
+    clear();
+  }
+
   addMessage(
     sessionId: string,
     role: MessageRole,

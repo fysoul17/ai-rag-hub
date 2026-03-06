@@ -2,7 +2,7 @@
 
 > Single source of truth. Everything needed to understand and extend this template.
 >
-> Last synced with codebase: 2026-03-06 (graph relationships, scripts, structure sync)
+> Last synced with codebase: 2026-03-07 (system reset endpoint, danger zone UI)
 
 ---
 
@@ -473,7 +473,8 @@ Dashboard Pages:
 │
 └── ⚙️ Settings            — Runtime configuration
     ├── Config            — AI backend, max agents, timeouts, etc.
-    └── Backends          — Backend status, API key management, logout
+    ├── Backends          — Backend status, API key management, logout
+    └── Danger Zone       — System reset (wipe all data, re-seed defaults)
 ```
 
 ---
@@ -575,6 +576,12 @@ Runtime config overrides. Empty `{}` uses defaults from `DEFAULTS` constant.
 | `PUT`    | `/api/backends/api-key`       | Update backend API key (name in body) |
 | `PUT`    | `/api/backends/:name/api-key` | Update backend API key (name in path) |
 | `POST`   | `/api/backends/:name/logout`  | Logout from backend           |
+
+### System Routes
+
+| Method   | Path                    | Description                                |
+| -------- | ----------------------- | ------------------------------------------ |
+| `POST`   | `/api/system/reset`     | Reset instance (wipe data, re-seed defaults). Body: `{ purgeMemory?: boolean }` |
 
 ---
 

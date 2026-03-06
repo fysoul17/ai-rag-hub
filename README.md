@@ -1,13 +1,13 @@
 <div align="center">
 
-# AI-Powered Knowledge Hub
+# Agent Forge
 
-### Multi-Source RAG SaaS Platform
+### Autonomous AI Agent Runtime
 
-Connect any data source. Ask questions in natural language.<br>
-Get AI-powered answers with citations — embedded anywhere.
+Turn any CLI AI tool into an autonomous agent system.<br>
+Persistent memory. Pluggable backends. Cyberpunk dashboard.
 
-[What is this?](#what-is-this) &bull; [Architecture](#architecture-overview) &bull; [Current State](#current-state) &bull; [Quick Start](#quick-start)
+[Quick Start](#quick-start) &bull; [Architecture](#architecture) &bull; [Features](#features) &bull; [Development](#development)
 
 </div>
 
@@ -15,102 +15,112 @@ Get AI-powered answers with citations — embedded anywhere.
 
 ## What is this?
 
-A **B2B SaaS platform** that lets organizations connect diverse data sources — databases, documents, SaaS tools — and interact with them through an AI-powered chatbot interface.
+An open-source **runtime template** that wraps CLI AI tools (`claude -p`, Codex CLI, Gemini CLI) into an agent system with:
 
-- **Accept any data source** — SQL/NoSQL databases, PDFs, Excel, Notion, Slack, Jira, ERP systems
-- **AI agent finds answers** — intelligent orchestration across 5 RAG strategies (vector, code, graph, SQL, logical reasoning)
-- **Embeddable widget** — drop a chat widget into any customer website with a single script tag
-- **Multi-tenant by design** — logical isolation with Row Level Security, per-tenant connectors and permissions
+- A **Conductor** — AI agent that responds to messages, searches memory for context, and delegates to specialist agents
+- An **Agent Pool** of AI agents with pluggable backends (per-agent backend selection)
+- **Persistent Memory** via [pyx-memory](https://github.com/fysoul17/pyx-memory-v1) — vector search (LanceDB), structured storage (SQLite), Graph RAG (Neo4j), and file ingestion. Connects as a sidecar via `MemoryClient`.
+- A real-time **Cyberpunk Dashboard** with streaming chat, agent management, and debug console
+- **Scheduled tasks** via Cron Manager
 
-Built on the [Agent Forge](https://github.com/fysoul17/agent-forge) autonomous agent engine, which provides the conductor, agent pool, plugin system, and memory infrastructure.
-
----
-
-## Architecture Overview
+**This is not a product. It's the engine.** Fork it, add your agent definitions and domain data, ship your product.
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                      PRESENTATION                        │
-│   Dashboard (Next.js)  ·  Embeddable Widget  ·  API      │
-└────────────────────────────┬─────────────────────────────┘
-                             │
-                             ▼
-┌──────────────────────────────────────────────────────────┐
-│                   AGENTIC RAG SYSTEM                     │
-│                                                          │
-│   Orchestration: Ingestion Agent · Retrieval Agent       │
-│                  Evaluation Agent                        │
-│                                                          │
-│   Strategies:  VectorRAG · CodeRAG · GraphRAG            │
-│                Text2SQL  · KAG (logical reasoning)       │
-└────────────────────────────┬─────────────────────────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-        ┌──────────┐  ┌──────────┐  ┌──────────┐
-        │ Supabase │  │  Qdrant  │  │  Neo4j   │
-        │ (Auth,DB,│  │ (Vector  │  │ (Graph   │
-        │ Storage) │  │  Search) │  │  Search) │
-        └──────────┘  └──────────┘  └──────────┘
+              This Template (Engine)
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   ┌─────────┐  ┌──────────┐  ┌──────────┐
+   │  Your   │  │  Your    │  │  Your    │
+   │  OaaS   │  │  QA Team │  │  Content │
+   │ Product │  │ Product  │  │ Product  │
+   └─────────┘  └──────────┘  └──────────┘
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the full architecture specification including data flows, RAG strategy details, widget security, and agentic orchestration.
+---
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    Runtime Container (Bun)                            │
+│                                                                      │
+│  ┌────────────────┐    ┌──────────────────────────────────────────┐  │
+│  │   Bun.serve    │    │       Conductor (AI Agent)               │  │
+│  │   HTTP + WS    │───▶│                                          │  │
+│  │                │    │  ┌────────────┐  ┌───────────────────┐   │  │
+│  │  /health       │    │  │  Memory    │  │  AI Response      │   │  │
+│  │  /api/*        │    │  │  Search    │  │  (CLIBackend)     │   │  │
+│  │  /ws/chat      │    │  └────────────┘  └───────────────────┘   │  │
+│  │  /ws/debug     │    │         │                                │  │
+│  └────────────────┘    │         ▼                                │  │
+│                        │  ┌─────────────┐     ┌──────────────┐    │  │
+│                        │  │ Agent Pool  │     │    Memory     │    │  │
+│                        │  │             │     │              │    │  │
+│                        │  │ Agent #1    │     │ pyx-memory   │    │  │
+│                        │  │ Agent #2    │     │ (sidecar via │    │  │
+│                        │  │ Agent #N    │     │ MemoryClient)│    │  │
+│                        │  └─────────────┘     └──────────────┘    │  │
+│                        └──────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────────┐  │
+│  │  DebugBus   │  │ ActivityLog  │  │       Cron Manager         │  │
+│  └─────────────┘  └──────────────┘  └────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                  Dashboard (Next.js 16.1)                             │
+│  ┌──────┐ ┌────────┐ ┌──────┐ ┌──────────┐ ┌────────┐ ┌──────────┐ │
+│  │ Home │ │ Agents │ │ Chat │ │ Activity │ │ Memory │ │Automation│ │
+│  │ SSR  │ │  CRUD  │ │  WS  │ │  Debug   │ │Browser │ │  Crons   │ │
+│  └──────┘ └────────┘ └──────┘ └──────────┘ └────────┘ └──────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Conductor Pipeline
+
+Every message flows through a simple pipeline:
+
+```
+Message In ──▶ Memory Search ──▶ Respond or Delegate ──▶ Entity Extract ──▶ Memory Store ──▶ Response Out
+                 (context)       (AI backend / agent)    (LLM → graph)     (if valuable)    (stream WS)
+```
+
+The Conductor is a simple AI agent: it searches memory for context, then either responds directly via its AI backend or delegates to a specific agent when `targetAgentId` is set.
 
 ---
 
-## Current State
+## Features
 
-This project is in active development. The Agent Forge engine layer is functional; the product-specific RAG SaaS features are being built on top.
+### Pluggable AI Backends
+Swap AI providers without changing code. `claude -p` is the default. Codex CLI, Gemini CLI, Pi, and Ollama slot in via the `CLIBackend` interface. Each agent can use a different backend via the BackendRegistry. Custom tool support is wired up for Claude (`--allowed-tools`), Codex (`--enable`), Gemini (`--allowed-tools`), and Ollama (API `tools` parameter).
 
-### What's working today
+### Persistent Memory (pyx-memory)
+Memory is powered by [pyx-memory](https://github.com/fysoul17/pyx-memory-v1), consumed via the [`@pyxmate/memory`](https://www.npmjs.com/package/@pyxmate/memory) npm SDK. Provides structured data in bun:sqlite (WAL mode) + vector embeddings in LanceDB + four RAG strategies (Hybrid, Graph, Agentic, Naive). The runtime connects to pyx-memory as a **sidecar** (standalone HTTP service via Docker) using `MemoryClient` when `MEMORY_URL` is configured. Memory persists across sessions and agent restarts. Conversations are automatically enriched with **LLM-powered entity extraction** — named entities and relationships are extracted at store time and fed into the knowledge graph for Graph RAG.
 
-| Layer | Status |
-|-------|--------|
-| **Agent Forge engine** | Conductor, agent pool, plugin system, cron manager |
-| **pyx-memory integration** | Vector search (LanceDB), structured storage (SQLite), Graph RAG (Neo4j), file ingestion, lifecycle management |
-| **5 AI backends** | Claude, Codex, Gemini, Pi, Ollama — per-agent backend selection via BackendRegistry |
-| **Cyberpunk dashboard** | Next.js 16.1 — chat, agents, memory browser, debug console, sessions, settings |
-| **Observability** | DebugBus ring buffer, pipeline visualization, activity log |
-| **Docker deployment** | Runtime + dashboard + optional memory server & Neo4j |
-| **CI/CD** | GitHub Actions — lint, typecheck, unit tests, E2E (27 scenarios), Docker build |
+### Agent Lifecycle Management
+Full CRUD for AI agents with serial message queues, idle timeout auto-shutdown, configurable pool limits, session persistence (`--resume` flags), and ownership-based permissions (user-created vs conductor-created agents).
 
-### What's next
+### Real-time Dashboard
+Cyberpunk-themed Next.js dashboard with glass-morphism cards, neon accents, and scanline effects. SSR for initial load, WebSocket for live updates. Includes streaming chat, agent cards with backend/status badges, and a full debug console.
 
-The product layers described in the architecture spec: multi-tenant auth, document ingestion pipeline, agentic RAG orchestration, embeddable widget, and SaaS connectors.
+### Observability Built In
+DebugBus (ring buffer + pub/sub) streams events across 5 categories (conductor, agent, memory, websocket, system) to a filterable debug console with pause/resume, search, and JSON expansion.
 
----
+### Pipeline Visualization
+See exactly how the Conductor processes each message: which phase it's in, timing data per step — all rendered live in the chat UI.
 
-## Product Roadmap
+### Plugin System
+Event hooks and middleware pipeline for customizing behavior without modifying core source. 8 hook points (`onBeforeMessage`, `onAfterResponse`, `onBeforeAgentCreate`, etc.) with waterfall data flow, priority ordering, and error isolation. Plugins register declaratively via `PluginManager`.
 
-| Phase | Focus | Key Deliverables |
-|-------|-------|-----------------|
-| **Phase 1** (Foundation) | Auth, upload, basic search | Multi-tenant auth, file upload, VectorRAG, basic chat & widget |
-| **Phase 2** (Multi-Strategy) | Expand retrieval | CodeRAG, Text2SQL, SaaS connectors, basic agent orchestration, monitoring |
-| **Phase 3** (Full Agentic) | Intelligent orchestration | GraphRAG, KAG, ingestion/retrieval/evaluation agents, full orchestration |
-| **Phase 4+** (Enterprise) | Scale & compliance | Public API, plan tiers, on-premise deployment, custom connector SDK, SOC2 |
+### Session Management
+Full conversation history with browse, resume, and delete. Sessions track messages per agent, persist across restarts, and integrate with WebSocket chat for seamless session continuity.
 
-See [`docs/architecture.md` §12](docs/architecture.md#12-implementation-phases) for detailed phase breakdowns.
+### Production Hardening
+IP-based rate limiting (configurable window + max), structured JSON logging with log levels, and a standardized streaming contract across all AI backends. Ready for deployment behind a reverse proxy.
 
----
-
-## Tech Stack
-
-| Layer | Current (Engine) | Planned (Product) |
-|-------|-----------------|-------------------|
-| Runtime | Bun + TypeScript | — |
-| Monorepo | Bun workspaces + Turborepo v2 | — |
-| Frontend | Next.js 16.1 + Tailwind CSS 4 + shadcn/ui | — |
-| Backend | Bun.serve (HTTP + WebSocket) | Next.js Server Actions + Route Handlers |
-| Auth | — | Supabase Auth (RLS) |
-| Structured DB | bun:sqlite (WAL mode) | Supabase (PostgreSQL) |
-| Vector DB | LanceDB (embedded) | Qdrant |
-| Graph DB | Neo4j (via pyx-memory) | Neo4j AuraDB |
-| AI | Claude CLI + 4 other backends | Claude API (native tool use) |
-| Background Jobs | Cron Manager | Trigger.dev |
-| SaaS Connectors | — | Nango |
-| Doc Processing | — | Docling + Tree-sitter |
-| Linter | Biome 2.4+ | — |
-| Tests | bun:test | — |
+### CI/CD Pipeline
+3-job GitHub Actions workflow: quality gate (lint + typecheck + unit tests), E2E integration tests (27 end-to-end scenarios), and Docker build verification. Runs on push to main and PRs.
 
 ---
 
@@ -124,12 +134,9 @@ See [`docs/architecture.md` §12](docs/architecture.md#12-implementation-phases)
 ### Development Mode
 
 ```bash
-# Clone (include submodules for pyx-memory)
-git clone --recurse-submodules https://github.com/fysoul17/ai-rag-hub.git
-cd ai-rag-hub
-
-# Or if already cloned without submodules:
-git submodule update --init --recursive
+# Clone
+git clone https://github.com/fysoul17/agent-forge.git
+cd agent-forge
 
 # Install dependencies
 bun install
@@ -148,58 +155,199 @@ bun run dev:dashboard  # Dashboard on :7821
 # Minimal — runtime (:7820) + dashboard (:7821)
 docker compose -f docker/docker-compose.yaml up
 
+# Rebuild images after code changes
+docker compose -f docker/docker-compose.yaml up --build
+
 # Full stack — adds memory server (:7822) + Neo4j (:7474/:7687)
 docker compose -f docker/docker-compose.yaml --profile full up
+
+# Detached mode (background)
+docker compose -f docker/docker-compose.yaml up -d
+
+# Stop everything
+docker compose -f docker/docker-compose.yaml down
 ```
 
-See `.env.example` or [`docs/SPEC.md` §12](docs/SPEC.md#12-environment-variables) for environment variables.
+### Scripts
+
+| Script | Description |
+|--------|-------------|
+| `scripts/setup.sh` | GHCR authentication for the private `pyx-memory` Docker image (required before `--profile full`) |
+| `scripts/cleanup.sh` | Stop containers, remove images. Use `--volumes` to delete data, `--all` for full cleanup |
+| `run.sh` | One-liner to rebuild and start the full stack |
+
+```bash
+# First-time setup (authenticates with GHCR)
+./scripts/setup.sh
+
+# Full cleanup (containers + volumes + prune)
+./scripts/cleanup.sh --all
+```
+
+**Environment variables** (optional, set in `.env` or pass inline):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AI_BACKEND` | `claude` | AI backend (`claude`, `codex`, `gemini`, `pi`, `ollama`) |
+| `FALLBACK_BACKEND` | *(empty)* | Fallback if primary fails to spawn |
+| `ANTHROPIC_API_KEY` | *(empty)* | API key for Claude CLI |
+| `CODEX_API_KEY` | *(empty)* | API key for OpenAI Codex CLI |
+| `GEMINI_API_KEY` | *(empty)* | API key for Google Gemini CLI |
+| `PI_API_KEY` | *(empty)* | API key for Pi backend |
+| `PI_MODEL` | *(empty)* | Pi model override (e.g., `openai/gpt-4.1`) |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API URL (no key needed) |
+| `MAX_AGENTS` | `10` | Maximum concurrent agents |
+
+See `.env.example` for all variables, or [`docs/SPEC.md` Section 12](docs/SPEC.md#12-environment-variables) for the full reference.
+
+### Run Tests
+
+```bash
+bun run test           # All packages
+bun run typecheck      # TypeScript checking
+bun run lint           # Biome linting
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Bun + TypeScript |
+| Monorepo | Bun workspaces + Turborepo v2 |
+| Frontend | Next.js 16.1 + Tailwind CSS 4 + shadcn/ui |
+| Backend | Bun.serve (HTTP + WebSocket) |
+| Structured DB | bun:sqlite (embedded, WAL mode) |
+| Vector DB | LanceDB (embedded) |
+| AI Backend | `claude -p` (default), pluggable |
+| Linter | Biome 2.4+ |
+| Tests | bun:test |
 
 ---
 
 ## Project Structure
 
 ```
-ai-rag-hub/
+agent-forge/
 ├── packages/
 │   ├── shared/          # Types, interfaces, constants
 │   ├── agent-manager/   # CLIBackend, AgentProcess, AgentPool, BackendRegistry
-│   ├── conductor/       # AI agent with memory + delegation
+│   ├── conductor/       # Simple AI agent with memory + delegation
 │   ├── cron-manager/    # Scheduled tasks
-│   ├── plugin-system/   # Event hooks, middleware pipeline
-│   └── server/          # Bun.serve HTTP + WebSocket + routes
-├── vendor/
-│   └── pyx-memory/      # Git submodule → fysoul17/pyx-memory-v1
+│   ├── plugin-system/   # Event hooks, middleware pipeline, plugin manager
+│   └── server/          # Bun.serve HTTP + WebSocket + routes + agent store
 ├── dashboard/           # Next.js 16.1 cyberpunk dashboard
-├── docker/              # Dockerfiles + docker-compose.yaml
-├── docs/                # Specifications & research
-└── turbo.json           # Turborepo config
+├── docker/              # Dockerfile.runtime, Dockerfile.dashboard, docker-compose.yaml
+├── package.json         # Monorepo root
+├── turbo.json           # Turborepo config
+└── biome.json           # Linter config
 ```
 
----
+### Package Dependencies
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [`docs/SPEC.md`](docs/SPEC.md) | Agent Forge engine specification (runtime, API, WebSocket) |
-| [`docs/architecture.md`](docs/architecture.md) | Product architecture — RAG strategies, orchestration, data flows |
-| [`docs/design-system.md`](docs/design-system.md) | Cyberpunk design system tokens and guidelines |
-| [`docs/CLI-BACKEND-RESEARCH.md`](docs/CLI-BACKEND-RESEARCH.md) | CLI backend comparison and research |
+```
+@autonomy/shared             @pyxmate/memory (npm SDK)
+       │                            │
+       ├──▶ @autonomy/agent-manager │
+       │                     MemoryClient ◀── MemoryInterface contract
+       │                            │
+       ├──▶ @autonomy/conductor ────┘ (uses @pyxmate/memory)
+       ├──▶ @autonomy/cron-manager
+       └──▶ @autonomy/plugin-system (hooks, middleware)
+                    │
+                    ▼
+             @autonomy/server  ◀── uses @pyxmate/memory (sidecar)
+                    │                  or DisabledMemory (no-op)
+                    │                  + AgentStore (bun:sqlite)
+                    ▼
+               dashboard (HTTP + WS, uses @pyxmate/memory/dashboard)
+```
 
 ---
 
 ## Development
 
 ```bash
-bun install               # Install dependencies
-bun run dev               # All packages + dashboard
-bun run dev:runtime       # Server only
-bun run dev:dashboard     # Dashboard only
+# Install
+bun install
 
-bun run test              # All tests
-bun run typecheck         # Type checking
-bun run lint              # Check
-bun run lint:fix          # Auto-fix
+# Development (all packages + dashboard)
+bun run dev
+
+# Individual packages
+bun run dev:runtime          # Server only
+bun run dev:dashboard        # Dashboard only
+
+# Testing
+bun run test                 # All tests
+bun test packages/conductor  # Single package
+
+# Code quality
+bun run lint                 # Check
+bun run lint:fix             # Auto-fix
+bun run typecheck            # Type checking
+```
+
+### API & WebSocket
+
+REST endpoints across route groups: agents, memory (search + lifecycle + graph + paginated listing), sessions, crons, config, backends, activity, and health.
+
+3 WebSocket endpoints: `/ws/chat` (streaming chat), `/ws/debug` (event stream), `/ws/terminal` (PTY-based CLI login).
+
+See [`docs/SPEC.md` Section 10-11](docs/SPEC.md#10-rest-api) for the full endpoint reference.
+
+### Dashboard Pages
+
+| Path | Description |
+|------|-------------|
+| `/` | Home — system health, agent stats, memory stats |
+| `/agents` | Agent management — CRUD, status badges, backend selection |
+| `/chat` | Real-time chat with streaming + pipeline visualization |
+| `/memory` | Memory browser — search, filter, file upload, graph stats |
+| `/automation` | Cron management — create, edit, trigger scheduled tasks |
+| `/activity` | Debug console — live event stream, filters, search |
+| `/sessions` | Session browser — browse, resume, delete conversations |
+| `/settings` | Runtime configuration — AI backend, max agents, danger zone (system reset) |
+| `/settings/providers` | Backend credential management — API keys, OAuth login/logout |
+
+---
+
+## Future
+
+Community extension points — not part of the core template:
+
+- **Channel Adapters** — Telegram, Discord, Slack webhook handlers
+- **Community Backends** — Copilot, Cline, Aider via the `CLIBackend` interface
+- **Organization Templates** — YAML-based agent team definitions
+
+---
+
+## Extending the Template
+
+This template is designed to be forked and extended. Products add:
+
+1. **Custom Conductor logic** — routing, permissions, personality, question tracking
+2. **Agent definitions** — roles, prompts, tools
+3. **Domain data** — ingest into memory via API or dashboard
+4. **Channel adapters** — webhook handlers for messaging platforms
+5. **Additional dashboard pages** — product-specific UI
+6. **Organization templates** — YAML-based agent team definitions
+
+---
+
+## Contributing
+
+Contributions welcome. Please read the spec at `docs/SPEC.md` before contributing.
+
+```bash
+# Fork, clone, create branch
+git checkout -b feat/your-feature
+
+# Make changes, test, lint
+bun run test && bun run lint
+
+# Submit PR
 ```
 
 ---
@@ -213,5 +361,7 @@ MIT
 <div align="center">
 
 **Built with Bun, TypeScript, and Claude.**
+
+[Report Bug](../../issues) &bull; [Request Feature](../../issues)
 
 </div>

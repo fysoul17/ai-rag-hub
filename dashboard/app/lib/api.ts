@@ -162,3 +162,21 @@ export async function deleteSession(id: string): Promise<{ deleted: string }> {
     method: 'DELETE',
   });
 }
+
+// --- System ---
+
+export interface SystemResetResult {
+  reset: boolean;
+  memoryPurged: boolean;
+  memoryEntriesDeleted: number;
+  agentsRestored: number;
+  seedFailed: boolean;
+}
+
+export async function resetSystem(options?: { purgeMemory?: boolean }): Promise<SystemResetResult> {
+  return fetchApi<SystemResetResult>('/api/system/reset', {
+    method: 'POST',
+    body: JSON.stringify({ purgeMemory: options?.purgeMemory ?? false }),
+    signal: AbortSignal.timeout(30_000),
+  });
+}

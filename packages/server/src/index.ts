@@ -6,6 +6,7 @@ import type { CronManager } from '@autonomy/cron-manager';
 import { DebugEventCategory, DebugEventLevel, getErrorDetail, Logger } from '@autonomy/shared';
 import { MemoryClient } from '@pyxmate/memory';
 import type { ServerWebSocket } from 'bun';
+import type { AgentStore } from './agent-store.ts';
 import { parseEnvConfig } from './config.ts';
 import { ConfigManager } from './config-manager.ts';
 import { DebugBus, makeDebugEvent } from './debug-bus.ts';
@@ -23,6 +24,7 @@ import { createHealthRoute } from './routes/health.ts';
 import { createLifecycleRoutes, isExtended } from './routes/lifecycle.ts';
 import { createMemoryRoutes } from './routes/memory.ts';
 import { createSessionRoutes } from './routes/sessions.ts';
+import { createSystemRoutes } from './routes/system.ts';
 import { SecretStore } from './secret-store.ts';
 import {
   initAgentPool,
@@ -50,6 +52,7 @@ interface RouteDeps {
   registry: DefaultBackendRegistry;
   secretStore: SecretStore;
   sessionStore: SessionStore;
+  agentStore: AgentStore;
   startTime: number;
   enableAdvancedMemory: boolean;
 }
@@ -65,6 +68,13 @@ function registerRoutes(router: Router, deps: RouteDeps): void {
   const configRoutes = createConfigRoutes(deps.configManager);
   const backendRoutes = createBackendRoutes(deps.registry, deps.secretStore);
   const sessionRoutes = createSessionRoutes(deps.sessionStore, deps.memory);
+  const systemRoutes = createSystemRoutes({
+    pool: deps.pool,
+    agentStore: deps.agentStore,
+    sessionStore: deps.sessionStore,
+    cronManager: deps.cronManager,
+    memory: deps.memory,
+  });
 
   router.get('/health', healthRoute);
 
@@ -123,6 +133,8 @@ function registerRoutes(router: Router, deps: RouteDeps): void {
   router.get('/api/sessions/:id', sessionRoutes.get);
   router.put('/api/sessions/:id', sessionRoutes.update);
   router.delete('/api/sessions/:id', sessionRoutes.remove);
+
+  router.post('/api/system/reset', systemRoutes.reset);
 }
 
 const MEMORY_CONSOLIDATION_INTERVAL_MS = 30 * 60 * 1000;
@@ -323,6 +335,7 @@ async function main() {
     registry,
     secretStore,
     sessionStore,
+    agentStore,
     startTime,
     enableAdvancedMemory: config.ENABLE_ADVANCED_MEMORY,
   });

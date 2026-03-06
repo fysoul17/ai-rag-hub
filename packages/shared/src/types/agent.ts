@@ -26,6 +26,7 @@ export interface AgentStoreInterface {
   save(definition: AgentDefinition): void;
   update(id: AgentId, definition: AgentDefinition): void;
   delete(id: AgentId): void;
+  deleteAll(): void;
   getById(id: AgentId): AgentDefinition | null;
   list(): AgentDefinition[];
   upsertSeed(definition: AgentDefinition): boolean;

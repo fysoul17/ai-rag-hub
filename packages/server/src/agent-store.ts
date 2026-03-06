@@ -121,6 +121,10 @@ export class AgentStore implements AgentStoreInterface {
     this.db.run('DELETE FROM agents WHERE id = ?', [id]);
   }
 
+  deleteAll(): void {
+    this.db.run('DELETE FROM agents');
+  }
+
   getById(id: AgentId): AgentDefinition | null {
     const row = this.db.query('SELECT * FROM agents WHERE id = ?').get(id) as AgentRow | null;
     return row ? this.rowToDefinition(row) : null;

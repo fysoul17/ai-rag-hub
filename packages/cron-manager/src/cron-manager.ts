@@ -50,10 +50,7 @@ export class CronManager {
   }
 
   async shutdown(): Promise<void> {
-    for (const job of this.jobs.values()) {
-      job.stop();
-    }
-    this.jobs.clear();
+    this.stopAllJobs();
     this.initialized = false;
   }
 
@@ -150,6 +147,16 @@ export class CronManager {
     await this.saveConfig();
   }
 
+  async removeAll(): Promise<void> {
+    this.ensureInitialized();
+
+    this.stopAllJobs();
+    this.crons = [];
+    this.executionLogs = [];
+    this.executing.clear();
+    await this.saveConfig();
+  }
+
   async trigger(id: string): Promise<CronExecutionLog> {
     this.ensureInitialized();
 
@@ -188,6 +195,13 @@ export class CronManager {
         lastExecution,
       };
     });
+  }
+
+  private stopAllJobs(): void {
+    for (const job of this.jobs.values()) {
+      job.stop();
+    }
+    this.jobs.clear();
   }
 
   private scheduleJob(entry: CronEntry): void {
