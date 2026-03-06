@@ -123,6 +123,11 @@ export async function storeConversation(
 
   try {
     const fullText = responseContent ? `${content}\n\nAssistant: ${responseContent}` : content;
+    memoryLogger.info('Extracting entities for memory store', {
+      fullTextLength: fullText.length,
+      hasApiKey: !!ctx.llmApiKey,
+      hasBackendSendFn: !!ctx.backendSendFn,
+    });
     const { entities, relationships } = await extractEntities(fullText, {
       apiKey: ctx.llmApiKey,
       backendSendFn: ctx.backendSendFn,
@@ -131,6 +136,13 @@ export async function storeConversation(
     const graphTargets = hasGraphData
       ? [StoreTarget.SQLITE, StoreTarget.VECTOR, StoreTarget.GRAPH]
       : undefined;
+
+    memoryLogger.info('Storing memory entry', {
+      hasGraphData,
+      entityCount: entities.length,
+      relationshipCount: relationships.length,
+      targets: graphTargets ?? ['default'],
+    });
 
     await ctx.memory.store({
       content,

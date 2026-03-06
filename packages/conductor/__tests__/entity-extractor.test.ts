@@ -218,6 +218,32 @@ describe('extractEntitiesViaApi (isolated)', () => {
     expect(result).toEqual({ entities: [], relationships: [] });
   });
 
+  realTest('parses markdown-fenced JSON with ```json wrapper', async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(
+        makeApiResponse(
+          '```json\n{"entities":[{"name":"Alice","type":"PERSON"}],"relationships":[]}\n```',
+        ),
+      ),
+    );
+
+    const result = await extractEntitiesViaApi('Alice works at Acme Corp in Seattle', API_KEY);
+    expect(result.entities).toEqual([{ name: 'Alice', type: 'PERSON' }]);
+  });
+
+  realTest('parses markdown-fenced JSON with ``` wrapper (no language tag)', async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(
+        makeApiResponse(
+          '```\n{"entities":[{"name":"Bob","type":"PERSON"}],"relationships":[]}\n```',
+        ),
+      ),
+    );
+
+    const result = await extractEntitiesViaApi('Bob works at DevCorp in this longer sentence', API_KEY);
+    expect(result.entities).toEqual([{ name: 'Bob', type: 'PERSON' }]);
+  });
+
   realTest('returns empty when response has no text content', async () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve(
@@ -335,6 +361,21 @@ describe('extractEntitiesViaBackend', () => {
       sendFn,
     );
     expect(result).toEqual({ entities: [], relationships: [] });
+  });
+
+  realTest('parses markdown-fenced JSON from backend LLM', async () => {
+    const sendFn = mock(() =>
+      Promise.resolve(
+        '```json\n{"entities":[{"name":"Alice","type":"PERSON"},{"name":"DevCorp","type":"ORGANIZATION"}],"relationships":[{"source":"Alice","target":"DevCorp","type":"WORKS_AT"}]}\n```',
+      ),
+    );
+
+    const result = await extractEntitiesViaBackend(
+      'Alice works at DevCorp in Seattle region',
+      sendFn,
+    );
+    expect(result.entities).toHaveLength(2);
+    expect(result.relationships).toHaveLength(1);
   });
 
   realTest('filters invalid entity types from backend response', async () => {

@@ -47,12 +47,26 @@ Rules:
 Text:
 `;
 
+/** Strip markdown code fences (```json ... ```, ```JSON ... ```, ```text ... ```, etc.) that LLMs sometimes wrap around JSON. */
+function stripMarkdownFencing(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('```')) return trimmed;
+  // Remove opening fence (```<lang> or ```) and closing fence (```)
+  return trimmed.replace(/^```\w*\s*\n?/, '').replace(/\n?```\s*$/, '');
+}
+
 /**
  * Parse and validate the raw JSON text returned by the extraction LLM.
  * Shared between the API and backend extraction paths.
  */
 function parseExtractionResponse(text: string): ExtractionResult {
-  const parsed = JSON.parse(text) as ExtractionResult;
+  const stripped = stripMarkdownFencing(text);
+  logger.info('parseExtractionResponse', {
+    rawLength: text.length,
+    rawPreview: text.slice(0, 200),
+    strippedPreview: stripped.slice(0, 200),
+  });
+  const parsed = JSON.parse(stripped) as ExtractionResult;
 
   if (!Array.isArray(parsed.entities)) return EMPTY_EXTRACTION;
 
@@ -103,9 +117,13 @@ export async function extractEntitiesViaBackend(
   content: string,
   sendFn: (msg: string) => Promise<string>,
 ): Promise<ExtractionResult> {
-  if (content.trim().length < 20) return EMPTY_EXTRACTION;
+  if (content.trim().length < 20) {
+    logger.info('Backend extraction skipped — content too short', { length: content.trim().length });
+    return EMPTY_EXTRACTION;
+  }
 
   const truncated = truncateForExtraction(content);
+  logger.info('Backend extraction starting', { contentLength: truncated.length });
 
   try {
     const response = await Promise.race([
@@ -114,6 +132,10 @@ export async function extractEntitiesViaBackend(
         setTimeout(() => reject(new Error('Backend extraction timed out')), EXTRACTION_TIMEOUT_MS),
       ),
     ]);
+    logger.info('Backend extraction raw response', {
+      responseLength: response.length,
+      responsePreview: response.slice(0, 300),
+    });
     return parseExtractionResponse(response);
   } catch (error) {
     logger.warn('Entity extraction via backend failed', { error: getErrorDetail(error) });
@@ -127,9 +149,13 @@ export async function extractEntitiesViaBackend(
  * Returns empty arrays on failure (non-fatal).
  */
 export async function extractEntitiesViaApi(content: string, apiKey: string): Promise<ExtractionResult> {
-  if (!apiKey || content.trim().length < 20) return EMPTY_EXTRACTION;
+  if (!apiKey || content.trim().length < 20) {
+    logger.info('API extraction skipped', { hasApiKey: !!apiKey, contentLength: content.trim().length });
+    return EMPTY_EXTRACTION;
+  }
 
   const truncated = truncateForExtraction(content);
+  logger.info('API extraction starting', { contentLength: truncated.length });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), EXTRACTION_TIMEOUT_MS);
@@ -185,7 +211,15 @@ export async function extractEntities(
   content: string,
   options: ExtractEntitiesOptions,
 ): Promise<ExtractionResult> {
+  const path = options.backendSendFn ? 'backend' : options.apiKey ? 'api' : 'none';
+  logger.info('extractEntities dispatching', {
+    path,
+    contentLength: content.length,
+    hasBackendSendFn: !!options.backendSendFn,
+    hasApiKey: !!options.apiKey,
+  });
   if (options.backendSendFn) return extractEntitiesViaBackend(content, options.backendSendFn);
   if (options.apiKey) return extractEntitiesViaApi(content, options.apiKey);
+  logger.warn('extractEntities — no extraction path available (no backendSendFn or apiKey)');
   return EMPTY_EXTRACTION;
 }

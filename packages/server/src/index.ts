@@ -92,6 +92,7 @@ function registerRoutes(router: Router, deps: RouteDeps): void {
   router.delete('/api/memory/source/:source', lifecycleRoutes.deleteBySource);
   router.get('/api/memory/graph/nodes', graphRoutes.getNodes);
   router.get('/api/memory/graph/edges', graphRoutes.getEdges);
+  router.get('/api/memory/graph/relationships', graphRoutes.getRelationships);
   router.post('/api/memory/graph/query', graphRoutes.query);
 
   router.get('/api/crons', cronRoutes.list);

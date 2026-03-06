@@ -77,68 +77,70 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
               <span className="font-mono text-sm">{entry.id.slice(0, 16)}...</span>
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={memoryTypeBadgeVariant(entry.type)}>{entry.type}</Badge>
-                {entry.agentId && (
-                  <Badge variant="outline" className="font-mono">
-                    agent: {entry.agentId}
-                  </Badge>
-                )}
-                {entry.sessionId && (
-                  <Badge variant="outline" className="font-mono">
-                    session: {entry.sessionId.slice(0, 8)}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="rounded-md border bg-muted/50 p-4">
-                <p className="whitespace-pre-wrap text-sm">{entry.content}</p>
-              </div>
-
-              {Object.keys(entry.metadata).length > 0 && (
-                <div>
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">Metadata</p>
-                  <pre className="rounded-md border bg-muted/50 p-3 font-mono text-xs">
-                    {JSON.stringify(entry.metadata, null, 2)}
-                  </pre>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-4 pr-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={memoryTypeBadgeVariant(entry.type)}>{entry.type}</Badge>
+                  {entry.agentId && (
+                    <Badge variant="outline" className="font-mono">
+                      agent: {entry.agentId}
+                    </Badge>
+                  )}
+                  {entry.sessionId && (
+                    <Badge variant="outline" className="font-mono">
+                      session: {entry.sessionId.slice(0, 8)}
+                    </Badge>
+                  )}
                 </div>
-              )}
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Created: {new Date(entry.createdAt).toLocaleString()}</span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setConfirmAction('forget')}
-                    disabled={forgetting || deleting}
-                    className="gap-1"
-                  >
-                    <Archive className="h-3 w-3" />
-                    {forgetting ? 'Forgetting...' : 'Forget'}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setConfirmAction('delete')}
-                    disabled={deleting || forgetting}
-                    className="gap-1"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    {deleting ? 'Deleting...' : 'Delete'}
-                  </Button>
+                <div className="rounded-md border bg-muted/50 p-4">
+                  <p className="whitespace-pre-wrap text-sm">{entry.content}</p>
                 </div>
-              </div>
 
-              {error && (
-                <p role="alert" className="text-xs text-neon-red">
-                  {error}
-                </p>
-              )}
+                {Object.keys(entry.metadata).length > 0 && (
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Metadata</p>
+                    <pre className="rounded-md border bg-muted/50 p-3 font-mono text-xs">
+                      {JSON.stringify(entry.metadata, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border/50 pt-3 text-xs text-muted-foreground">
+            <span>Created: {new Date(entry.createdAt).toLocaleString()}</span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmAction('forget')}
+                disabled={forgetting || deleting}
+                className="gap-1"
+              >
+                <Archive className="h-3 w-3" />
+                {forgetting ? 'Forgetting...' : 'Forget'}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setConfirmAction('delete')}
+                disabled={deleting || forgetting}
+                className="gap-1"
+              >
+                <Trash2 className="h-3 w-3" />
+                {deleting ? 'Deleting...' : 'Delete'}
+              </Button>
             </div>
-          </ScrollArea>
+          </div>
+
+          {error && (
+            <p role="alert" className="text-xs text-neon-red">
+              {error}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
 
