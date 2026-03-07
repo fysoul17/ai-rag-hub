@@ -8,6 +8,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.runtime
+      provenance: false
     ports:
       - "7820:7820"
     volumes:
@@ -52,6 +53,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.dashboard
+      provenance: false
     ports:
       - "7821:7821"
     environment:

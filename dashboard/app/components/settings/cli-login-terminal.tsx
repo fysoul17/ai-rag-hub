@@ -113,6 +113,23 @@ function extractAuthUrl(text: string, trustedDomains: Set<string>): string | nul
   return null;
 }
 
+/**
+ * Custom key handler for Windows/Linux terminals.
+ * Lets Ctrl+V and Ctrl+Shift+C/V pass through to the browser for clipboard access
+ * instead of being intercepted by xterm.js as control characters.
+ */
+function handleNonMacKey(event: KeyboardEvent, hasSelection: () => boolean): boolean {
+  if (event.type !== 'keydown') return true;
+  if (event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'V')) {
+    return false;
+  }
+  if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+    if (event.key === 'v' || event.key === 'V') return false;
+    if ((event.key === 'c' || event.key === 'C') && hasSelection()) return false;
+  }
+  return true;
+}
+
 /** Imperative handle exposed by XtermTerminal via forwardRef. */
 interface XtermTerminalHandle {
   /** Send text to the PTY as if typed/pasted into the terminal. */
@@ -192,20 +209,9 @@ const XtermTerminal = forwardRef<
       // already passes through, so this handler is only needed for non-Mac.
       const isMac = /mac/i.test(navigator.userAgent);
       if (!isMac) {
-        term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-          if (event.type !== 'keydown') return true;
-          // Ctrl+Shift+C / Ctrl+Shift+V — common terminal clipboard convention
-          if (event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'V')) {
-            return false;
-          }
-          if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
-            // Ctrl+V → let browser fire paste event
-            if (event.key === 'v' || event.key === 'V') return false;
-            // Ctrl+C → copy if text is selected, otherwise send SIGINT normally
-            if ((event.key === 'c' || event.key === 'C') && term.hasSelection()) return false;
-          }
-          return true;
-        });
+        term.attachCustomKeyEventHandler((event: KeyboardEvent) =>
+          handleNonMacKey(event, () => term.hasSelection()),
+        );
       }
 
       // Connect WebSocket to server PTY
@@ -443,13 +449,10 @@ export function CliLoginTerminal({
     setState('running');
   }, [doLogoutFirst, isAuthenticated]);
 
-  const handlePasteCode = useCallback(
-    (code: string) => {
-      terminalRef.current?.sendData(`${code}\r`);
-      terminalRef.current?.focus();
-    },
-    [],
-  );
+  const handlePasteCode = useCallback((code: string) => {
+    terminalRef.current?.sendData(`${code}\r`);
+    terminalRef.current?.focus();
+  }, []);
 
   const handleClose = useCallback(() => {
     if (authUrl) {

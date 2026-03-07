@@ -783,7 +783,9 @@ export class Conductor {
   }
 
   private makeExtractionSendFn(): (msg: string) => Promise<string> {
-    return (msg: string) => this.extractionProcess!.send(msg);
+    const proc = this.extractionProcess;
+    if (!proc) throw new Error('extractionProcess is not initialized');
+    return (msg: string) => proc.send(msg);
   }
 
   private async getExtractionSendFn(): Promise<((msg: string) => Promise<string>) | undefined> {
