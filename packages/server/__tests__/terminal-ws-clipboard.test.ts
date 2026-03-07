@@ -73,7 +73,7 @@ describe('Terminal WS message handler — paste data patterns', () => {
     handler.open(asWS(ws));
 
     // Simulate pasting a long auth code — should not throw
-    const authCode = 'aB3cD5eF7gH9iJ1kL3mN5oP7qR9sT1uV3wX5yZ7' + '0'.repeat(80);
+    const authCode = `aB3cD5eF7gH9iJ1kL3mN5oP7qR9sT1uV3wX5yZ7${'0'.repeat(80)}`;
     handler.message(asWS(ws), authCode);
 
     handler.close(asWS(ws));
@@ -323,7 +323,7 @@ describe('pty-bridge paste data relay', () => {
     if (!PTY_AVAILABLE) return;
     const proc = spawnBridge(['cat']);
 
-    const largePaste = 'X'.repeat(1024) + '\n';
+    const largePaste = `${'X'.repeat(1024)}\n`;
     proc.stdin.write(largePaste);
     proc.stdin.flush();
 
