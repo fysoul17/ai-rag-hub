@@ -107,6 +107,9 @@ export const INTERACTION = {
 
   // Auto-fit camera lerp factor (per frame at ~60fps)
   autoFitLerp: 0.08,
+
+  // Double-click zoom-to-node
+  dblClickZoom: 1.8,
 } as const;
 
 /** Type-based cluster position for sparse graphs */

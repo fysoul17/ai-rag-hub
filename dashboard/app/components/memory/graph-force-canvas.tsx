@@ -561,18 +561,44 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     return () => canvas.removeEventListener('wheel', onWheel);
   }, [requestDraw]);
 
-  const handleDoubleClick = useCallback(() => {
-    const { w, h } = sizeRef.current;
-    cameraRef.current = computeFitCamera(nodesRef.current, w, h, INTERACTION.fitPadding);
-    // Re-enable auto-fit if simulation is still settling
-    const alpha = simRef.current?.alpha() ?? 0;
-    if (alpha > INTERACTION.alphaStopThreshold) {
-      autoFitRef.current = true;
-      startLoop();
-    } else {
-      requestDraw();
-    }
-  }, [requestDraw, startLoop]);
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = rectRef.current ?? canvas.getBoundingClientRect();
+      const cam = cameraRef.current;
+      const [cx, cy] = screenToCanvas(e.clientX, e.clientY, rect, cam);
+      const node = findNodeAt(cx, cy, nodesRef.current);
+
+      if (node && node.x != null && node.y != null) {
+        // Zoom into the double-clicked node
+        autoFitRef.current = false;
+        cameraRef.current = {
+          x: -node.x,
+          y: -node.y,
+          zoom: Math.max(cam.zoom, INTERACTION.dblClickZoom),
+        };
+        // Re-select the node (click toggle may have deselected it)
+        setSelectedNode(node.id);
+        neighborIdxRef.current = 0;
+        requestDraw();
+        return;
+      }
+
+      // Empty space: fit all (reset view)
+      const { w, h } = sizeRef.current;
+      cameraRef.current = computeFitCamera(nodesRef.current, w, h, INTERACTION.fitPadding);
+      // Re-enable auto-fit if simulation is still settling
+      const alpha = simRef.current?.alpha() ?? 0;
+      if (alpha > INTERACTION.alphaStopThreshold) {
+        autoFitRef.current = true;
+        startLoop();
+      } else {
+        requestDraw();
+      }
+    },
+    [requestDraw, startLoop],
+  );
 
   const handleKeyDown = useCallback(
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard navigation with multiple key bindings
@@ -746,8 +772,8 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
 
       {/* HUD: Controls hint */}
       <span className="pointer-events-none absolute bottom-3 right-3 select-none text-[10px] text-muted-foreground">
-        Drag / Shift+Arrows pan &middot; Scroll / +/&minus; zoom &middot; Dbl-click / R reset
-        &middot; Arrows navigate &middot; Esc deselect
+        Drag / Shift+Arrows pan &middot; Scroll / +/&minus; zoom &middot; Dbl-click node zoom in
+        &middot; Dbl-click bg / R reset &middot; Arrows navigate &middot; Esc deselect
       </span>
 
       {/* Screen reader announcements */}
