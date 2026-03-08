@@ -1,2 +1,4 @@
-# Keep our README when merging from upstream
+# Keep ours when merging from upstream
 README.md merge=ours
+dashboard/app/globals.css merge=ours
+docs/design-system.md merge=ours

@@ -1,9 +1,9 @@
-# Design Style: Cyberpunk
+# Design Style: Obsidian Pulse
 
-> Dark, neon-lit interface with glowing cyan accents, glass-morphism, and purple secondary highlights over a grid background.
+> Dark, angular, and intense — a diamond-cut interface with pulsing red accents over an obsidian grid.
 
 **Platform**: web
-**Theme**: Cyberpunk dark (neon cyan primary, purple secondary, glass-morphism, glow effects)
+**Source**: `docs/design/style_1_obsidian_pulse.html`
 
 ---
 
