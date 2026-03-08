@@ -20,7 +20,7 @@ function StatusBadge({ backend }: { backend: BackendStatus }) {
     return (
       <Badge
         variant="outline"
-        className="bg-neon-amber/10 text-neon-amber border-neon-amber/20"
+        className="bg-status-amber/10 text-status-amber border-status-amber/20"
       >
         Not Configured
       </Badge>
@@ -29,7 +29,7 @@ function StatusBadge({ backend }: { backend: BackendStatus }) {
   return (
     <Badge
       variant="outline"
-      className="bg-neon-green/10 text-neon-green border-neon-green/20"
+      className="bg-status-green/10 text-status-green border-status-green/20"
     >
       Ready
     </Badge>
@@ -63,7 +63,7 @@ function AuthInfo({ backend }: { backend: BackendStatus }) {
   if (!backend.available) {
     return <div className="text-xs text-red-400">{backend.error ?? 'CLI not installed'}</div>;
   }
-  return <div className="text-xs text-neon-amber">No authentication configured</div>;
+  return <div className="text-xs text-status-amber">No authentication configured</div>;
 }
 
 function CapabilityList({ backend }: { backend: BackendStatus }) {

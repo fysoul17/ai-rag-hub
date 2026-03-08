@@ -145,7 +145,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
       </Dialog>
 
       <AlertDialog open={confirmAction !== null} onOpenChange={() => setConfirmAction(null)}>
-        <AlertDialogContent className="border-neon-red/30">
+        <AlertDialogContent className="border-status-red/30">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction === 'delete' ? 'Delete Memory Entry' : 'Forget Memory Entry'}
@@ -161,7 +161,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
             <AlertDialogAction
               onClick={confirmAction === 'delete' ? handleDelete : handleForget}
               className={
-                confirmAction === 'delete' ? 'bg-neon-red hover:bg-neon-red/80' : undefined
+                confirmAction === 'delete' ? 'bg-status-red hover:bg-status-red/80' : undefined
               }
             >
               {confirmAction === 'delete' ? 'Delete' : 'Forget'}

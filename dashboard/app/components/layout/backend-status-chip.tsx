@@ -12,9 +12,9 @@ type ChipStatus = 'connected' | 'no_key' | 'unavailable' | 'loading' | 'error';
 function statusDot(status: ChipStatus) {
   switch (status) {
     case 'connected':
-      return 'bg-neon-green';
+      return 'bg-status-green';
     case 'no_key':
-      return 'bg-neon-amber';
+      return 'bg-status-amber';
     case 'unavailable':
     case 'error':
       return 'bg-red-500';

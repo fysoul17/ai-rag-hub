@@ -23,7 +23,7 @@ export function MemoryEntryCard({ entry, onSelect }: MemoryEntryCardProps) {
 
   return (
     <Card
-      className={`glass hover:scale-[1.02] cursor-pointer transition-all ${glow}`}
+      className={`card-hover accent-line-top cursor-pointer transition-all ${glow}`}
       onClick={() => onSelect?.(entry)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

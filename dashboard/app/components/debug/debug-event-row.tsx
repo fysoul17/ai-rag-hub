@@ -12,31 +12,31 @@ const CATEGORY_STYLES: Record<DebugEventCategory, { label: string; color: string
   },
   agent: {
     label: 'AGNT',
-    color: 'text-neon-purple',
-    bg: 'bg-neon-purple/10 border-neon-purple/30',
+    color: 'text-status-purple',
+    bg: 'bg-status-purple/10 border-status-purple/30',
   },
   memory: {
     label: 'MEM',
-    color: 'text-neon-green',
-    bg: 'bg-neon-green/10 border-neon-green/30',
+    color: 'text-status-green',
+    bg: 'bg-status-green/10 border-status-green/30',
   },
   websocket: {
     label: 'WS',
-    color: 'text-neon-amber',
-    bg: 'bg-neon-amber/10 border-neon-amber/30',
+    color: 'text-status-amber',
+    bg: 'bg-status-amber/10 border-status-amber/30',
   },
   system: {
     label: 'SYS',
-    color: 'text-neon-red',
-    bg: 'bg-neon-red/10 border-neon-red/30',
+    color: 'text-status-red',
+    bg: 'bg-status-red/10 border-status-red/30',
   },
 };
 
 const LEVEL_STYLES: Record<DebugEventLevel, string> = {
   debug: 'text-muted-foreground/60',
   info: 'text-foreground',
-  warn: 'text-neon-amber',
-  error: 'text-neon-red',
+  warn: 'text-status-amber',
+  error: 'text-status-red',
 };
 
 const LEVEL_INDICATOR: Record<DebugEventLevel, string> = {

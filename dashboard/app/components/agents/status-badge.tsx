@@ -4,18 +4,18 @@ import { Badge } from '@/components/ui/badge';
 const statusConfig: Record<string, { label: string; className: string; dot: string }> = {
   active: {
     label: 'Active',
-    className: 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20',
-    dot: 'bg-neon-cyan',
+    className: 'bg-status-green/10 text-status-green border-status-green/20',
+    dot: 'bg-status-green',
   },
   idle: {
     label: 'Idle',
-    className: 'bg-neon-amber/10 text-neon-amber border-neon-amber/20',
-    dot: 'bg-neon-amber',
+    className: 'bg-status-amber/10 text-status-amber border-status-amber/20',
+    dot: 'bg-status-amber',
   },
   busy: {
     label: 'Busy',
-    className: 'bg-neon-purple/10 text-neon-purple border-neon-purple/20',
-    dot: 'bg-neon-purple',
+    className: 'bg-status-purple/10 text-status-purple border-status-purple/20',
+    dot: 'bg-status-purple',
   },
   stopped: {
     label: 'Stopped',
@@ -24,8 +24,8 @@ const statusConfig: Record<string, { label: string; className: string; dot: stri
   },
   error: {
     label: 'Error',
-    className: 'bg-neon-red/10 text-neon-red border-neon-red/20',
-    dot: 'bg-neon-red',
+    className: 'bg-status-red/10 text-status-red border-status-red/20',
+    dot: 'bg-status-red',
   },
 };
 
@@ -40,7 +40,7 @@ export function StatusBadge({ status }: { status: AgentStatus }) {
 
   return (
     <Badge variant="outline" className={`gap-1.5 ${config.className}`}>
-      <span className={`h-1.5 w-1.5 rounded-full animate-pulse-glow ${config.dot}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
       {config.label}
     </Badge>
   );

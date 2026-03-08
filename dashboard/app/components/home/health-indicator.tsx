@@ -1,7 +1,7 @@
 const statusColors: Record<string, string> = {
-  ok: 'bg-neon-green',
-  degraded: 'bg-neon-amber',
-  error: 'bg-neon-red',
+  ok: 'bg-status-green',
+  degraded: 'bg-status-amber',
+  error: 'bg-status-red',
 };
 
 export function HealthIndicator({ status }: { status: string }) {
@@ -10,7 +10,7 @@ export function HealthIndicator({ status }: { status: string }) {
   return (
     <span className="relative flex h-3 w-3">
       <span
-        className={`absolute inline-flex h-full w-full animate-pulse-glow rounded-full opacity-75 ${color}`}
+        className={`absolute inline-flex h-full w-full status-pulse-green rounded-full opacity-75 ${color}`}
       />
       <span className={`relative inline-flex h-3 w-3 rounded-full ${color}`} />
     </span>
