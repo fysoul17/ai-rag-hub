@@ -189,7 +189,7 @@ export function CreateCronDialog() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-status-red"
+                    className="h-8 w-8 text-muted-foreground hover:text-neon-red"
                     onClick={() => removeStep(index)}
                     aria-label={`Remove step ${index + 1}`}
                   >
@@ -200,7 +200,7 @@ export function CreateCronDialog() {
             ))}
           </div>
 
-          {error && <p className="text-sm text-status-red">{error}</p>}
+          {error && <p className="text-sm text-neon-red">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Create Cron Job'}

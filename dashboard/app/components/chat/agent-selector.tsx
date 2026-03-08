@@ -12,11 +12,11 @@ interface AgentSelectorProps {
 }
 
 const statusDot: Record<string, string> = {
-  active: 'bg-status-green',
-  idle: 'bg-status-amber',
-  busy: 'bg-status-purple',
+  active: 'bg-neon-cyan',
+  idle: 'bg-neon-amber',
+  busy: 'bg-neon-purple',
   stopped: 'bg-muted-foreground',
-  error: 'bg-status-red',
+  error: 'bg-neon-red',
 };
 
 const MAX_VISIBLE = 2;
@@ -89,7 +89,7 @@ export function AgentSelector({
         aria-label={`${conductorName}, auto-routes to the right agent`}
         className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border ${
           selected === undefined
-            ? 'bg-status-purple/20 text-status-purple border-status-purple/20'
+            ? 'bg-neon-purple/20 text-neon-purple border-neon-purple/20 glow-purple'
             : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border'
         }`}
       >
@@ -151,7 +151,7 @@ export function AgentSelector({
               role="menu"
               aria-label="Additional agents"
               onKeyDown={handleMenuKeyDown}
-              className="absolute top-full left-0 mt-1 z-50 rounded-none border border-border py-1 min-w-48"
+              className="absolute top-full left-0 mt-1 z-50 glass rounded-md border border-border py-1 min-w-48"
             >
               {overflowAgents.map((agent, i) => (
                 <button

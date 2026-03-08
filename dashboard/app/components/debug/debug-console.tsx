@@ -125,18 +125,18 @@ export function DebugConsole() {
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06] bg-white/[0.02]">
         {status === 'connected' ? (
           <>
-            <Wifi className="h-3 w-3 text-status-green" />
-            <span className="text-[11px] text-status-green font-mono">CONNECTED</span>
+            <Wifi className="h-3 w-3 text-neon-green" />
+            <span className="text-[11px] text-neon-green font-mono">CONNECTED</span>
           </>
         ) : status === 'connecting' ? (
           <>
-            <Wifi className="h-3 w-3 text-status-amber animate-pulse" />
-            <span className="text-[11px] text-status-amber font-mono">CONNECTING...</span>
+            <Wifi className="h-3 w-3 text-neon-amber animate-pulse" />
+            <span className="text-[11px] text-neon-amber font-mono">CONNECTING...</span>
           </>
         ) : (
           <>
-            <WifiOff className="h-3 w-3 text-status-red" />
-            <span className="text-[11px] text-status-red font-mono">DISCONNECTED</span>
+            <WifiOff className="h-3 w-3 text-neon-red" />
+            <span className="text-[11px] text-neon-red font-mono">DISCONNECTED</span>
           </>
         )}
         <span className="text-[10px] text-muted-foreground/40 font-mono ml-auto">/ws/debug</span>
@@ -175,8 +175,8 @@ export function DebugConsole() {
 
       {/* Paused indicator */}
       {paused && (
-        <div className="px-3 py-1 border-t border-status-amber/30 bg-status-amber/5 text-center">
-          <span className="text-[11px] text-status-amber font-mono">
+        <div className="px-3 py-1 border-t border-neon-amber/30 bg-neon-amber/5 text-center">
+          <span className="text-[11px] text-neon-amber font-mono">
             PAUSED — Scroll to bottom or click Resume
           </span>
         </div>

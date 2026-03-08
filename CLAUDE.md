@@ -6,6 +6,14 @@
 - Follow commit conventions in `.claude/commit-conventions.md`
 - Follow design system in `docs/design-system.md` for UI/UX work if exist
 
+## Template / Downstream Boundary
+
+This repo is a **template**. Downstream projects fork from it and must NEVER push changes back.
+
+- **Downstream forks** must run `scripts/setup.sh` after cloning — it auto-configures the upstream remote as read-only
+- **Never commit downstream-specific customizations** (themes, branding, project configs) to this template's main branch
+- The canonical design theme is **Cyberpunk** (cyan #00f0ff primary). Do not change the primary color.
+
 ## Error Handling Philosophy
 
 **No silent fallbacks.** Handle errors explicitly and show the user what happened.

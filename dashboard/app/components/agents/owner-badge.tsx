@@ -6,12 +6,12 @@ const ownerConfig: Record<string, { label: string; icon: typeof Pin; className: 
   user: {
     label: 'User',
     icon: Pin,
-    className: 'bg-status-green/10 text-status-green border-status-green/20',
+    className: 'bg-neon-green/10 text-neon-green border-neon-green/20',
   },
   conductor: {
     label: 'Conductor',
     icon: CircuitBoard,
-    className: 'bg-status-purple/10 text-status-purple border-status-purple/20',
+    className: 'bg-neon-purple/10 text-neon-purple border-neon-purple/20',
   },
   system: {
     label: 'System',
