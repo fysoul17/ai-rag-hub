@@ -2,3 +2,4 @@
 README.md merge=ours
 dashboard/app/globals.css merge=ours
 docs/design-system.md merge=ours
+dashboard/app/components/** merge=ours
