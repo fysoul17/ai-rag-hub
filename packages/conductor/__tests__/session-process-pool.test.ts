@@ -34,7 +34,7 @@ describe('SessionProcessPool', () => {
 
   beforeEach(() => {
     backend = createMockBackend();
-    pool = new SessionProcessPool(backend, undefined, 'Test system prompt', 100);
+    pool = new SessionProcessPool(backend, 'Test system prompt', 100);
   });
 
   describe('getProcess()', () => {
@@ -57,12 +57,135 @@ describe('SessionProcessPool', () => {
       const deadBackend = createMockBackend({
         spawn: mock(async () => deadProcess),
       });
-      const deadPool = new SessionProcessPool(deadBackend, undefined, 'Test', 100);
+      const deadPool = new SessionProcessPool(deadBackend, 'Test', 100);
 
       await deadPool.getOrCreate('session-dead');
       // The process was inserted but is not alive
       const result = deadPool.getProcess('session-dead');
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getOrCreate() spawn failure', () => {
+    test('returns undefined when backend.spawn throws', async () => {
+      const failBackend = createMockBackend({
+        spawn: mock(async () => {
+          throw new Error('spawn crashed');
+        }),
+      });
+      const failPool = new SessionProcessPool(failBackend, 'Test', 100);
+      const result = await failPool.getOrCreate('session-fail');
+      expect(result).toBeUndefined();
+    });
+
+    test('returns undefined when no backend is configured', async () => {
+      const noBackendPool = new SessionProcessPool(undefined, 'Test', 100);
+      const result = await noBackendPool.getOrCreate('session-x');
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('LRU eviction', () => {
+    test('evicts oldest session when pool is at capacity', async () => {
+      const processes: BackendProcess[] = [];
+      const evictBackend = createMockBackend({
+        spawn: mock(async () => {
+          const proc = createMockProcess();
+          processes.push(proc);
+          return proc;
+        }),
+      });
+      const smallPool = new SessionProcessPool(evictBackend, 'Test', 2);
+
+      await smallPool.getOrCreate('session-a');
+      await smallPool.getOrCreate('session-b');
+      await smallPool.getOrCreate('session-c');
+
+      // Oldest (session-a) should be evicted and stopped
+      expect(processes[0].stop).toHaveBeenCalledTimes(1);
+      // session-c should exist
+      expect(smallPool.getProcess('session-c')).toBeDefined();
+      // session-a should be gone
+      expect(smallPool.getProcess('session-a')).toBeUndefined();
+    });
+  });
+
+  describe('config change invalidation', () => {
+    test('respawns process when configOverrides change', async () => {
+      const procs: BackendProcess[] = [];
+      const trackBackend = createMockBackend({
+        spawn: mock(async () => {
+          const proc = createMockProcess();
+          procs.push(proc);
+          return proc;
+        }),
+      });
+      const cfgPool = new SessionProcessPool(trackBackend, 'Test', 100);
+
+      await cfgPool.getOrCreate('sess-1', { model: 'claude-3' });
+      await cfgPool.getOrCreate('sess-1', { model: 'claude-4' });
+
+      // First process should have been stopped due to config change
+      expect(procs[0].stop).toHaveBeenCalledTimes(1);
+      // Two spawns total
+      expect(trackBackend.spawn).toHaveBeenCalledTimes(2);
+    });
+
+    test('does not respawn when configOverrides are identical', async () => {
+      await pool.getOrCreate('sess-1', { model: 'claude-3' });
+      await pool.getOrCreate('sess-1', { model: 'claude-3' });
+
+      // Only one spawn — config didn't change
+      expect(backend.spawn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('invalidate()', () => {
+    test('stops and removes the session process', async () => {
+      const proc = createMockProcess();
+      const trackBackend = createMockBackend({
+        spawn: mock(async () => proc),
+      });
+      const invPool = new SessionProcessPool(trackBackend, 'Test', 100);
+
+      await invPool.getOrCreate('sess-inv');
+      expect(invPool.getProcess('sess-inv')).toBeDefined();
+
+      invPool.invalidate('sess-inv');
+      expect(proc.stop).toHaveBeenCalledTimes(1);
+      expect(invPool.getProcess('sess-inv')).toBeUndefined();
+    });
+
+    test('is a no-op for unknown session', () => {
+      // Should not throw
+      pool.invalidate('nonexistent');
+    });
+  });
+
+  describe('shutdown()', () => {
+    test('stops all processes and clears state', async () => {
+      const procs: BackendProcess[] = [];
+      const shutBackend = createMockBackend({
+        spawn: mock(async () => {
+          const proc = createMockProcess();
+          procs.push(proc);
+          return proc;
+        }),
+      });
+      const shutPool = new SessionProcessPool(shutBackend, 'Test', 100);
+
+      await shutPool.getOrCreate('s1');
+      await shutPool.getOrCreate('s2');
+      await shutPool.getOrCreate('s3');
+
+      await shutPool.shutdown();
+
+      for (const proc of procs) {
+        expect(proc.stop).toHaveBeenCalledTimes(1);
+      }
+      expect(shutPool.getProcess('s1')).toBeUndefined();
+      expect(shutPool.getProcess('s2')).toBeUndefined();
+      expect(shutPool.getProcess('s3')).toBeUndefined();
     });
   });
 

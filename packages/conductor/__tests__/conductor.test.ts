@@ -182,8 +182,8 @@ describe('Conductor', () => {
 
       const response = await conductor.handleMessage(makeMessage());
       expect(response).toBeDefined();
-      const storeDecision = response.decisions.find((d) => d.action === 'store_memory');
-      expect(storeDecision).toBeUndefined();
+      const failDecision = response.decisions.find((d) => d.action === 'store_memory_failed');
+      expect(failDecision).toBeDefined();
     });
   });
 
