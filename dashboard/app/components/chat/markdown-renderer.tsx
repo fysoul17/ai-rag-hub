@@ -79,7 +79,7 @@ const components: Components = {
   // Block quotes
   blockquote({ children }) {
     return (
-      <blockquote className="my-2 border-l-2 border-status-purple/40 pl-3 text-muted-foreground italic">
+      <blockquote className="my-2 border-l-2 border-neon-purple/40 pl-3 text-muted-foreground italic">
         {children}
       </blockquote>
     );
@@ -95,7 +95,7 @@ const components: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-status-purple underline underline-offset-2 decoration-status-purple/30 hover:text-status-purple/80 hover:decoration-status-purple/60 transition-colors"
+        className="text-neon-purple underline underline-offset-2 decoration-neon-purple/30 hover:text-neon-purple/80 hover:decoration-neon-purple/60 transition-colors"
       >
         {children}
       </a>

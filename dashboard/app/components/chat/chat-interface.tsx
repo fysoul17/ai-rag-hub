@@ -273,10 +273,10 @@ export function ChatInterface({
             aria-hidden="true"
             className={`h-2 w-2 rounded-full ${
               status === 'connected'
-                ? 'bg-status-green status-pulse-green'
+                ? 'bg-neon-cyan status-pulse-cyan'
                 : status === 'connecting'
-                  ? 'bg-status-amber'
-                  : 'bg-status-red'
+                  ? 'bg-neon-amber'
+                  : 'bg-neon-red'
             }`}
           />
           <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
@@ -310,7 +310,7 @@ export function ChatInterface({
           aria-label={showDebug ? 'Hide debug console' : 'Show debug console'}
           className={`flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-mono transition-colors ${
             showDebug
-              ? 'bg-status-amber/10 text-status-amber border border-status-amber/20'
+              ? 'bg-neon-amber/10 text-neon-amber border border-neon-amber/20'
               : 'text-muted-foreground/50 hover:text-muted-foreground'
           }`}
         >

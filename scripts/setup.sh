@@ -12,6 +12,30 @@ ENV_FILE="$(cd "$(dirname "$0")/.." && pwd)/.env"
 echo "=== Agent Forge Setup ==="
 echo ""
 
+# ── Upstream protection ─────────────────────────────────────────────────────
+# If this repo is a downstream fork (not the template itself), ensure the
+# upstream remote is read-only to prevent accidental pushes back to template.
+TEMPLATE_URL="https://github.com/fysoul17/agent-forge.git"
+ORIGIN_URL=$(git remote get-url origin 2>/dev/null || echo "")
+
+if [ -n "$ORIGIN_URL" ] && [ "$ORIGIN_URL" != "$TEMPLATE_URL" ]; then
+  # This is a downstream fork — set up read-only upstream
+  if ! git remote | grep -q '^upstream$'; then
+    echo "Adding read-only upstream remote (template)..."
+    git remote add upstream "$TEMPLATE_URL"
+    git remote set-url --push upstream DISABLE
+    echo "  upstream (fetch): $TEMPLATE_URL"
+    echo "  upstream (push):  DISABLED"
+  elif [ "$(git remote get-url --push upstream 2>/dev/null)" != "DISABLE" ]; then
+    echo "Locking upstream remote to read-only..."
+    git remote set-url --push upstream DISABLE
+    echo "  upstream push: DISABLED"
+  else
+    echo "Upstream remote: OK (read-only)"
+  fi
+  echo ""
+fi
+
 # Check Docker is running
 if ! docker info >/dev/null 2>&1; then
   echo "Error: Docker is not running. Please start Docker Desktop and try again."

@@ -17,22 +17,22 @@ const CATEGORY_CONFIG: Array<{
   {
     value: Categories.AGENT,
     label: 'Agent',
-    activeClass: 'bg-status-purple/20 border-status-purple/50 text-status-purple',
+    activeClass: 'bg-neon-purple/20 border-neon-purple/50 text-neon-purple',
   },
   {
     value: Categories.MEMORY,
     label: 'Memory',
-    activeClass: 'bg-status-green/20 border-status-green/50 text-status-green',
+    activeClass: 'bg-neon-green/20 border-neon-green/50 text-neon-green',
   },
   {
     value: Categories.WEBSOCKET,
     label: 'WebSocket',
-    activeClass: 'bg-status-amber/20 border-status-amber/50 text-status-amber',
+    activeClass: 'bg-neon-amber/20 border-neon-amber/50 text-neon-amber',
   },
   {
     value: Categories.SYSTEM,
     label: 'System',
-    activeClass: 'bg-status-red/20 border-status-red/50 text-status-red',
+    activeClass: 'bg-neon-red/20 border-neon-red/50 text-neon-red',
   },
 ];
 
@@ -137,7 +137,7 @@ export function DebugToolbar({
       <button
         type="button"
         onClick={onTogglePause}
-        className={`p-1 rounded hover:bg-white/10 transition-colors ${paused ? 'text-status-amber' : 'text-muted-foreground'}`}
+        className={`p-1 rounded hover:bg-white/10 transition-colors ${paused ? 'text-neon-amber' : 'text-muted-foreground'}`}
         title={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
         aria-label={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
       >

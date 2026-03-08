@@ -8,18 +8,18 @@ import { OwnerBadge } from './owner-badge';
 import { StatusBadge } from './status-badge';
 
 const statusGlow: Record<string, string> = {
-  active: 'hover:border-status-green/30',
-  idle: 'hover:border-status-amber/30',
-  busy: 'hover:border-status-purple/30',
+  active: 'hover:border-neon-cyan/30 hover:glow-cyan',
+  idle: 'hover:border-neon-amber/30 hover:glow-amber',
+  busy: 'hover:border-neon-purple/30 hover:glow-purple',
   stopped: '',
-  error: 'hover:border-status-red/30',
+  error: 'hover:border-neon-red/30 hover:glow-red',
 };
 
 export function AgentCard({ agent }: { agent: AgentRuntimeInfo }) {
   const glow = statusGlow[agent.status] ?? '';
 
   return (
-    <Card className={`card-hover accent-line-top transition-all ${glow}`}>
+    <Card className={`glass transition-all hover:scale-[1.02] ${glow}`}>
       <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
         <div className="min-w-0">
           <h3 className="truncate font-mono text-sm font-bold text-foreground">{agent.name}</h3>

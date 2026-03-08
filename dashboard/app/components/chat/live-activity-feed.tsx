@@ -55,13 +55,13 @@ const PhaseRow = memo(function PhaseRow({
             {debug.memoryQuery && (
               <div className="text-[9px] font-mono text-muted-foreground/50 truncate">
                 {/* A11y-3: /70 opacity clears 4.5:1 contrast on dark bg */}
-                <span className="text-status-purple/70">query:</span> &quot;{debug.memoryQuery}
+                <span className="text-neon-cyan/70">query:</span> &quot;{debug.memoryQuery}
                 &quot;
               </div>
             )}
             {debug.memoryResults !== undefined && (
               <div className="text-[9px] font-mono text-muted-foreground/50">
-                <span className="text-status-purple/70">results:</span> {debug.memoryResults}{' '}
+                <span className="text-neon-cyan/70">results:</span> {debug.memoryResults}{' '}
                 entries
               </div>
             )}
@@ -91,7 +91,7 @@ const PhaseRow = memo(function PhaseRow({
             )}
             {debug.routerType && (
               <div className="text-[9px] font-mono text-muted-foreground/50">
-                <span className="text-status-purple/70">route:</span> {debug.routerType}
+                <span className="text-neon-purple/70">route:</span> {debug.routerType}
                 {debug.targetAgentIds && debug.targetAgentIds.length > 0 && (
                   <span className="text-muted-foreground/40">
                     {' '}
@@ -107,7 +107,7 @@ const PhaseRow = memo(function PhaseRow({
             )}
             {debug.dispatchTarget && (
               <div className="text-[9px] font-mono text-muted-foreground/50">
-                <span className="text-status-amber/70">target:</span> {debug.dispatchTarget}
+                <span className="text-neon-amber/70">target:</span> {debug.dispatchTarget}
               </div>
             )}
           </div>
@@ -135,8 +135,8 @@ const ToolCallRow = memo(function ToolCallRow({
         <div
           className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 ${
             isStreaming
-              ? 'bg-status-amber animate-pulse motion-reduce:animate-none'
-              : 'bg-status-green'
+              ? 'bg-neon-cyan animate-pulse motion-reduce:animate-none'
+              : 'bg-neon-green'
           }`}
         />
         {!isLast && <div className="w-px flex-1 min-h-2 bg-border/20 mt-0.5" />}
@@ -195,7 +195,7 @@ const ThinkingRow = memo(function ThinkingRow({
     <div className="flex items-start gap-2 pl-8">
       <div className="flex flex-col items-center">
         <div
-          className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 bg-status-purple/60 ${
+          className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 bg-neon-purple/60 ${
             isStreaming ? 'animate-pulse motion-reduce:animate-none' : ''
           }`}
         />
@@ -204,7 +204,7 @@ const ThinkingRow = memo(function ThinkingRow({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex items-center gap-1 text-[10px] font-mono text-status-purple/50 hover:text-status-purple/70 transition-colors"
+          className="flex items-center gap-1 text-[10px] font-mono text-neon-purple/50 hover:text-neon-purple/70 transition-colors"
           aria-label={expanded ? 'Hide thinking content' : 'Show thinking content'}
           aria-expanded={expanded}
           aria-controls={thinkingPanelId}
@@ -221,7 +221,7 @@ const ThinkingRow = memo(function ThinkingRow({
               {thinking.content}
               {isStreaming && (
                 <span
-                  className="inline-block h-3 w-0.5 bg-status-purple/50 animate-pulse motion-reduce:animate-none ml-px align-middle"
+                  className="inline-block h-3 w-0.5 bg-neon-purple/50 animate-pulse motion-reduce:animate-none ml-px align-middle"
                   aria-hidden="true"
                 />
               )}
@@ -266,12 +266,12 @@ const AgentSection = memo(function AgentSection({
     <div>
       {/* Agent header */}
       <div className="flex items-center gap-2 pl-4 py-1.5">
-        <div className="h-2 w-2 rounded-full bg-status-purple shrink-0" />
+        <div className="h-2 w-2 rounded-full bg-neon-purple shrink-0" />
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          <span className="text-[10px] font-mono text-status-purple/60" aria-hidden="true">
+          <span className="text-[10px] font-mono text-neon-purple/60" aria-hidden="true">
             →
           </span>
-          <span className="text-[10px] font-mono font-medium text-status-purple">
+          <span className="text-[10px] font-mono font-medium text-neon-purple">
             {activity.agentName ?? activity.agentId}
           </span>
           <span className="text-[10px] font-mono text-muted-foreground/40">agent</span>
