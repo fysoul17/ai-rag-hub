@@ -16,7 +16,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@autonomy/shared": "workspace:*",
-        "@pyxmate/memory": "0.1.8-beta",
+        "@pyxmate/memory": "0.1.9-beta",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
         "class-variance-authority": "^0.7.1",
@@ -82,14 +82,14 @@
         "@autonomy/cron-manager": "workspace:*",
         "@autonomy/plugin-system": "workspace:*",
         "@autonomy/shared": "workspace:*",
-        "@pyxmate/memory": "0.1.8-beta",
+        "@pyxmate/memory": "0.1.9-beta",
       },
     },
     "packages/shared": {
       "name": "@autonomy/shared",
       "version": "0.0.0",
       "dependencies": {
-        "@pyxmate/memory": "0.1.8-beta",
+        "@pyxmate/memory": "0.1.9-beta",
       },
     },
   },
@@ -312,7 +312,7 @@
 
     "@open-draft/until": ["@open-draft/until@2.1.0", "", {}, "sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg=="],
 
-    "@pyxmate/memory": ["@pyxmate/memory@0.1.8-beta", "", { "peerDependencies": { "react": ">=18.0.0" }, "optionalPeers": ["react"], "bin": { "pyxmate-memory": "bin/init.mjs" } }, "sha512-TkUkGt46k9gn+zy4tXJJaPTeJeQaa7PVsKyGCZC7isySEMV5iPwcarpF3Crj9QGxKs2E/yAQ5UyQyEvcahNZJA=="],
+    "@pyxmate/memory": ["@pyxmate/memory@0.1.9-beta", "", { "peerDependencies": { "react": ">=18.0.0" }, "optionalPeers": ["react"], "bin": { "pyxmate-memory": "bin/init.mjs" } }, "sha512-PZ/uOTggzNYVmMpstmpVfkERdh4DDEJLVtRd0WbO7/P9QcPU+cu/OiaOrCw9pbe0GNu/kMHUmpUVpCLwoJT5xg=="],
 
     "@radix-ui/number": ["@radix-ui/number@1.1.1", "", {}, "sha512-MkKCwxlXTgz6CFoJx3pCwn07GKp36+aZyu/u2Ln2VrA5DcdyCZkASEDBTd8x5whTQQL5CiYf4prXKLcgQdv29g=="],
 
