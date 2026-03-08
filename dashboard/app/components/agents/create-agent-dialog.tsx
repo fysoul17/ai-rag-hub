@@ -23,17 +23,8 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createAgent } from '@/lib/api';
+import { BACKEND_DEFAULT, BACKEND_OPTIONS } from '@/lib/backend-options';
 import { getErrorMessage } from '@/lib/utils';
-
-const BACKEND_DEFAULT = '_default';
-
-const BACKEND_OPTIONS = [
-  { value: BACKEND_DEFAULT, label: 'Default (platform)' },
-  { value: 'claude', label: 'Claude' },
-  { value: 'codex', label: 'Codex' },
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'pi', label: 'Pi' },
-] as const;
 
 export function CreateAgentDialog() {
   const router = useRouter();
@@ -93,14 +84,14 @@ export function CreateAgentDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="gap-2 glow-cyan">
           <Plus className="h-4 w-4" />
           Create Agent
         </Button>
       </DialogTrigger>
-      <DialogContent className="border-primary/20 sm:max-w-lg">
+      <DialogContent className="glass border-primary/20 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-primary font-display tracking-wider">New Agent</DialogTitle>
+          <DialogTitle className="text-primary text-glow-cyan">New Agent</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -164,9 +155,9 @@ export function CreateAgentDialog() {
             </div>
           </div>
 
-          {error && <p className="text-sm text-status-red">{error}</p>}
+          {error && <p className="text-sm text-neon-red">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full glow-cyan" disabled={loading}>
             {loading ? 'Creating...' : 'Create Agent'}
           </Button>
         </form>

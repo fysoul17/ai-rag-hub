@@ -22,26 +22,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { createCron } from '@/lib/api';
+import { COMMON_TIMEZONES, type WorkflowStep } from '@/lib/cron-options';
 import { getErrorMessage } from '@/lib/utils';
-
-interface WorkflowStep {
-  key: string;
-  agentId: string;
-  task: string;
-}
-
-const COMMON_TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Australia/Sydney',
-] as const;
 
 export function CreateCronDialog() {
   const router = useRouter();
@@ -189,7 +171,7 @@ export function CreateCronDialog() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-status-red"
+                    className="h-8 w-8 text-muted-foreground hover:text-neon-red"
                     onClick={() => removeStep(index)}
                     aria-label={`Remove step ${index + 1}`}
                   >
@@ -200,7 +182,7 @@ export function CreateCronDialog() {
             ))}
           </div>
 
-          {error && <p className="text-sm text-status-red">{error}</p>}
+          {error && <p className="text-sm text-neon-red">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Create Cron Job'}
