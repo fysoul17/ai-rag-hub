@@ -23,6 +23,7 @@ import {
   runBeforeMessageHook,
 } from './conductor-hooks.ts';
 import {
+  deduplicateSearchResult,
   searchMemoryContext as searchMemoryContextFn,
   storeConversation as storeConversationFn,
 } from './conductor-memory.ts';
@@ -106,7 +107,8 @@ export class Conductor {
   private pool: AgentPool;
   private memory: MemoryInterface;
   private backend?: CLIBackend;
-  private fallbackBackend?: CLIBackend;
+  /** The backend resolved at init — primary if it spawns, else fallback. */
+  private effectiveBackend?: CLIBackend;
   private backendProcess?: BackendProcess;
   private sessionPool!: SessionProcessPool;
   private activityLog: ActivityLog;
@@ -130,7 +132,6 @@ export class Conductor {
     this.pool = pool;
     this.memory = memory;
     this.backend = backend;
-    this.fallbackBackend = options?.fallbackBackend;
     this.options = options ?? {};
     this.hookRegistry = options?.hookRegistry;
     this.activityLog = new ActivityLog(options?.maxActivityLogSize);
@@ -146,43 +147,11 @@ export class Conductor {
 
     const systemPrompt = this.options.systemPrompt ?? buildSystemPromptFromSoul(this.soul);
 
-    if (this.backend) {
-      try {
-        this.backendProcess = await this.backend.spawn({
-          agentId: 'conductor',
-          systemPrompt,
-          skipPermissions: true,
-        });
-        this.activityLog.record(ActivityType.MESSAGE, 'Conductor AI process initialized');
-      } catch (error) {
-        const detail = getErrorDetail(error);
-        conductorLogger.warn('Failed to initialize AI backend', { error: detail });
-        this.activityLog.record(ActivityType.ERROR, 'AI backend initialization failed');
+    // Resolve which backend to use for the lifetime of this conductor.
+    // Try primary first; if it fails, try the fallback. The winner is used everywhere.
+    this.effectiveBackend = await this.resolveBackend(systemPrompt);
 
-        if (this.fallbackBackend) {
-          try {
-            conductorLogger.info('Trying fallback backend', {
-              fallback: this.fallbackBackend.name,
-            });
-            this.backendProcess = await this.fallbackBackend.spawn({
-              agentId: 'conductor',
-              systemPrompt,
-              skipPermissions: true,
-            });
-            this.activityLog.record(
-              ActivityType.MESSAGE,
-              `Conductor AI process initialized via fallback (${this.fallbackBackend.name})`,
-            );
-          } catch (fallbackError) {
-            const fbDetail = getErrorDetail(fallbackError);
-            conductorLogger.warn('Fallback backend also failed', { error: fbDetail });
-            this.activityLog.record(ActivityType.ERROR, 'Fallback backend initialization failed');
-          }
-        }
-      }
-    }
-
-    this.sessionPool = new SessionProcessPool(this.backend, this.fallbackBackend, systemPrompt);
+    this.sessionPool = new SessionProcessPool(this.effectiveBackend, systemPrompt);
 
     // Detect memory connectivity via stats().connected flag
     try {
@@ -198,6 +167,46 @@ export class Conductor {
 
     this.initialized = true;
     this.activityLog.record(ActivityType.MESSAGE, 'Conductor initialized');
+  }
+
+  /**
+   * Resolve the effective backend at boot: try primary, then optional fallback.
+   * The resolved backend is used for all subsequent spawns — no per-spawn fallback.
+   */
+  private async resolveBackend(systemPrompt: string): Promise<CLIBackend | undefined> {
+    if (!this.backend) return undefined;
+
+    const spawnConfig = { agentId: 'conductor', systemPrompt, skipPermissions: true };
+
+    try {
+      this.backendProcess = await this.backend.spawn(spawnConfig);
+      this.activityLog.record(ActivityType.MESSAGE, 'Conductor AI process initialized');
+      return this.backend;
+    } catch (error) {
+      const detail = getErrorDetail(error);
+      conductorLogger.warn('Failed to initialize AI backend', { error: detail });
+      this.activityLog.record(ActivityType.ERROR, 'AI backend initialization failed');
+    }
+
+    const fallback = this.options.fallbackBackend;
+    if (!fallback) return undefined;
+
+    try {
+      conductorLogger.info('Primary backend unavailable, using fallback', {
+        fallback: fallback.name,
+      });
+      this.backendProcess = await fallback.spawn(spawnConfig);
+      this.activityLog.record(
+        ActivityType.MESSAGE,
+        `Conductor AI process initialized via fallback (${fallback.name})`,
+      );
+      return fallback;
+    } catch (fallbackError) {
+      const fbDetail = getErrorDetail(fallbackError);
+      conductorLogger.warn('Fallback backend also failed', { error: fbDetail });
+      this.activityLog.record(ActivityType.ERROR, 'Fallback backend initialization failed');
+      return undefined;
+    }
   }
 
   get queueDepth(): number {
@@ -552,11 +561,12 @@ export class Conductor {
   /** Search memory — exposed for system action executor. */
   async searchMemory(query: string, limit: number): Promise<MemorySearchResult | null> {
     try {
-      return await this.memory.search({
+      const result = await this.memory.search({
         query,
         limit,
         strategy: RAGStrategy.HYBRID,
       });
+      return deduplicateSearchResult(result);
     } catch (error) {
       const detail = getErrorDetail(error);
       conductorLogger.warn('System action memory search failed', { error: detail });
@@ -789,7 +799,7 @@ export class Conductor {
   }
 
   private async getExtractionSendFn(): Promise<((msg: string) => Promise<string>) | undefined> {
-    const backend = this.backend ?? this.fallbackBackend;
+    const backend = this.effectiveBackend;
     if (!backend) return undefined;
 
     if (this.extractionProcess?.alive) {

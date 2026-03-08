@@ -39,7 +39,7 @@ describe('searchMemoryContext', () => {
     memory.setSearchResults(expected);
     const msg = makeMessage();
     const result = await searchMemoryContext(memory, msg);
-    expect(result).toBe(expected);
+    expect(result).toEqual(expected);
   });
 
   test('returns null on search failure', async () => {
@@ -47,6 +47,263 @@ describe('searchMemoryContext', () => {
     const msg = makeMessage();
     const result = await searchMemoryContext(memory, msg);
     expect(result).toBeNull();
+  });
+
+  describe('deduplication', () => {
+    test('removes entries with identical content from search results', async () => {
+      const duplicateEntry = {
+        id: 'mem-1',
+        content: 'My favorite color is blue',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        sessionId: 'sess-1',
+        metadata: { senderName: 'TestAgent' },
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const duplicateEntry2 = {
+        ...duplicateEntry,
+        id: 'mem-2',
+        sessionId: 'sess-2',
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [duplicateEntry, duplicateEntry2],
+        totalCount: 2,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'What is my favorite color?' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(1);
+      expect(result!.entries[0].content).toBe('My favorite color is blue');
+    });
+
+    test('removes entries with identical contentHash from search results', async () => {
+      const hash = 'abc123hash';
+      const entry1 = {
+        id: 'mem-1',
+        content: 'My favorite color is blue',
+        contentHash: hash,
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        sessionId: 'sess-1',
+        metadata: {},
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const entry2 = {
+        id: 'mem-2',
+        content: 'My favorite color is blue',
+        contentHash: hash,
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        sessionId: 'sess-2',
+        metadata: {},
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [entry1, entry2],
+        totalCount: 2,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'favorite color' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(1);
+    });
+
+    test('keeps entries with different content', async () => {
+      const entry1 = {
+        id: 'mem-1',
+        content: 'My favorite color is blue',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const entry2 = {
+        id: 'mem-2',
+        content: 'My favorite food is pizza',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [entry1, entry2],
+        totalCount: 2,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'What are my favorites?' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(2);
+    });
+
+    test('deduplicates entries from different agentIds with same content', async () => {
+      const entry1 = {
+        id: 'mem-1',
+        content: 'Remember: user prefers dark mode',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const entry2 = {
+        id: 'mem-2',
+        content: 'Remember: user prefers dark mode',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-2',
+        metadata: {},
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [entry1, entry2],
+        totalCount: 2,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'dark mode' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(1);
+    });
+
+    test('deduplicates entries with different types but same content', async () => {
+      const entry1 = {
+        id: 'mem-1',
+        content: 'The project deadline is March 15',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const entry2 = {
+        id: 'mem-2',
+        content: 'The project deadline is March 15',
+        type: MemoryType.LONG_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [entry1, entry2],
+        totalCount: 2,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'deadline' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(1);
+    });
+
+    test('deduplicates scored entries when scoredEntries is present', async () => {
+      const entry1 = {
+        id: 'mem-1',
+        content: 'Duplicate fact',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const entry2 = {
+        id: 'mem-2',
+        content: 'Duplicate fact',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [entry1, entry2],
+        totalCount: 2,
+        strategy: RAGStrategy.HYBRID,
+        scoredEntries: [
+          { entry: entry1, score: 0.95 },
+          { entry: entry2, score: 0.9 },
+        ],
+      });
+
+      const msg = makeMessage({ content: 'duplicate' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(1);
+      if (result!.scoredEntries) {
+        expect(result!.scoredEntries).toHaveLength(1);
+        // Should keep the higher-scored entry
+        expect(result!.scoredEntries[0].score).toBe(0.95);
+      }
+    });
+
+    test('updates totalCount to match deduplicated entries', async () => {
+      const entry1 = {
+        id: 'mem-1',
+        content: 'Same content',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-01T00:00:00Z',
+      };
+      const entry2 = {
+        id: 'mem-2',
+        content: 'Same content',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-02T00:00:00Z',
+      };
+      const entry3 = {
+        id: 'mem-3',
+        content: 'Different content',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: '2026-03-03T00:00:00Z',
+      };
+      memory.setSearchResults({
+        entries: [entry1, entry2, entry3],
+        totalCount: 3,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'search' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(2);
+      expect(result!.totalCount).toBe(2);
+    });
+
+    test('handles triple duplicates correctly', async () => {
+      const entries = [1, 2, 3].map((i) => ({
+        id: `mem-${i}`,
+        content: 'I repeat myself three times',
+        type: MemoryType.SHORT_TERM,
+        agentId: 'agent-1',
+        metadata: {},
+        createdAt: `2026-03-0${i}T00:00:00Z`,
+      }));
+      memory.setSearchResults({
+        entries,
+        totalCount: 3,
+        strategy: RAGStrategy.HYBRID,
+      });
+
+      const msg = makeMessage({ content: 'repeat' });
+      const result = await searchMemoryContext(memory, msg);
+
+      expect(result).not.toBeNull();
+      expect(result!.entries).toHaveLength(1);
+    });
   });
 });
 
@@ -119,8 +376,58 @@ describe('storeConversation', () => {
     memory.setShouldThrow(true);
     const msg = makeMessage();
     await storeConversation(ctx, msg, decisions);
-    // No decision pushed for failed store, no exception thrown
-    expect(decisions).toHaveLength(0);
+    // Failure decision pushed, no exception thrown
+    const failDecisions = decisions.filter((d) => d.action === 'store_memory_failed');
+    expect(failDecisions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('produces deterministic IDs — same content yields same store ID', async () => {
+    const msg = makeMessage({ content: 'Remember this fact' });
+    await storeConversation(ctx, msg, decisions);
+    const firstId = memory.storeCalls[0].id;
+
+    // Reset and store again
+    memory.storeCalls = [];
+    await storeConversation(ctx, msg, []);
+    const secondId = memory.storeCalls[0].id;
+
+    expect(firstId).toBeDefined();
+    expect(firstId).toBe(secondId);
+  });
+
+  test('produces different IDs for different content', async () => {
+    const msg1 = makeMessage({ content: 'First message' });
+    await storeConversation(ctx, msg1, decisions);
+    const firstId = memory.storeCalls[0].id;
+
+    const msg2 = makeMessage({ content: 'Second message' });
+    await storeConversation(ctx, msg2, []);
+    const secondId = memory.storeCalls[1].id;
+
+    expect(firstId).not.toBe(secondId);
+  });
+
+  test('user message and assistant response get different IDs even with same content', async () => {
+    const msg = makeMessage({ content: 'Hello' });
+    await storeConversation(ctx, msg, decisions, 'Hello');
+    expect(memory.storeCalls).toHaveLength(2);
+    expect(memory.storeCalls[0].id).not.toBe(memory.storeCalls[1].id);
+  });
+
+  test('stores assistant response even when user message store fails', async () => {
+    let callCount = 0;
+    const origStore = memory.store.bind(memory);
+    memory.store = async (entry) => {
+      callCount++;
+      if (callCount === 1) throw new Error('First store fails');
+      return origStore(entry);
+    };
+    const msg = makeMessage();
+    await storeConversation(ctx, msg, decisions, 'Assistant reply');
+    // Both store calls attempted, second succeeded
+    expect(callCount).toBe(2);
+    const failDecisions = decisions.filter((d) => d.action === 'store_memory_failed');
+    expect(failDecisions).toHaveLength(1);
   });
 
   describe('BEFORE_MEMORY_STORE hook', () => {
