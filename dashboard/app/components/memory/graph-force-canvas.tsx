@@ -10,16 +10,22 @@ import {
   forceX,
   forceY,
   type Simulation,
-  type SimulationLinkDatum,
-  type SimulationNodeDatum,
 } from 'd3-force';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  drawEdge,
+  drawEdgeLabel,
+  drawNodeBody,
+  drawNodeLabels,
+  type SimLink,
+  type SimNode,
+} from './graph-draw';
 import {
   getEdgeWidth,
   getNodeColor,
   getNodeRadius,
   getTypeClusterOffset,
-  PALETTE_COLORS,
+  INTERACTION,
   RENDER,
   SIMULATION,
 } from './graph-style';
@@ -28,42 +34,10 @@ import {
 /*  Types                                                             */
 /* ------------------------------------------------------------------ */
 
-interface SimNode extends SimulationNodeDatum {
-  id: string;
-  label: string;
-  type: string;
-  memoryCount: number;
-  degree: number;
-  radius: number;
-  color: string;
-}
-
-interface SimLink extends SimulationLinkDatum<SimNode> {
-  label: string;
-  weight: number;
-  color: string;
-  width: number;
-  /** Cached bezier control point — set during edge draw pass, reused by edge label pass */
-  _cpx?: number;
-  _cpy?: number;
-}
-
 interface Camera {
   x: number;
   y: number;
   zoom: number;
-}
-
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  alpha: number;
-  color: string;
-  life: number;
-  maxLife: number;
 }
 
 interface GraphForceCanvasProps {
@@ -73,24 +47,6 @@ interface GraphForceCanvasProps {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
-
-function rand(min: number, max: number) {
-  return min + Math.random() * (max - min);
-}
-
-function createParticle(w: number, h: number): Particle {
-  return {
-    x: rand(-w / 2, w / 2),
-    y: rand(-h / 2, h / 2),
-    vx: rand(-RENDER.particleMaxSpeed, RENDER.particleMaxSpeed),
-    vy: rand(-RENDER.particleMaxSpeed, RENDER.particleMaxSpeed),
-    size: rand(RENDER.particleMinSize, RENDER.particleMaxSize),
-    alpha: rand(RENDER.particleMinAlpha, RENDER.particleMaxAlpha),
-    color: PALETTE_COLORS[Math.floor(Math.random() * PALETTE_COLORS.length)] ?? '#00f0ff',
-    life: 0,
-    maxLife: rand(300, 800),
-  };
-}
 
 function buildSimData(data: GraphVizData) {
   const nodeMap = new Map<string, SimNode>();
@@ -115,7 +71,6 @@ function buildSimData(data: GraphVizData) {
       target: e.target,
       label: e.label,
       weight: e.weight,
-      color: nodeMap.get(e.source)?.color ?? 'rgba(255,255,255,0.35)',
       width: getEdgeWidth(e.weight),
     }));
 
@@ -134,233 +89,39 @@ function findNodeAt(cx: number, cy: number, nodes: SimNode[]): SimNode | null {
     if (!n || n.x == null || n.y == null) continue;
     const dx = cx - n.x;
     const dy = cy - n.y;
-    const hitRadius = n.radius + 6;
+    const hitRadius = n.radius + INTERACTION.hitRadiusPadding;
     if (dx * dx + dy * dy <= hitRadius * hitRadius) return n;
   }
   return null;
 }
 
-function bezierCP(
-  sx: number,
-  sy: number,
-  tx: number,
-  ty: number,
-  curvature: number,
-): [number, number] {
-  const mx = (sx + tx) / 2;
-  const my = (sy + ty) / 2;
-  const dx = tx - sx;
-  const dy = ty - sy;
-  const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  return [mx - (dy / len) * len * curvature, my + (dx / len) * len * curvature];
-}
-
-/* ------------------------------------------------------------------ */
-/*  Render functions                                                  */
-/* ------------------------------------------------------------------ */
-
-function drawEdge(
-  ctx: CanvasRenderingContext2D,
-  link: SimLink,
-  isHighlighted: boolean,
-  isDimmed: boolean,
-) {
-  const src = link.source as SimNode;
-  const tgt = link.target as SimNode;
-  if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
-
-  const opacity = isDimmed
-    ? 0.06
-    : isHighlighted
-      ? 0.8
-      : RENDER.defaultEdgeOpacity;
-
-  const [cpx, cpy] = bezierCP(src.x, src.y, tgt.x, tgt.y, RENDER.edgeCurvature);
-  link._cpx = cpx;
-  link._cpy = cpy;
-
-  // Ambient glow pass (non-dimmed edges)
-  if (!isDimmed) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(src.x, src.y);
-    ctx.quadraticCurveTo(cpx, cpy, tgt.x, tgt.y);
-    ctx.strokeStyle = link.color;
-    ctx.shadowColor = link.color;
-    ctx.shadowBlur = isHighlighted ? 14 : 6;
-    ctx.globalAlpha = isHighlighted ? 0.4 : 0.12;
-    ctx.lineWidth = isHighlighted ? link.width + 3 : link.width + 2;
-    ctx.stroke();
-    ctx.restore();
+/** Compute camera (zoom + pan) that fits all nodes centered within the viewport */
+function computeFitCamera(
+  nodes: SimNode[],
+  width: number,
+  height: number,
+  padding: number,
+): Camera {
+  if (nodes.length === 0 || width === 0 || height === 0) return { x: 0, y: 0, zoom: 1 };
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const n of nodes) {
+    if (n.x == null || n.y == null) continue;
+    minX = Math.min(minX, n.x - n.radius);
+    maxX = Math.max(maxX, n.x + n.radius);
+    minY = Math.min(minY, n.y - n.radius);
+    maxY = Math.max(maxY, n.y + n.radius);
   }
-
-  // Main edge line
-  ctx.beginPath();
-  ctx.moveTo(src.x, src.y);
-  ctx.quadraticCurveTo(cpx, cpy, tgt.x, tgt.y);
-  ctx.strokeStyle = link.color;
-  ctx.globalAlpha = opacity;
-  ctx.lineWidth = isHighlighted ? link.width + 1.2 : link.width;
-  ctx.stroke();
-
-  ctx.globalAlpha = 1;
-}
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: canvas render function with many visual state branches
-function drawNode(
-  ctx: CanvasRenderingContext2D,
-  node: SimNode,
-  isHovered: boolean,
-  isSelected: boolean,
-  isDimmed: boolean,
-  showLabel: boolean,
-  time: number,
-) {
-  if (node.x == null || node.y == null) return;
-  const { x, y, radius, color, label } = node;
-
-  // Pulse calculation
-  let pulseScale = 1;
-  let pulseAlpha = 0;
-  if (!isDimmed) {
-    if (isSelected) {
-      pulseScale = 1 + Math.sin(time * RENDER.selectedPulseSpeed) * 0.04;
-      pulseAlpha = Math.sin(time * RENDER.selectedPulseSpeed) * RENDER.selectedPulseAmplitude;
-    } else {
-      pulseAlpha = Math.sin(time * RENDER.pulseSpeed + x * 0.01) * RENDER.pulseAmplitude;
-    }
-  }
-
-  const r = radius * pulseScale * (isHovered && !isDimmed ? 1.08 : 1);
-
-  // Ambient outer glow (always, unless dimmed)
-  if (!isDimmed) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, r + 3, 0, Math.PI * 2);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = isSelected
-      ? RENDER.glowBlurSelected
-      : isHovered
-        ? RENDER.glowBlurHover
-        : RENDER.glowBlurDefault;
-    ctx.fillStyle = color;
-    ctx.globalAlpha =
-      (isSelected
-        ? RENDER.glowAlphaSelected
-        : isHovered
-          ? RENDER.glowAlphaHover
-          : RENDER.glowAlphaDefault) + pulseAlpha;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Secondary bloom pass for hovered/selected
-  if ((isHovered || isSelected) && !isDimmed) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, r + (isSelected ? 10 : 8), 0, Math.PI * 2);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = isSelected ? 55 : 44;
-    ctx.fillStyle = color;
-    ctx.globalAlpha = isSelected ? 0.2 : 0.12;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Node fill - radial gradient for depth (state-aware)
-  if (!isDimmed) {
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
-    if (isSelected) {
-      gradient.addColorStop(0, `${color}ff`);
-      gradient.addColorStop(0.55, `${color}dd`);
-      gradient.addColorStop(1, `${color}66`);
-    } else if (isHovered) {
-      gradient.addColorStop(0, `${color}ff`);
-      gradient.addColorStop(0.55, `${color}cc`);
-      gradient.addColorStop(1, `${color}55`);
-    } else {
-      gradient.addColorStop(0, `${color}ee`);
-      gradient.addColorStop(0.55, `${color}aa`);
-      gradient.addColorStop(1, `${color}33`);
-    }
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
-    ctx.globalAlpha = RENDER.defaultNodeOpacity;
-    ctx.fill();
-  } else {
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.globalAlpha = RENDER.dimOpacityNear;
-    ctx.fill();
-  }
-
-  // Node border ring
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = isDimmed ? 0.08 : isSelected ? 0.9 : isHovered ? 0.85 : 0.5;
-  ctx.lineWidth = isSelected ? 3.0 : isHovered ? 2.5 : 1.5;
-  ctx.stroke();
-
-  // Label
-  if (showLabel && !isDimmed) {
-    const maxLen = RENDER.labelMaxLength;
-    const text = label.length > maxLen ? `${label.slice(0, maxLen - 2)}...` : label;
-
-    ctx.font = RENDER.labelFont;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    const tw = ctx.measureText(text).width;
-
-    const px = 6;
-    const py = 3;
-    const bgX = x - tw / 2 - px;
-    const bgY = y + r + RENDER.labelOffsetY - py;
-    const bgW = tw + px * 2;
-    const bgH = 14 + py * 2;
-    const cornerR = 8;
-
-    // Label pill background
-    ctx.beginPath();
-    ctx.roundRect(bgX, bgY, bgW, bgH, cornerR);
-    ctx.fillStyle = 'rgba(8, 8, 14, 0.9)';
-    ctx.globalAlpha = 0.92;
-    ctx.fill();
-
-    // Label pill border (tinted with node color)
-    ctx.strokeStyle = color;
-    ctx.globalAlpha = isHovered || isSelected ? 0.5 : 0.2;
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-
-    // Label text
-    ctx.fillStyle = isHovered || isSelected ? color : '#e4e4e7';
-    ctx.globalAlpha = 0.95;
-    ctx.fillText(text, x, bgY + py + 1);
-  }
-
-  ctx.globalAlpha = 1;
-}
-
-function drawEdgeLabel(ctx: CanvasRenderingContext2D, link: SimLink) {
-  const src = link.source as SimNode;
-  const tgt = link.target as SimNode;
-  if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
-
-  // Reuse cached control point from drawEdge pass (avoids recomputation)
-  const cpx = link._cpx ?? (src.x + tgt.x) / 2;
-  const cpy = link._cpy ?? (src.y + tgt.y) / 2;
-  const mx = 0.25 * src.x + 0.5 * cpx + 0.25 * tgt.x;
-  const my = 0.25 * src.y + 0.5 * cpy + 0.25 * tgt.y;
-
-  ctx.font = RENDER.edgeLabelFont;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(255,255,255,0.65)';
-  ctx.globalAlpha = 0.8;
-  ctx.fillText(link.label, mx, my - 8);
-  ctx.globalAlpha = 1;
+  if (!Number.isFinite(minX)) return { x: 0, y: 0, zoom: 1 };
+  const graphW = maxX - minX + padding * 2;
+  const graphH = maxY - minY + padding * 2;
+  const zoom = Math.max(RENDER.zoomMin, Math.min(width / graphW, height / graphH, 1));
+  // Center camera on the graph centroid
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  return { x: -cx, y: -cy, zoom };
 }
 
 /* ------------------------------------------------------------------ */
@@ -376,12 +137,8 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
   const rafRef = useRef<number>(0);
   const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const rectRef = useRef<DOMRect | null>(null);
-  const timeRef = useRef(0);
-  const particlesRef = useRef<Particle[]>([]);
-  const alwaysAnimateRef = useRef(true);
-  const frameSkipRef = useRef(0);
+  const autoFitRef = useRef(true);
   const neighborIdxRef = useRef(0);
-  const initialZoomRef = useRef(1);
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -390,6 +147,19 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
 
   hoveredRef.current = hoveredNode;
   selectedRef.current = selectedNode;
+
+  // Topology fingerprint — only re-init simulation when graph structure changes
+  const topologyKey = useMemo(() => {
+    const nk = data.nodes
+      .map((n) => n.id)
+      .sort()
+      .join(',');
+    const ek = data.edges
+      .map((e) => `${e.source}:${e.target}`)
+      .sort()
+      .join(',');
+    return `${nk}|${ek}`;
+  }, [data]);
 
   // Drag state
   const dragRef = useRef<{
@@ -420,7 +190,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
   }, []);
 
   /* ---------- Draw ---------- */
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: main render loop composing particles, camera, edges, and nodes
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: canvas draw loop with camera transform and multi-pass rendering
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -443,51 +213,11 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     const selected = selectedRef.current;
     const activeId = hovered ?? selected;
     const activeNeighbors = activeId ? connectedRef.current.get(activeId) : null;
-    const time = timeRef.current;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- Ambient particles (screen space, before camera transform) ---
-    const particles = particlesRef.current;
-    ctx.setTransform(dpr, 0, 0, dpr, (dpr * w) / 2, (dpr * h) / 2);
-    for (const p of particles) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life++;
-
-      const hw = w / 2 + 50;
-      const hh = h / 2 + 50;
-      if (p.x < -hw) p.x = hw;
-      if (p.x > hw) p.x = -hw;
-      if (p.y < -hh) p.y = hh;
-      if (p.y > hh) p.y = -hh;
-
-      const lifeFrac = p.life / p.maxLife;
-      const fadeAlpha = lifeFrac < 0.1 ? lifeFrac * 10 : lifeFrac > 0.9 ? (1 - lifeFrac) * 10 : 1;
-      const flickerAlpha = p.alpha * fadeAlpha * (0.7 + 0.3 * Math.sin(time * 0.002 + p.x));
-
-      if (p.life >= p.maxLife) {
-        p.x = rand(-w / 2, w / 2);
-        p.y = rand(-h / 2, h / 2);
-        p.vx = rand(-RENDER.particleMaxSpeed, RENDER.particleMaxSpeed);
-        p.vy = rand(-RENDER.particleMaxSpeed, RENDER.particleMaxSpeed);
-        p.size = rand(RENDER.particleMinSize, RENDER.particleMaxSize);
-        p.alpha = rand(RENDER.particleMinAlpha, RENDER.particleMaxAlpha);
-        p.color = PALETTE_COLORS[Math.floor(Math.random() * PALETTE_COLORS.length)] ?? '#00f0ff';
-        p.life = 0;
-        p.maxLife = rand(300, 800);
-      }
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = flickerAlpha;
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    // --- Camera transform ---
+    // Camera transform
     ctx.setTransform(
       dpr * cam.zoom,
       0,
@@ -517,49 +247,50 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
       }
     }
 
-    // --- Draw nodes ---
+    // --- Draw nodes (bodies then labels, batched by font) ---
     for (const node of nodes) {
       const isHovered = node.id === hovered;
       const isSelected = node.id === selected;
       const isDimmed = activeId != null && node.id !== activeId && !activeNeighbors?.has(node.id);
-      const showLabel =
-        isHovered ||
-        isSelected ||
-        (activeId != null && activeNeighbors?.has(node.id)) ||
-        node.degree >= 2 ||
-        cam.zoom > RENDER.labelShowZoom;
-
-      drawNode(ctx, node, isHovered, isSelected, isDimmed, showLabel ?? false, time);
+      drawNodeBody(ctx, node, isHovered, isSelected, isDimmed);
     }
+    drawNodeLabels(ctx, nodes, hovered, selected, activeId, activeNeighbors);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
-  /* ---------- Continuous animation loop ---------- */
+  /* ---------- Animation loop ---------- */
   const startLoop = useCallback(() => {
     if (rafRef.current) return;
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: animation loop with camera auto-fit tracking and settling detection
     const loop = () => {
-      timeRef.current = performance.now();
-
-      const alpha = simRef.current?.alpha() ?? 0;
-      const isSettled = alpha < 0.001;
-
-      // Throttle to ~8fps when simulation is settled (particles don't need 60fps)
-      if (isSettled && alwaysAnimateRef.current) {
-        frameSkipRef.current++;
-        if (frameSkipRef.current % 8 !== 0) {
-          rafRef.current = requestAnimationFrame(loop);
-          return;
+      // Auto-fit camera while simulation is settling
+      if (autoFitRef.current) {
+        const { w, h } = sizeRef.current;
+        if (w > 0 && h > 0) {
+          const target = computeFitCamera(nodesRef.current, w, h, INTERACTION.fitPadding);
+          const cam = cameraRef.current;
+          const k = INTERACTION.autoFitLerp;
+          cam.x += (target.x - cam.x) * k;
+          cam.y += (target.y - cam.y) * k;
+          cam.zoom += (target.zoom - cam.zoom) * k;
         }
-      } else {
-        frameSkipRef.current = 0;
       }
 
       draw();
-
-      if (alwaysAnimateRef.current || !isSettled) {
+      const alpha = simRef.current?.alpha() ?? 0;
+      if (alpha > INTERACTION.alphaStopThreshold) {
         rafRef.current = requestAnimationFrame(loop);
       } else {
+        // Snap to exact fit when settling completes
+        if (autoFitRef.current) {
+          const { w, h } = sizeRef.current;
+          if (w > 0 && h > 0) {
+            cameraRef.current = computeFitCamera(nodesRef.current, w, h, INTERACTION.fitPadding);
+          }
+          autoFitRef.current = false;
+          draw();
+        }
         rafRef.current = 0;
       }
     };
@@ -567,10 +298,16 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
   }, [draw]);
 
   const requestDraw = useCallback(() => {
-    startLoop();
-  }, [startLoop]);
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        draw();
+        rafRef.current = 0;
+      });
+    }
+  }, [draw]);
 
   /* ---------- Simulation setup ---------- */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-init only when graph topology changes (topologyKey), not on every poll cycle
   useEffect(() => {
     const { nodes, links, nodeMap } = buildSimData(data);
     nodesRef.current = nodes;
@@ -578,23 +315,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     buildConnectivity(links, nodeMap);
 
     const nodeCount = nodes.length;
-    const zoom = nodeCount > 100 ? 0.4 : nodeCount > 60 ? 0.6 : nodeCount > 30 ? 0.8 : 1;
-    cameraRef.current.zoom = zoom;
-    initialZoomRef.current = zoom;
-
-    // Initialize ambient particles
-    const { w, h } = sizeRef.current;
-    const pw = w || 800;
-    const ph = h || 600;
-    particlesRef.current = Array.from({ length: RENDER.particleCount }, () => {
-      const p = createParticle(pw, ph);
-      p.life = Math.floor(rand(0, p.maxLife));
-      return p;
-    });
-
     const isSparse = links.length < 3;
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    alwaysAnimateRef.current = !prefersReducedMotion;
 
     const sim = forceSimulation<SimNode>(nodes)
       .force(
@@ -602,7 +323,9 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         forceLink<SimNode, SimLink>(links)
           .id((d) => d.id)
           .distance(SIMULATION.linkDistance)
-          .strength((l) => 0.3 + l.weight * 0.15),
+          .strength(
+            (l) => INTERACTION.linkStrengthBase + l.weight * INTERACTION.linkStrengthWeightFactor,
+          ),
       )
       .force('charge', forceManyBody<SimNode>().strength(SIMULATION.chargeStrength))
       .force('center', forceCenter(0, 0).strength(SIMULATION.centerStrength))
@@ -610,15 +333,18 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         'collision',
         forceCollide<SimNode>()
           .radius((d) => d.radius + SIMULATION.collisionPadding)
-          .strength(0.7),
+          .strength(INTERACTION.collisionStrength),
       )
       .alphaDecay(SIMULATION.alphaDecay)
       .velocityDecay(SIMULATION.velocityDecay)
-      .on('tick', () => {}); // Rendering driven by RAF loop, not d3 tick
+      .on('tick', () => {});
 
     // Type-based clustering when graph is sparse/no edges
     if (isSparse) {
-      const clusterRadius = Math.max(80, nodeCount * 12);
+      const clusterRadius = Math.max(
+        INTERACTION.clusterRadiusMin,
+        nodeCount * INTERACTION.clusterRadiusPerNode,
+      );
       sim
         .force(
           'typeX',
@@ -636,9 +362,29 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
 
     simRef.current = sim;
 
+    // Pre-tick to estimate initial layout, then auto-fit camera
+    sim.stop();
+    for (let i = 0; i < INTERACTION.preLayoutTicks; i++) sim.tick();
+
+    // Read canvas dimensions directly — sizeRef may not be populated yet
+    // if the ResizeObserver hasn't fired before this effect runs
+    const canvas = canvasRef.current;
+    const w = canvas?.clientWidth ?? 0;
+    const h = canvas?.clientHeight ?? 0;
+    if (canvas) sizeRef.current = { w, h };
+    cameraRef.current = computeFitCamera(nodes, w, h, INTERACTION.fitPadding);
+    autoFitRef.current = true;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
-      sim.stop();
-      for (let i = 0; i < 300; i++) sim.tick();
+      // Complete full pre-computation for reduced-motion users
+      for (let i = INTERACTION.preLayoutTicks; i < INTERACTION.preSimTicks; i++) sim.tick();
+      cameraRef.current = computeFitCamera(nodes, w, h, INTERACTION.fitPadding);
+      autoFitRef.current = false;
+      sim.alpha(0); // Signal loop to stop after one draw
+    } else {
+      // Resume live settling animation — autoFit tracks camera during settling
+      sim.alpha(1).restart();
     }
     startLoop();
 
@@ -651,7 +397,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         n.fy = null;
       });
     };
-  }, [data, buildConnectivity, startLoop]);
+  }, [topologyKey, buildConnectivity, startLoop]);
 
   /* ---------- Resize observer ---------- */
   useEffect(() => {
@@ -673,6 +419,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     (e: React.PointerEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      autoFitRef.current = false;
       const rect = canvas.getBoundingClientRect();
       rectRef.current = rect;
       const cam = cameraRef.current;
@@ -690,7 +437,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         };
         node.fx = node.x;
         node.fy = node.y;
-        simRef.current?.alphaTarget(0.3).restart();
+        simRef.current?.alphaTarget(INTERACTION.dragAlphaTarget).restart();
         startLoop();
       } else {
         dragRef.current = {
@@ -711,8 +458,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     (e: React.PointerEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      rectRef.current = rect;
+      const rect = rectRef.current ?? canvas.getBoundingClientRect();
       const cam = cameraRef.current;
       const drag = dragRef.current;
 
@@ -754,18 +500,20 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
       if (drag.node) {
         const dx = e.clientX - drag.startX;
         const dy = e.clientY - drag.startY;
-        if (dx * dx + dy * dy < 49) {
+        if (dx * dx + dy * dy < INTERACTION.clickDistSq) {
           const nodeId = drag.node.id;
           setSelectedNode((prev) => (prev === nodeId ? null : nodeId));
+          neighborIdxRef.current = 0;
           requestDraw();
         }
         drag.node.fx = null;
         drag.node.fy = null;
-        simRef.current?.alphaTarget(0).alpha(0.15).restart();
+        simRef.current?.alphaTarget(0).alpha(INTERACTION.alphaRestart).restart();
+        startLoop();
       } else if (drag.isPanning) {
         const dx = e.clientX - drag.startX;
         const dy = e.clientY - drag.startY;
-        if (dx * dx + dy * dy < 49) {
+        if (dx * dx + dy * dy < INTERACTION.clickDistSq) {
           setSelectedNode(null);
           requestDraw();
         }
@@ -781,16 +529,17 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
       };
       canvasRef.current?.releasePointerCapture(e.pointerId);
     },
-    [requestDraw],
+    [requestDraw, startLoop],
   );
 
-  /* ---------- Wheel zoom (native listener for non-passive preventDefault) ---------- */
+  /* ---------- Wheel zoom ---------- */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      autoFitRef.current = false;
       const rect = canvas.getBoundingClientRect();
       rectRef.current = rect;
       const cam = cameraRef.current;
@@ -798,7 +547,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
       const delta = -e.deltaY * RENDER.zoomSensitivity;
       const newZoom = Math.min(RENDER.zoomMax, Math.max(RENDER.zoomMin, oldZoom * (1 + delta)));
 
-      // Zoom toward cursor — keep the world point under cursor stationary
+      // Zoom toward cursor
       const mx = e.clientX - rect.left - rect.width / 2;
       const my = e.clientY - rect.top - rect.height / 2;
       cam.x += mx * (1 / newZoom - 1 / oldZoom);
@@ -813,14 +562,76 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
   }, [requestDraw]);
 
   const handleDoubleClick = useCallback(() => {
-    cameraRef.current = { x: 0, y: 0, zoom: initialZoomRef.current };
-    requestDraw();
-  }, [requestDraw]);
+    const { w, h } = sizeRef.current;
+    cameraRef.current = computeFitCamera(nodesRef.current, w, h, INTERACTION.fitPadding);
+    // Re-enable auto-fit if simulation is still settling
+    const alpha = simRef.current?.alpha() ?? 0;
+    if (alpha > INTERACTION.alphaStopThreshold) {
+      autoFitRef.current = true;
+      startLoop();
+    } else {
+      requestDraw();
+    }
+  }, [requestDraw, startLoop]);
 
   const handleKeyDown = useCallback(
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard navigation with multiple key bindings and selection states
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard navigation with multiple key bindings
     (e: React.KeyboardEvent) => {
-      // Select first node when nothing is selected and user presses Enter or arrow key
+      // Let browser/OS shortcuts through (Ctrl+R, Cmd+=, Alt+arrows, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      // --- Camera controls (always active) ---
+
+      // Zoom: +/= to zoom in, - to zoom out
+      if (e.key === '+' || e.key === '=') {
+        autoFitRef.current = false;
+        const cam = cameraRef.current;
+        cam.zoom = Math.min(RENDER.zoomMax, cam.zoom * (1 + INTERACTION.keyZoomStep));
+        requestDraw();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === '-') {
+        autoFitRef.current = false;
+        const cam = cameraRef.current;
+        cam.zoom = Math.max(RENDER.zoomMin, cam.zoom * (1 - INTERACTION.keyZoomStep));
+        requestDraw();
+        e.preventDefault();
+        return;
+      }
+
+      // Reset: r or 0
+      if (e.key === 'r' || e.key === '0') {
+        const { w, h } = sizeRef.current;
+        cameraRef.current = computeFitCamera(nodesRef.current, w, h, INTERACTION.fitPadding);
+        // Re-enable auto-fit if simulation is still settling
+        const alpha = simRef.current?.alpha() ?? 0;
+        if (alpha > INTERACTION.alphaStopThreshold) {
+          autoFitRef.current = true;
+          startLoop();
+        } else {
+          requestDraw();
+        }
+        e.preventDefault();
+        return;
+      }
+
+      // Pan: Shift+arrows
+      if (e.shiftKey && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) {
+        autoFitRef.current = false;
+        const cam = cameraRef.current;
+        const step = INTERACTION.keyPanStep / cam.zoom;
+        if (e.key === 'ArrowLeft') cam.x += step;
+        if (e.key === 'ArrowRight') cam.x -= step;
+        if (e.key === 'ArrowUp') cam.y += step;
+        if (e.key === 'ArrowDown') cam.y -= step;
+        requestDraw();
+        e.preventDefault();
+        return;
+      }
+
+      // --- Node navigation ---
+
       if (!selectedRef.current) {
         if (
           e.key === 'Enter' ||
@@ -862,12 +673,11 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
       }
 
       if (nextNodeId) {
-        neighborIdxRef.current = 0;
         setSelectedNode(nextNodeId);
         requestDraw();
       }
     },
-    [requestDraw],
+    [requestDraw, startLoop],
   );
 
   /* ---------- Tooltip content ---------- */
@@ -885,6 +695,12 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerLeave={() => {
+          if (hoveredRef.current) {
+            setHoveredNode(null);
+            requestDraw();
+          }
+        }}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
         role="application"
@@ -892,40 +708,34 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         aria-label={`Knowledge graph with ${data.nodeCount} entities and ${data.edgeCount} relationships. Press Enter or arrow keys to select a node, arrow keys to navigate neighbors, Escape to deselect.`}
       />
 
-      {/* Vignette overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-[var(--radius)] graph-vignette" />
-
       {/* HUD: Stats */}
       <div className="pointer-events-none absolute left-3 top-3 select-none">
-        <div className="glass pointer-events-auto rounded-lg px-3 py-2 text-[10px] text-muted-foreground">
-          <span className="text-neon-cyan font-mono font-bold">{data.nodeCount}</span> nodes
+        <div className="glass pointer-events-auto rounded-lg px-3 py-2 text-[11px] text-muted-foreground">
+          <span className="text-foreground font-semibold">{data.nodeCount}</span> nodes
           <span className="mx-2 opacity-30">|</span>
-          <span className="text-neon-purple font-mono font-bold">{data.edgeCount}</span> edges
+          <span className="text-foreground font-semibold">{data.edgeCount}</span> edges
         </div>
       </div>
 
       {/* HUD: Legend */}
       {Object.keys(data.nodeTypes).length > 0 && (
         <div className="pointer-events-none absolute bottom-3 left-3 select-none">
-          <div className="glass pointer-events-auto flex flex-wrap gap-x-3 gap-y-1 rounded-lg px-3 py-2">
+          <div className="glass pointer-events-auto flex flex-wrap gap-x-4 gap-y-1.5 rounded-lg px-3 py-2">
             {Object.entries(data.nodeTypes).map(([type, count]) => {
               const color = getNodeColor(type);
               return (
                 <div
                   key={type}
-                  className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
                 >
                   <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    className="inline-block h-3 w-3 rounded-full"
                     aria-hidden="true"
-                    style={{
-                      backgroundColor: color,
-                      boxShadow: `0 0 8px ${color}80, 0 0 3px ${color}40`,
-                    }}
+                    style={{ backgroundColor: color }}
                   />
-                  <span className="font-mono">
+                  <span>
                     {type}
-                    <span className="ml-1 opacity-50">({count})</span>
+                    <span className="ml-1 opacity-60">({count})</span>
                   </span>
                 </div>
               );
@@ -935,25 +745,26 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
       )}
 
       {/* HUD: Controls hint */}
-      <div className="pointer-events-none absolute bottom-3 right-3 select-none">
-        <span className="text-[9px] text-muted-foreground/70">
-          Drag to pan · Scroll to zoom · Double-click to reset · Arrows to navigate · Esc to
-          deselect
-        </span>
-      </div>
+      <span className="pointer-events-none absolute bottom-3 right-3 select-none text-[10px] text-muted-foreground">
+        Drag / Shift+Arrows pan &middot; Scroll / +/&minus; zoom &middot; Dbl-click / R reset
+        &middot; Arrows navigate &middot; Esc deselect
+      </span>
 
       {/* Screen reader announcements */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {selectedData
           ? `Selected: ${selectedData.label}, Type: ${selectedData.type}, ${selectedData.degree} connections, ${selectedData.memoryCount} linked memories`
-          : ''}
+          : 'No node selected'}
       </div>
 
       {/* Node detail tooltip */}
       {activeData && (
-        <output className="pointer-events-none absolute right-3 top-3 block select-none">
-          <div className="glass glow-purple rounded-lg px-4 py-3 text-xs">
-            <div className="mb-1 font-mono text-sm font-bold" style={{ color: activeData.color }}>
+        <output
+          className="pointer-events-none absolute right-3 top-3 block select-none"
+          aria-hidden="true"
+        >
+          <div className="glass rounded-lg px-4 py-3 text-xs">
+            <div className="mb-1.5 text-sm font-semibold" style={{ color: activeData.color }}>
               {activeData.label}
             </div>
             <div className="flex flex-col gap-0.5 text-muted-foreground">

@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { deleteMemoryEntry, forgetMemory } from '@/lib/api';
+import { shortId } from '@/lib/short-id';
 import { getErrorMessage } from '@/lib/utils';
 import { memoryTypeBadgeVariant } from './memory-utils';
 
@@ -74,7 +75,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
         <DialogContent className="glass border-primary/20 sm:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary font-display tracking-wider">
-              <span className="font-mono text-sm">{entry.id.slice(0, 16)}...</span>
+              <span className="font-mono text-sm">{shortId(entry.id, 16)}...</span>
             </DialogTitle>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -89,7 +90,7 @@ export function EntryDetailDialog({ entry, open, onOpenChange, onMutate }: Entry
                   )}
                   {entry.sessionId && (
                     <Badge variant="outline" className="font-mono">
-                      session: {entry.sessionId.slice(0, 8)}
+                      session: {shortId(entry.sessionId)}
                     </Badge>
                   )}
                 </div>

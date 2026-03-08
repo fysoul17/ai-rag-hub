@@ -23,17 +23,8 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createAgent } from '@/lib/api';
+import { BACKEND_DEFAULT, BACKEND_OPTIONS } from '@/lib/backend-options';
 import { getErrorMessage } from '@/lib/utils';
-
-const BACKEND_DEFAULT = '_default';
-
-const BACKEND_OPTIONS = [
-  { value: BACKEND_DEFAULT, label: 'Default (platform)' },
-  { value: 'claude', label: 'Claude' },
-  { value: 'codex', label: 'Codex' },
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'pi', label: 'Pi' },
-] as const;
 
 export function CreateAgentDialog() {
   const router = useRouter();

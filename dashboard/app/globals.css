@@ -227,19 +227,7 @@
   max-height: 900px;
   border-radius: var(--radius);
   overflow: hidden;
-  background:
-    radial-gradient(
-      ellipse at 50% 50%,
-      color-mix(in srgb, var(--neon-cyan) 3%, transparent) 0%,
-      transparent 60%
-    ),
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px), var(--background);
-  background-size:
-    100% 100%,
-    48px 48px,
-    48px 48px,
-    100% 100%;
+  background: var(--background);
   border: 1px solid var(--border);
 }
 
@@ -249,25 +237,4 @@
     min-height: 600px;
     max-height: 900px;
   }
-}
-
-/* Graph vignette overlay — darkens edges for depth */
-.graph-vignette {
-  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
-}
-
-/* Scanline effect overlay */
-.scanlines::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
-  );
-  pointer-events: none;
-  z-index: 50;
 }

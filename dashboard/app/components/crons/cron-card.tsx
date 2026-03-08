@@ -2,6 +2,7 @@ import type { CronEntryWithStatus } from '@autonomy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatRelativeTime } from '@/lib/format';
+import { shortId } from '@/lib/short-id';
 import { CronCardActions } from './cron-card-actions';
 
 export function CronCard({ cron }: { cron: CronEntryWithStatus }) {
@@ -47,7 +48,7 @@ export function CronCard({ cron }: { cron: CronEntryWithStatus }) {
           )}
         </div>
         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span className="font-mono">{cron.id.slice(0, 8)}...</span>
+          <span className="font-mono">{shortId(cron.id)}...</span>
           <span>{formatRelativeTime(cron.createdAt)}</span>
         </div>
       </CardContent>

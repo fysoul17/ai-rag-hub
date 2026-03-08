@@ -18,26 +18,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { updateCron } from '@/lib/api';
+import { COMMON_TIMEZONES, type WorkflowStep } from '@/lib/cron-options';
 import { getErrorMessage } from '@/lib/utils';
-
-interface WorkflowStep {
-  key: string;
-  agentId: string;
-  task: string;
-}
-
-const COMMON_TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Australia/Sydney',
-] as const;
 
 interface EditCronDialogProps {
   cron: CronEntryWithStatus;

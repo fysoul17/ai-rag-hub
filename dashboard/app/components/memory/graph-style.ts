@@ -1,97 +1,115 @@
-/** Color mapping and visual constants for the force-directed graph */
+/** Color mapping and visual constants for the force-directed graph
+ *  Inspired by Neo4j Browser and Obsidian graph view */
 
-export const NODE_TYPE_COLORS: Record<string, string> = {
-  Person: '#00f0ff',
-  Technology: '#a855f7',
-  Concept: '#22c55e',
-  Place: '#f59e0b',
-  Event: '#ef4444',
-  Organization: '#00f0ff',
-  Tool: '#a855f7',
-  Topic: '#22c55e',
-  Location: '#f59e0b',
+const NODE_TYPE_COLORS: Record<string, string> = {
+  // Primary types
+  Person: '#4FC3F7', // Light blue
+  Technology: '#CE93D8', // Purple
+  Concept: '#81C784', // Green
+  Place: '#FFB74D', // Orange
+  Event: '#EF5350', // Red
+  Organization: '#4DD0E1', // Teal
+  Tool: '#BA68C8', // Deep purple
+  Topic: '#AED581', // Light green
+  Location: '#FFD54F', // Amber
+  Product: '#4FC3F7', // Light blue
 };
 
-const DEFAULT_NODE_COLOR = 'rgba(148, 163, 184, 0.8)';
+const DEFAULT_NODE_COLOR = '#90A4AE'; // Blue grey
 
 export function getNodeColor(type: string): string {
-  return NODE_TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
+  // Case-insensitive lookup
+  const normalized = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+  return NODE_TYPE_COLORS[normalized] ?? NODE_TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
 }
 
-/** Node radius: 14px base, scaled by log(degree+1), clamped to [14, 52] */
+/** Node radius scaled by degree: min 8, max 40 */
 export function getNodeRadius(degree: number): number {
-  return Math.min(50, Math.max(14, 14 + Math.log2(degree + 1) * 9));
+  return Math.min(40, Math.max(8, 8 + Math.sqrt(degree) * 6));
 }
 
-/** Edge width: 1.5px base, scaled by weight, clamped to [1.5, 5] */
+/** Edge width scaled by weight: min 1, max 3 */
 export function getEdgeWidth(weight: number): number {
-  return Math.min(5, Math.max(1.5, 1.5 + weight * 0.8));
+  return Math.min(3, Math.max(1, 1 + weight * 0.5));
 }
 
-// Force simulation tuning
+// Force simulation tuning — designed for good spacing
 export const SIMULATION = {
-  chargeStrength: -650,
-  linkDistance: 240,
-  centerStrength: 0.018,
-  collisionPadding: 14,
-  alphaDecay: 0.012,
-  velocityDecay: 0.3,
-  typeClusterStrength: 0.065,
+  chargeStrength: -800, // Strong repulsion to spread nodes
+  linkDistance: 180, // Moderate link length
+  centerStrength: 0.03, // Pull toward center
+  collisionPadding: 20, // Extra padding between nodes
+  alphaDecay: 0.015, // Settle speed
+  velocityDecay: 0.4, // Damping
+  typeClusterStrength: 0.06,
 } as const;
 
 // Rendering constants
 export const RENDER = {
   // Labels
-  labelFont: '500 12px "Geist Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace',
-  edgeLabelFont: '10px "Geist Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace',
-  labelOffsetY: 20,
-  labelShowZoom: 0.35,
-  labelMaxLength: 28,
+  labelFont: '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  labelFontBold: '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  edgeLabelFont: '9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  labelMaxLength: 24,
 
-  // Node opacity
+  // Opacity
   defaultNodeOpacity: 1.0,
-  dimOpacityNear: 0.2,
-  dimOpacityFar: 0.08,
-
-  // Edge opacity
-  defaultEdgeOpacity: 0.35,
-
-  // Glow
-  glowBlurDefault: 22,
-  glowAlphaDefault: 0.3,
-  glowBlurHover: 32,
-  glowAlphaHover: 0.55,
-  glowBlurSelected: 40,
-  glowAlphaSelected: 0.7,
-
-  // Pulse animation
-  pulseSpeed: 0.0008,
-  pulseAmplitude: 0.1,
-  selectedPulseSpeed: 0.003,
-  selectedPulseAmplitude: 0.18,
+  defaultEdgeOpacity: 0.5,
+  dimNodeOpacity: 0.12,
+  dimEdgeOpacity: 0.06,
+  highlightEdgeOpacity: 0.85,
 
   // Camera
-  zoomMin: 0.1,
-  zoomMax: 8,
-  zoomSensitivity: 0.0015,
+  zoomMin: 0.15,
+  zoomMax: 6,
+  zoomSensitivity: 0.004,
 
-  // Ambient particles
-  particleCount: 50,
-  particleMinSize: 0.5,
-  particleMaxSize: 2.2,
-  particleMaxSpeed: 0.25,
-  particleMinAlpha: 0.06,
-  particleMaxAlpha: 0.18,
+  // Arrowhead
+  arrowSize: 8,
 
-  // Bezier edge curvature (0 = straight, higher = more curved)
-  edgeCurvature: 0.15,
+  // Edge colors
+  edgeColor: 'rgba(255, 255, 255, 0.6)',
+  edgeHighlightColor: '#fff',
+  edgeLabelBg: 'rgba(15, 15, 25, 0.85)',
+  edgeLabelText: 'rgba(255, 255, 255, 0.8)',
+
+  // Node colors
+  nodeBorderColor: 'rgba(0, 0, 0, 0.3)',
+  nodeInnerLabelColor: '#000',
+  nodeOuterLabelColor: '#e4e4e7',
 } as const;
 
-/** Unique deduplicated palette colors for particles */
-export const PALETTE_COLORS = [...new Set(Object.values(NODE_TYPE_COLORS))];
+// Interaction & physics tuning
+export const INTERACTION = {
+  hitRadiusPadding: 4, // Extra px around node for pointer hit-test
+  alphaStopThreshold: 0.001, // Stop animation loop below this alpha
+  clickDistSq: 49, // Max squared px movement to count as click (7²)
+  dragAlphaTarget: 0.3, // Alpha target while dragging
+  alphaRestart: 0.15, // Alpha kick after releasing a dragged node
+  preSimTicks: 300, // Ticks to pre-compute for reduced-motion
 
-/** Generate a layout position offset for type-based clustering.
- *  Uses a deterministic hash so the mapping is stable across remounts. */
+  // Auto-fit layout
+  preLayoutTicks: 50, // Pre-tick iterations for initial layout estimation
+  fitPadding: 60, // Px padding around bounding box for fit calculation
+
+  // Force strengths not in SIMULATION
+  linkStrengthBase: 0.3,
+  linkStrengthWeightFactor: 0.1,
+  collisionStrength: 0.8,
+
+  // Sparse-graph cluster sizing
+  clusterRadiusMin: 80,
+  clusterRadiusPerNode: 14,
+
+  // Keyboard pan/zoom
+  keyZoomStep: 0.15,
+  keyPanStep: 50,
+
+  // Auto-fit camera lerp factor (per frame at ~60fps)
+  autoFitLerp: 0.08,
+} as const;
+
+/** Type-based cluster position for sparse graphs */
 export function getTypeClusterOffset(type: string, radius: number): { x: number; y: number } {
   let hash = 0;
   for (let i = 0; i < type.length; i++) {
