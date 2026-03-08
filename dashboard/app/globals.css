@@ -48,11 +48,6 @@
   --color-neon-green: var(--neon-green);
   --color-neon-amber: var(--neon-amber);
   --color-neon-red: var(--neon-red);
-  /* Aliases for backward compatibility with status-* class names */
-  --color-status-green: var(--neon-green);
-  --color-status-amber: var(--neon-amber);
-  --color-status-red: var(--neon-red);
-  --color-status-purple: var(--neon-purple);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
 }
@@ -120,11 +115,6 @@
       0 0 10px rgba(0, 240, 255, 0.3),
       0 0 20px rgba(0, 240, 255, 0.1);
   }
-  .glow-cyan-strong {
-    box-shadow:
-      0 0 15px rgba(0, 240, 255, 0.5),
-      0 0 30px rgba(0, 240, 255, 0.2);
-  }
   .glow-purple {
     box-shadow:
       0 0 10px rgba(168, 85, 247, 0.3),
@@ -156,25 +146,8 @@
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
-  .glass-hover:hover {
-    background: rgba(15, 15, 25, 0.8);
-    border-color: rgba(0, 240, 255, 0.2);
-    box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
-  }
-
   .diamond {
     clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  }
-
-  .clip-angular {
-    clip-path: polygon(
-      0 0,
-      calc(100% - 12px) 0,
-      100% 50%,
-      calc(100% - 12px) 100%,
-      0 100%,
-      12px 50%
-    );
   }
 
   .status-pulse-cyan {
@@ -249,34 +222,38 @@
 
 /* Force-directed graph canvas */
 .graph-canvas-container {
-  height: 560px;
+  height: calc(100vh - 200px);
+  min-height: 600px;
+  max-height: 900px;
   border-radius: var(--radius);
   overflow: hidden;
   background:
     radial-gradient(
       ellipse at 50% 50%,
-      color-mix(in srgb, var(--neon-cyan) 2%, transparent) 0%,
-      transparent 70%
+      color-mix(in srgb, var(--neon-cyan) 3%, transparent) 0%,
+      transparent 60%
     ),
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px), var(--background);
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px), var(--background);
   background-size:
     100% 100%,
-    40px 40px,
-    40px 40px,
+    48px 48px,
+    48px 48px,
     100% 100%;
   border: 1px solid var(--border);
 }
 
 @media (min-width: 1024px) {
   .graph-canvas-container {
-    height: 720px;
+    height: calc(100vh - 160px);
+    min-height: 600px;
+    max-height: 900px;
   }
 }
 
 /* Graph vignette overlay — darkens edges for depth */
 .graph-vignette {
-  background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0, 0, 0, 0.3) 100%);
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
 }
 
 /* Scanline effect overlay */

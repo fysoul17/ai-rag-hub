@@ -170,9 +170,9 @@ function drawEdge(
   if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
 
   const opacity = isDimmed
-    ? RENDER.dimOpacityFar
+    ? 0.06
     : isHighlighted
-      ? 0.75
+      ? 0.8
       : RENDER.defaultEdgeOpacity;
 
   const [cpx, cpy] = bezierCP(src.x, src.y, tgt.x, tgt.y, RENDER.edgeCurvature);
@@ -187,9 +187,9 @@ function drawEdge(
     ctx.quadraticCurveTo(cpx, cpy, tgt.x, tgt.y);
     ctx.strokeStyle = link.color;
     ctx.shadowColor = link.color;
-    ctx.shadowBlur = isHighlighted ? 12 : 6;
-    ctx.globalAlpha = isHighlighted ? 0.35 : 0.12;
-    ctx.lineWidth = link.width + 2;
+    ctx.shadowBlur = isHighlighted ? 14 : 6;
+    ctx.globalAlpha = isHighlighted ? 0.4 : 0.12;
+    ctx.lineWidth = isHighlighted ? link.width + 3 : link.width + 2;
     ctx.stroke();
     ctx.restore();
   }
@@ -200,7 +200,7 @@ function drawEdge(
   ctx.quadraticCurveTo(cpx, cpy, tgt.x, tgt.y);
   ctx.strokeStyle = link.color;
   ctx.globalAlpha = opacity;
-  ctx.lineWidth = isHighlighted ? link.width + 0.8 : link.width;
+  ctx.lineWidth = isHighlighted ? link.width + 1.2 : link.width;
   ctx.stroke();
 
   ctx.globalAlpha = 1;
@@ -231,13 +231,13 @@ function drawNode(
     }
   }
 
-  const r = radius * pulseScale;
+  const r = radius * pulseScale * (isHovered && !isDimmed ? 1.08 : 1);
 
   // Ambient outer glow (always, unless dimmed)
   if (!isDimmed) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(x, y, r + 2, 0, Math.PI * 2);
+    ctx.arc(x, y, r + 3, 0, Math.PI * 2);
     ctx.shadowColor = color;
     ctx.shadowBlur = isSelected
       ? RENDER.glowBlurSelected
@@ -259,21 +259,31 @@ function drawNode(
   if ((isHovered || isSelected) && !isDimmed) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+    ctx.arc(x, y, r + (isSelected ? 10 : 8), 0, Math.PI * 2);
     ctx.shadowColor = color;
-    ctx.shadowBlur = isSelected ? 50 : 40;
+    ctx.shadowBlur = isSelected ? 55 : 44;
     ctx.fillStyle = color;
-    ctx.globalAlpha = isSelected ? 0.18 : 0.1;
+    ctx.globalAlpha = isSelected ? 0.2 : 0.12;
     ctx.fill();
     ctx.restore();
   }
 
-  // Node fill - radial gradient for depth
+  // Node fill - radial gradient for depth (state-aware)
   if (!isDimmed) {
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
-    gradient.addColorStop(0, `${color}ee`);
-    gradient.addColorStop(0.6, `${color}bb`);
-    gradient.addColorStop(1, `${color}44`);
+    if (isSelected) {
+      gradient.addColorStop(0, `${color}ff`);
+      gradient.addColorStop(0.55, `${color}dd`);
+      gradient.addColorStop(1, `${color}66`);
+    } else if (isHovered) {
+      gradient.addColorStop(0, `${color}ff`);
+      gradient.addColorStop(0.55, `${color}cc`);
+      gradient.addColorStop(1, `${color}55`);
+    } else {
+      gradient.addColorStop(0, `${color}ee`);
+      gradient.addColorStop(0.55, `${color}aa`);
+      gradient.addColorStop(1, `${color}33`);
+    }
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
@@ -289,8 +299,8 @@ function drawNode(
 
   // Node border ring
   ctx.strokeStyle = color;
-  ctx.globalAlpha = isDimmed ? RENDER.dimOpacityFar : isHovered || isSelected ? 0.8 : 0.5;
-  ctx.lineWidth = isHovered || isSelected ? 2.5 : 1.5;
+  ctx.globalAlpha = isDimmed ? 0.08 : isSelected ? 0.9 : isHovered ? 0.85 : 0.5;
+  ctx.lineWidth = isSelected ? 3.0 : isHovered ? 2.5 : 1.5;
   ctx.stroke();
 
   // Label
@@ -314,8 +324,8 @@ function drawNode(
     // Label pill background
     ctx.beginPath();
     ctx.roundRect(bgX, bgY, bgW, bgH, cornerR);
-    ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
-    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = 'rgba(8, 8, 14, 0.9)';
+    ctx.globalAlpha = 0.92;
     ctx.fill();
 
     // Label pill border (tinted with node color)
@@ -347,8 +357,8 @@ function drawEdgeLabel(ctx: CanvasRenderingContext2D, link: SimLink) {
   ctx.font = RENDER.edgeLabelFont;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.globalAlpha = 0.75;
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.globalAlpha = 0.8;
   ctx.fillText(link.label, mx, my - 8);
   ctx.globalAlpha = 1;
 }
@@ -516,6 +526,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         isHovered ||
         isSelected ||
         (activeId != null && activeNeighbors?.has(node.id)) ||
+        node.degree >= 2 ||
         cam.zoom > RENDER.labelShowZoom;
 
       drawNode(ctx, node, isHovered, isSelected, isDimmed, showLabel ?? false, time);
@@ -567,7 +578,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     buildConnectivity(links, nodeMap);
 
     const nodeCount = nodes.length;
-    const zoom = nodeCount > 80 ? 0.5 : nodeCount > 40 ? 0.7 : 1;
+    const zoom = nodeCount > 100 ? 0.4 : nodeCount > 60 ? 0.6 : nodeCount > 30 ? 0.8 : 1;
     cameraRef.current.zoom = zoom;
     initialZoomRef.current = zoom;
 
@@ -661,8 +672,9 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       const canvas = canvasRef.current;
-      const rect = rectRef.current;
-      if (!canvas || !rect) return;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      rectRef.current = rect;
       const cam = cameraRef.current;
       const [cx, cy] = screenToCanvas(e.clientX, e.clientY, rect, cam);
       const node = findNodeAt(cx, cy, nodesRef.current);
@@ -698,8 +710,9 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       const canvas = canvasRef.current;
-      const rect = rectRef.current;
-      if (!canvas || !rect) return;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      rectRef.current = rect;
       const cam = cameraRef.current;
       const drag = dragRef.current;
 
@@ -707,6 +720,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         const [cx, cy] = screenToCanvas(e.clientX, e.clientY, rect, cam);
         drag.node.fx = cx;
         drag.node.fy = cy;
+        canvas.style.cursor = 'grabbing';
         requestDraw();
         return;
       }
@@ -716,6 +730,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         const dy = (e.clientY - drag.startY) / cam.zoom;
         cam.x = drag.camStartX + dx;
         cam.y = drag.camStartY + dy;
+        canvas.style.cursor = 'grabbing';
         requestDraw();
         return;
       }
@@ -746,7 +761,7 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         }
         drag.node.fx = null;
         drag.node.fy = null;
-        simRef.current?.alphaTarget(0);
+        simRef.current?.alphaTarget(0).alpha(0.15).restart();
       } else if (drag.isPanning) {
         const dx = e.clientX - drag.startX;
         const dy = e.clientY - drag.startY;
@@ -769,17 +784,33 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
     [requestDraw],
   );
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  /* ---------- Wheel zoom (native listener for non-passive preventDefault) ---------- */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      rectRef.current = rect;
       const cam = cameraRef.current;
+      const oldZoom = cam.zoom;
       const delta = -e.deltaY * RENDER.zoomSensitivity;
-      const newZoom = Math.min(RENDER.zoomMax, Math.max(RENDER.zoomMin, cam.zoom * (1 + delta)));
+      const newZoom = Math.min(RENDER.zoomMax, Math.max(RENDER.zoomMin, oldZoom * (1 + delta)));
+
+      // Zoom toward cursor — keep the world point under cursor stationary
+      const mx = e.clientX - rect.left - rect.width / 2;
+      const my = e.clientY - rect.top - rect.height / 2;
+      cam.x += mx * (1 / newZoom - 1 / oldZoom);
+      cam.y += my * (1 / newZoom - 1 / oldZoom);
       cam.zoom = newZoom;
+
       requestDraw();
-    },
-    [requestDraw],
-  );
+    };
+
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [requestDraw]);
 
   const handleDoubleClick = useCallback(() => {
     cameraRef.current = { x: 0, y: 0, zoom: initialZoomRef.current };
@@ -854,7 +885,6 @@ export function GraphForceCanvas({ data }: GraphForceCanvasProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
         role="application"
